@@ -293,11 +293,10 @@ def analyze_property(address, options=None):
         fha_info = {"eligible": False, "note_en": "Co-op: FHA generally does NOT insure co-op share loans (Section 203(n) exists but almost no lenders offer it). Expect a conventional co-op share loan (often 10-25% down) plus co-op BOARD approval; many co-ops restrict subletting and roommates/boarders.",
                     "note_es": "Cooperativa (co-op): FHA generalmente NO asegura préstamos de acciones de co-op (existe la Sección 203(n) pero casi ningún prestamista la ofrece). Espere un préstamo convencional de co-op (a menudo 10-25% de enganche) y aprobación de la JUNTA; muchas co-ops limitan subarriendos y compañeros de cuarto."}
     elif "condo" in own:
-        lk = fha.lookup_zip(zipcode) if zipcode else None
-        street = address.split(",")[0]
-        hits = fha.match_building((lk or {}).get("rows"), street) if lk else []
-        fha_info = {"eligible": bool(hits and any("Approved" in h["raw"] for h in hits)), "matches": hits,
-                    "zip_list_count": len((lk or {}).get("rows", [])), "source": fha.SEARCH,
+        fa = fha.assess("condo", price, town, address, zipcode, text=o.get("listing_text"))
+        m = fa.get("match") or {}
+        fha_info = {"eligible": fa["code"] == "condo_ok", "code": fa["code"], "match": m or None, "how": fa.get("how"), "expires": fa.get("exp"),
+                    "source": fha.SEARCH + " (prebuilt list: data/fha_condos_nj.json)",
                     "note_en": "Condo must be on HUD's FHA-approved list, or obtain a Single-Unit Approval (possible if the building meets HUD rules).",
                     "note_es": "El condominio debe estar en la lista aprobada por FHA de HUD, o conseguir una Aprobación de Unidad Individual."}
 
@@ -312,10 +311,11 @@ def analyze_property(address, options=None):
     income_m = income_annual / 12 if income_annual else None
     if price:
         is_coop = fha_info.get("eligible") is False and "co-op" in own
-        if is_coop:
+        if is_coop or o.get("loan_type") == "conv":       # co-op, or the FHA check says a normal (conventional) loan
             lc = loan_costs(price, A["financing"]["owner_conv_down_pct"], rates["owner_conv"], A["financing"]["term_years"], A=A)
-            label = "Owner-occupied (co-op share loan, FHA not available) + roommates"
-            label_es = "Vivienda propia (préstamo de co-op, sin FHA) + compañeros de cuarto"
+            lc["kind"] = "conv"
+            label = "Owner-occupied (co-op share loan, FHA not available) + roommates" if is_coop else "Owner-occupied, normal (conventional) loan + roommates"
+            label_es = "Vivienda propia (préstamo de co-op, sin FHA) + compañeros de cuarto" if is_coop else "Vivienda propia, préstamo normal (convencional) + compañeros de cuarto"
         else:
             lc = loan_costs(price, A["financing"]["fha_down_pct"], rates["fha"], A["financing"]["term_years"], fha=True, A=A)
             label = "FHA owner-occupied + roommates"

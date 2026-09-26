@@ -166,6 +166,7 @@ hr {border-color:var(--line) !important}
 /* expanders + popovers */
 [data-testid="stExpander"] details {border:none; border-top:1px solid var(--line); border-bottom:1px solid var(--line); border-radius:0; background:transparent}
 [data-testid="stExpander"] summary {padding-left:0}
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary:hover, [data-testid="stExpander"] details[open] > summary {background:transparent !important; color:var(--paper) !important}
 [data-testid="stExpander"] summary p {text-transform:uppercase; letter-spacing:.08em; font-size:.82rem; font-weight:500}
 [data-testid="stPopoverBody"] {background:var(--ink2) !important; border:1px solid var(--line2) !important; border-radius:24px !important}
 [data-testid="stAlert"] {background:var(--ink2); border:1px solid var(--line2); border-radius:20px; color:var(--paper)}
@@ -259,6 +260,44 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-home .cut {background:var(--good); color:#111} .bz-home .new {background:var(--rose); color:#111}
 .bz-home .m {font-size:.86rem; color:#DADADA; margin-top:.15rem} .bz-home .a {font-size:.8rem; color:var(--mute); margin-top:.3rem}
 .bz-home .br {font-size:.66rem; color:var(--mute); margin-top:.2rem}
+[data-testid="stLayoutWrapper"]:has(> .st-key-townbar) {position:sticky; top:0; z-index:90}   /* the wrapper is the element that can stick */
+.st-key-townbar {background:var(--ink); padding:.45rem 0 .5rem; border-bottom:1px solid var(--line2)}
+.st-key-townbar button {min-height:2.6rem}
+[class*="st-key-tbx_"] button {border-radius:100px !important; background:var(--ink2) !important; border:1px solid var(--rose) !important; color:var(--paper) !important; text-transform:none !important; letter-spacing:0 !important}
+.st-key-tb_change {flex:1 1 9rem}
+.st-key-tpicker {background:var(--ink2)}
+.bz-home .fha {font-size:.76rem; margin-top:.3rem; line-height:1.3} .bz-home .fha.ok {color:#9FE0B0} .bz-home .fha.no {color:#FFB38A} .bz-home .fha.q {color:#FFE08A}
+.bz-fha {border:1px solid var(--line2); border-left:4px solid #9FE0B0; border-radius:16px; background:var(--ink2); padding:.6rem .8rem; margin:.5rem 0 .3rem; font-size:.9rem}
+.bz-fha.no {border-left-color:#FFB38A} .bz-fha.q {border-left-color:#FFE08A}
+.bz-fha .n {font-size:.8rem; margin-top:.3rem; color:#FFE08A} .bz-fha .s {font-size:.78rem; color:#CFCFCF; margin-top:.3rem}
+.bz-rc {border:1px solid var(--rose); border-radius:20px; background:var(--ink2); padding:.75rem .85rem .6rem; margin:.7rem 0 .4rem}
+.bz-rc .h {font-family:var(--disp); font-size:1.35rem; color:var(--paper); line-height:1.1}
+.bz-rc .sub {font-size:.8rem; color:var(--mute); margin-top:.2rem}
+.bz-rc .st {display:grid; grid-template-columns:1fr 1.4fr .8fr; gap:6px; margin:.5rem 0 .3rem}
+.bz-rc .st div {background:var(--ink); border-radius:12px; padding:.35rem .45rem; min-width:0} .bz-rc .st span {display:block; font-size:.66rem; color:var(--mute); text-transform:uppercase; letter-spacing:.05em}
+.bz-rc .st b {font-size:.92rem; color:var(--paper); white-space:nowrap}
+.bz-rc .cmp {font-size:.86rem; color:var(--rose2); margin:.35rem 0 .45rem}
+.bz-rc a {text-decoration:none !important; color:inherit !important}
+.bz-rc .row {display:grid; grid-template-columns:64px 1fr; gap:.6rem; align-items:center; padding:.35rem 0; border-top:1px solid var(--line)}
+.bz-rc .row img, .bz-rc .row .ni {width:64px; height:48px; object-fit:cover; border-radius:10px; background:#222; display:flex; align-items:center; justify-content:center}
+.bz-rc .row b {font-size:.92rem; color:var(--paper)} .bz-rc .row .f {font-size:.76rem; color:#CFCFCF} .bz-rc .row .f.a {color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bz-rc .row > div {min-width:0}
+.bz-rc .ex {font-size:.78rem; color:#DADADA; margin-top:.45rem; border-top:1px solid var(--line); padding-top:.4rem}
+.bz-rc .src {font-size:.66rem; color:var(--mute); margin-top:.35rem}
+.bz-home.nb {margin:0 0 .35rem; border-top:0; border-radius:0 0 22px 22px}
+[class*="st-key-hcard_"] {margin-top:.8rem; gap:0 !important}
+[class*="st-key-hcard_"] > div {width:100%}
+.bz-tsel {display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; font-size:.86rem; color:var(--paper); margin:.1rem 0}
+.bz-tsel b {color:var(--rose)}
+.bz-mt {display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:.4rem 0 .2rem}
+.bz-mt .c {border:1px solid var(--line2); border-radius:18px; background:var(--ink2); padding:.6rem .65rem .55rem; min-width:0; overflow-wrap:anywhere}
+.bz-mt .c.best {border-color:var(--rose)}
+.bz-mt .t {font-family:var(--disp); font-size:1.25rem; line-height:1.1; color:var(--paper)}
+.bz-mt .k {font-size:.7rem; color:var(--mute); margin-top:.35rem; text-transform:uppercase; letter-spacing:.05em}
+.bz-mt .v {font-size:.84rem; color:#E6E6E6; margin-top:.1rem}
+.bz-mt .r {display:flex; justify-content:space-between; gap:.3rem; font-size:.78rem; color:#DADADA; margin-top:.12rem}
+.bz-mt .r b {color:var(--paper); white-space:nowrap} .bz-mt .r b.earn {color:var(--good)}
+.bz-mt .s {font-size:.72rem; color:#CFCFCF; margin-top:.35rem; line-height:1.25}
 .bz-gal {display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:6px; border-radius:20px; margin:.3rem 0 .2rem; -webkit-overflow-scrolling:touch}
 .bz-gal img {flex:0 0 100%; width:100%; aspect-ratio:3/2; object-fit:cover; scroll-snap-align:center; border-radius:20px}
 /* saved homes */
@@ -303,6 +342,16 @@ if "sv_sid" not in st.session_state:
         st.session_state.lang_src = "url"
         st.session_state.lang_t = int(time.time() * 1000)
         st.session_state.setdefault("sv", {"v": 1, "sync": None, "items": {}, "removed": {}})["prefs"] = {"lang": _ql.upper(), "t": st.session_state.lang_t}
+    _qt = str(st.query_params.get("towns") or "").strip()          # ?towns=secaucus,kearny opens those towns side by side
+    if _qt:
+        _ts = []
+        for _x in _qt.split(",")[:12]:
+            _tn = towns.normalize(_x.replace("-", " ").strip())
+            if _tn.get("name") and _tn.get("match") in ("exact", "alias", "fuzzy") and _tn["name"] not in _ts and _tn["name"] != "New York City":
+                _ts.append(_tn["name"])
+        if _ts:
+            st.session_state.tsel = _ts[:6]
+            st.session_state.tsel_boot = True
     st.session_state.setdefault("lang", "EN")
 
 
@@ -945,7 +994,8 @@ def settings_popover():
         st.markdown(f"**{L('Down payment', 'Pago inicial')}**")
         st.pills(L("Down payment", "Pago inicial"), DOWN_PICKS, key="set_down", required=True, label_visibility="collapsed",
                  format_func=lambda k: L("3.5% FHA (usual)", "3.5% FHA (usual)") if k == "usual" else f"{k:g}%")
-        st.caption(L("Co-ops can't use FHA, so 'usual' means 10% down there.", "Las co-ops no aceptan FHA; ahí 'usual' significa 10% inicial."))
+        st.caption(L("'Usual' follows the FHA check: 3.5% FHA when it works, 10% for a condo building not on the FHA list, 20% for co-ops.",
+                     "'Usual' sigue la revisión FHA: 3.5% FHA cuando se puede, 10% para un condo fuera de la lista FHA, 20% para co-ops."))
         st.markdown(f"**{L('Roommates', 'Compañeros de cuarto')}**")
         st.pills(L("Roommates", "Compañeros"), [0, 1, 2], key="set_rm", required=True, label_visibility="collapsed",
                  format_func=lambda k: {0: L("None", "Ninguno"), 1: "1", 2: "2"}[k])
@@ -969,9 +1019,15 @@ def home_opts(addr):
           "source": "user input", "income_multiple": float(b)} if isinstance(b, (int, float)) and b else None
     aov = {"roommate": {"rooms_rented_out": int(ss.get("set_rm", 1))}}
     d = ss.get("set_down", "usual")
+    fa = fha_for_addr(addr)
+    conv = bool(fa and fa.get("loan") == "conv")
     if d != "usual":
         aov["financing"] = {"fha_down_pct": float(d) / 100, "owner_conv_down_pct": float(d) / 100}
+    elif conv:                                   # the FHA check says a normal loan: model it with the usual down payment for that case
+        aov["financing"] = {"owner_conv_down_pct": fa["down"]}
+    g = (ss.get("gallery") or {}).get(addr.strip().lower()) or {}
     return {"overrides": {k: v for k, v in ov.items() if v is not None}, "income_annual": int(ss.get("set_income") or 0) or None,
+            "loan_type": "conv" if conv else None, "listing_text": g.get("text") or None,
             "units_total": 3 if fo.get("type") == "3-4-family" else 2,
             "building_policy": bp, "use_rentcast": bool(ss.get("set_rc")) and rentcast.available(), "assumption_overrides": aov}
 
@@ -1237,7 +1293,7 @@ def skew_note(base, sel):
                      f"Para una unidad en una casa de 2 familias usamos {money(u['typ'])}/mes, entre HUD y los anuncios más baratos. Mueva la barra de renta si sabe más."))
 
 
-def compare_strip(out, first):
+def compare_strip(out, first, loan_lbl=None):
     cols = C.labels(out, first)
     cells = ""
     for c in cols:
@@ -1246,7 +1302,9 @@ def compare_strip(out, first):
                   + f"<div class='h'>{H.escape(P(c['title']))}</div><div class='l'>{H.escape(P(c['pay_lbl']))}</div>"
                   f"<div class='n{' earn' if earn else ''}'>{H.escape(c['pay'])}</div><div class='s'>{H.escape(P(c['sub']))}</div>"
                   f"<div class='b'>{H.escape(P(c['badge']))}</div></div>")
-    html(f"<div class='bz-lbl'>{L('What you pay each month, same FHA loan', 'Lo que paga al mes, mismo préstamo FHA')}</div><div class='bz-cmp'>{cells}</div>")
+    hd = L(f"What you pay each month, same loan: {loan_lbl}", f"Lo que paga al mes, mismo préstamo: {loan_lbl}") if loan_lbl else \
+        L('What you pay each month, same FHA loan', 'Lo que paga al mes, mismo préstamo FHA')
+    html(f"<div class='bz-lbl'>{H.escape(hd)}</div><div class='bz-cmp'>{cells}</div>")
 
 
 def sel_for(sid, base):
@@ -1434,6 +1492,272 @@ def lists_for_property(r, sel):
     return {"rent": (r.get("ltr") or {}).get("comps") or [], "mtr": (r.get("mtr") or {}).get("comps") or [], "str": (r.get("str") or {}).get("comps") or []}
 
 
+# ------------------------------------------------------------------ FHA or normal loan? (county limits, HUD condo list, co-ops, fixer/cash flags)
+from bellazu.sources import fha as FHA                           # noqa: E402
+
+FHA_KIND = {"condo": "condo", "co-op": "coop", "single-family": "house", "townhouse": "house", "2-family": "2fam", "3-4-family": "3-4fam",
+            "multi-family": "2fam"}
+
+
+def fha_for_row(h):
+    """Feed card: no extra call. Type from the list call, condo building from the prebuilt HUD list, price vs the county limit."""
+    k = "coop" if "coop" in str(h.get("type") or "") else {"condo": "condo", "2fam": "2fam", "house": "house"}.get(h.get("kind"), "other")
+    return FHA.assess(k, h.get("price"), h.get("town") or h.get("_t"), h.get("address"), h.get("zip"), flags={f: True for f in h.get("flags") or []})
+
+
+def fha_for_addr(addr, r=None):
+    """Opened listing / checked address: the type chosen (or from the listing), the town and ZIP from the check, the listing text if we have it."""
+    ss = st.session_state
+    fo = facts_for(addr)
+    meta = (ss.get("addr_meta") or {}).get(addr.strip().lower()) or {}
+    g = (ss.get("gallery") or {}).get(addr.strip().lower()) or {}
+    f = (r or {}).get("facts") or {}
+    t = fo.get("type") or meta.get("type") or ui_type_of(r)
+    if not t:
+        return None
+    price = fo.get("price") or f.get("price") or g.get("price")
+    town = (r or {}).get("town") or meta.get("town") or g.get("town")
+    z = (r or {}).get("zip") or meta.get("zip") or g.get("zip")
+    return FHA.assess(FHA_KIND.get(t, "other"), price, town, (r or {}).get("address") or addr, z, text=g.get("text"),
+                      flags={x: True for x in g.get("flags") or []}, units=4 if t == "3-4-family" else None)
+
+
+def ui_type_of(r):
+    own = str(((r or {}).get("facts") or {}).get("ownership") or "").lower()
+    if not own:
+        return None
+    if "co-op" in own or "coop" in own:
+        return "co-op"
+    if "condo" in own:
+        return "condo"
+    if "multi" in own:
+        return "3-4-family" if ((r or {}).get("extra") or {}).get("units_total", 2) >= 3 else "2-family"
+    if "single" in own or "house" in own or "town" in own:
+        return "single-family"
+    return None
+
+
+def _prop_comps(r, sel, base, own, rent, sid):
+    f = r.get("facts") or {}
+    multi = own == "multi-family"
+    if multi:
+        b = int(sel.get("unit_beds") or 2)
+        u = (base.get("units") or {}).get(b) or {}
+        est, lbl, hudv, mtr, strs = (u.get("ltr") or {}).get("typ"), L("for the other unit", "para la otra unidad"), u.get("hud"), u.get("mtr"), u.get("str")
+    else:
+        b = f.get("beds")
+        est, lbl, mtr, strs = rent, None, r.get("mtr"), r.get("str")
+        hudv = (r.get("benchmarks") or {}).get("hud_safmr")
+        if isinstance(hudv, dict):
+            hudv = hudv.get(f"{min(max(int(b or 0), 0), 4)}br") or hudv.get("rent")
+    if not isinstance(hudv, (int, float)):
+        hudv = _hud_for(r.get("town"), b)
+    kind = "condo" if ("condo" in own or "co-op" in own) else "house" if "single" in own else None
+    rent_comps_box("p_" + sid, r.get("town"), b, kind, r.get("lat"), r.get("lon"), est, lbl, hudv, (r.get("rentcast") or {}).get("avm_comps"),
+                   r.get("str_rules"), strs, mtr, air_ok=C.airbnb_ok(r.get("str_rules") or {}, "multi-family" if multi else "single-family", "unit" if multi else "room"))
+
+
+def fha_for_saved(x):
+    tk = (x.get("type_lbl") or [""])[0].lower()
+    k = "condo" if tk == "condo" else "coop" if tk == "co-op" else "house" if tk in ("house", "townhouse") else "2fam" if tk.startswith("2") else \
+        "3-4fam" if tk.startswith("3") else None
+    if not k:
+        return None
+    return FHA.assess(k, x.get("price"), x.get("town"), x.get("addr"), None)
+
+
+def fha_loan_lbl(fa, ln=None):
+    if not fa or fa.get("loan") == "fha":
+        return L("FHA, 3.5% down", "FHA, 3.5% inicial")
+    pct = f"{fa['down'] * 100:g}%"
+    why = {"coop": L("co-op", "co-op"), "condo_no": L("building not on the FHA list", "edificio fuera de la lista FHA"),
+           "condo_unknown": L("building not confirmed for FHA", "edificio no confirmado para FHA"), "over_limit": L("above the FHA limit", "sobre el límite FHA")}.get(fa.get("code"), "")
+    return L(f"normal loan, {pct} down", f"préstamo normal, {pct} inicial") + (f" ({why})" if why else "")
+
+
+def fha_card(fa, where):
+    if not fa:
+        return
+    c = fa.get("code")
+    cls = "ok" if c in ("ok", "condo_ok") else "no" if c in ("coop", "condo_no", "over_limit") else "q"
+    notes = [P(FHA.FLAG_NOTE[x]) for x in fa.get("flags") or [] if x in FHA.FLAG_NOTE]
+    lim = fa.get("limit")
+    sub = []
+    if c in ("ok", "condo_ok") and lim:
+        sub.append(L(f"{(fa.get('county') or '').title()} County FHA limit {money(lim)} ({fa.get('units', 1)} unit{'s' if fa.get('units', 1) > 1 else ''}, HUD 2026).",
+                     f"Límite FHA del condado de {(fa.get('county') or '').title()}: {money(lim)} ({fa.get('units', 1)} unidad{'es' if fa.get('units', 1) > 1 else ''}, HUD 2026)."))
+    if c == "condo_ok" and fa.get("match"):
+        sub.append(L(f"On HUD's list as “{fa['match']['name'].title()}”.", f"En la lista de HUD como “{fa['match']['name'].title()}”."))
+    if c == "condo_no" and fa.get("match"):
+        m = fa["match"]
+        stt = {"Expired": ("expired", "vencida"), "Withdrawn": ("withdrawn", "retirada"), "Rejected": ("rejected", "rechazada"),
+               "Rejected Single-Unit Approval": ("single-unit approval rejected", "aprobación de unidad rechazada")}.get(m.get("status"), (m.get("status", "").lower(), m.get("status", "").lower()))
+        sub.append(L(f"HUD list: “{m['name'].title()}”, {stt[0]}" + (f" {fa['exp']}" if fa.get("exp") else "") + ".",
+                     f"Lista de HUD: “{m['name'].title()}”, {stt[1]}" + (f" {fa['exp']}" if fa.get("exp") else "") + "."))
+    if fa.get("loan") == "conv":
+        sub.append(L(f"So the numbers below use a normal loan with {fa['down'] * 100:g}% down. Change it in ⚙️ My settings.",
+                     f"Por eso los números usan un préstamo normal con {fa['down'] * 100:g}% inicial. Cámbielo en ⚙️ Mis ajustes."))
+    sub.append(L("Your lender has the final say.", "Su banco tiene la última palabra."))
+    html(f"<div class='bz-fha {cls}'><b>{H.escape(P(FHA.badge(fa)))}</b>" + "".join(f"<div class='n'>⚠️ {H.escape(x)}</div>" for x in notes)
+         + f"<div class='s'>{H.escape(' '.join(sub))}</div></div>")
+    fha_explainer(where)
+
+
+def fha_explainer(where):
+    with st.expander(L("What is FHA approval?", "¿Qué es la aprobación FHA?"), key=f"fhax_{where}"):
+        md(L("**FHA** is a government-backed loan that lets you buy with **3.5% down** if you'll live in the home. It works for houses and 2-4 family homes "
+             "if the price is under the county limit and the home passes the FHA appraisal (safe, sound, working heat, water and power).\n\n"
+             "**Condos:** the whole building must be on HUD's FHA-approved list (approvals expire every few years). If it isn't, you need a normal loan "
+             "(often 10% down or more), or your lender can try a single-unit approval.\n\n"
+             "**Co-ops:** FHA almost never works. Expect a co-op loan with 10-20% down plus board approval and income rules.\n\n"
+             "**Fixers:** an FHA 203(k) loan can include repair money. Cash-only and auction homes usually can't use a loan.\n\n"
+             "Your lender has the final say. Sources: HUD 2026 FHA loan limits and HUD's FHA condo list.",
+             "**FHA** es un préstamo respaldado por el gobierno que le permite comprar con **3.5% inicial** si va a vivir en la casa. Sirve para casas y de 2 a 4 familias "
+             "si el precio está bajo el límite del condado y la casa pasa el avalúo FHA (segura, sólida, con calefacción, agua y luz funcionando).\n\n"
+             "**Condos:** todo el edificio debe estar en la lista de HUD aprobada por FHA (las aprobaciones vencen cada pocos años). Si no está, necesita un préstamo normal "
+             "(a menudo 10% inicial o más), o su banco puede intentar una aprobación de unidad individual.\n\n"
+             "**Co-ops:** FHA casi nunca sirve. Espere un préstamo de co-op con 10-20% inicial más aprobación de la junta y reglas de ingreso.\n\n"
+             "**Casas para arreglar:** un préstamo FHA 203(k) puede incluir dinero para reparaciones. Las casas solo en efectivo o en subasta casi nunca aceptan préstamo.\n\n"
+             "Su banco tiene la última palabra. Fuentes: límites FHA 2026 de HUD y la lista de condos FHA de HUD."))
+
+
+def fha_badge_short(fa):
+    if not fa:
+        return ""
+    t = L("✅ FHA OK · 3.5% down", "✅ FHA sí · 3.5% inicial") if fa.get("code") == "ok" else P(FHA.badge(fa))
+    fl = [P(FHA.FLAG_RX[[k for k, _, _ in FHA.FLAG_RX].index(x)][2]) for x in fa.get("flags") or [] if x in [k for k, _, _ in FHA.FLAG_RX]]
+    return t + (" · ⚠️ " + ", ".join(fl) if fl else "")
+
+
+# ------------------------------------------------------------------ "What similar places rent for": for-rent listings nearby, median + range, our estimate vs them
+def _miles(a, b, c, d):
+    import math
+    try:
+        la1, lo1, la2, lo2 = map(math.radians, (float(a), float(b), float(c), float(d)))
+    except Exception:
+        return None
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 3958.8 * 2 * math.asin(math.sqrt(h))
+
+
+def _q(xs, q):
+    if not xs:
+        return None
+    xs = sorted(xs)
+    i = (len(xs) - 1) * q
+    lo, hi = int(i), min(int(i) + 1, len(xs) - 1)
+    return xs[lo] + (xs[hi] - xs[lo]) * (i - lo)
+
+
+def _load_rentals(town):
+    """Button callback: the one for-rent list call for this town (18h cache)."""
+    st.session_state.setdefault("rc_load", set()).add(town)
+
+
+def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est_lbl=None, hud=None, rc_comps=None, rules=None, strs=None, mtr=None,
+                   calls_ok=True, air_ok=None):
+    """Realty in US for-rent list (cached per town; a call only on a tap, or never when calls_ok=False), else RentCast comps already
+    fetched, plus HUD fair rent; furnished 30+ day / Airbnb from Inside Airbnb when legal."""
+    ss = st.session_state
+    b = int(beds) if beds is not None else None
+    rows, src, res = [], None, None
+    if town and listings.available():
+        if listings.cached(town, "for_rent") or (calls_ok and town in (ss.get("rc_load") or set())):
+            res = feed(town, "for_rent")
+            if res.get("ok"):
+                rows, src = res["rows"], "realty"
+    m = [r for r in rows if r.get("price") and (b is None or r.get("beds") == b or (b >= 3 and (r.get("beds") or 0) >= 3))]
+    typed = False
+    if kind in ("condo", "house"):
+        mk = [r for r in m if r.get("kind") == kind]
+        if len(mk) >= 4:
+            m, typed = mk, True
+    for r in m:
+        r = r
+        r["_mi"] = _miles(lat, lon, r.get("lat"), r.get("lon")) if lat and lon and r.get("lat") else None
+    if lat and lon:
+        m.sort(key=lambda r: (r["_mi"] is None, r["_mi"] or 0))
+    if not m and rc_comps:
+        m = [{"price": c.get("price"), "beds": c.get("beds"), "baths": c.get("baths"), "address": c.get("address"), "_mi": (c.get("dist_km") or 0) / 1.609,
+              "days": c.get("days_old"), "url": c.get("url"), "photo": None} for c in rc_comps if c.get("price") and (b is None or c.get("beds") == b)]
+        src = "rentcast" if m else None
+    prices = [float(r["price"]) for r in m]
+    bl = (L("studio", "estudio") if b == 0 else (L(f"{b}-bedroom", f"de {b} habitaciones") if b is not None else ""))
+    head = L(f"🏷️ What similar places rent for", f"🏷️ Lo que se alquila algo parecido")
+    body = ""
+    if prices:
+        n = len(prices)
+        med = _q(prices, .5)
+        lo, hi = (_q(prices, .1), _q(prices, .9)) if n >= 10 else (min(prices), max(prices))
+        where = (L(f"{bl} rentals listed now in {town}" + (" (same type)" if typed else ""), f"alquileres {bl} publicados ahora en {town}" + (" (mismo tipo)" if typed else ""))
+                 if src == "realty" else L(f"{bl} rentals RentCast found near this address", f"alquileres {bl} que RentCast encontró cerca de esta dirección"))
+        body += f"<div class='sub'>{H.escape(where)}</div>"
+        body += (f"<div class='st'><div><span>{L('Median', 'Mediana')}</span><b>{money(med)}</b></div><div><span>{L('Low-high', 'Bajo-alto')}</span>"
+                 f"<b>{money(lo)}-{money(hi)}</b></div><div><span>{L('Listings', 'Anuncios')}</span><b>{n}</b></div></div>")
+        if est:
+            share = sum(1 for p_ in prices if p_ < est) / n
+            pos = (L("on the low side of", "en la parte baja de") if share < .25 else L("on the high side of", "en la parte alta de") if share > .75
+                   else L("in the middle of", "en el medio de"))
+            body += f"<div class='cmp'>{L(f'Our estimate {money(est)}', f'Nuestro estimado {money(est)}')}{(' ' + H.escape(est_lbl)) if est_lbl else ''} {L('is', 'está')} {pos} {n} {L('similar rentals', 'alquileres parecidos')}.</div>"
+        for r in m[:5]:
+            d = r.get("days")
+            dl = (L("today", "hoy") if d == 0 else L("1 day", "1 día") if d == 1 else L(f"{d} days", f"{d} días")) if d is not None else ""
+            dist = (f"{r['_mi']:.1f} mi" if r.get("_mi") is not None else (r.get("town") or ""))
+            facts = " · ".join(x for x in [f"{r['beds']} {L('bd', 'hab')}" if r.get("beds") is not None else "", f"{float(r['baths']):g} {L('ba', 'baños')}" if r.get("baths") else "", dist, dl] if x)
+            img = f"<img src='{H.escape(r['photo'])}' loading='lazy' alt=''>" if r.get("photo") else "<div class='ni'>🏠</div>"
+            a0, a1 = (f"<a href='{H.escape(r['url'])}' target='_blank' rel='noopener'>", "</a>") if r.get("url") else ("", "")
+            body += f"{a0}<div class='row'>{img}<div><b>{money(r['price'])}{L('/mo', '/mes')}</b><div class='f'>{H.escape(facts)}</div><div class='f a'>{H.escape((r.get('address') or '').split(',')[0])}</div></div></div>{a1}"
+    else:
+        body += f"<div class='sub'>{L('No rentals listed now to compare with.', 'No hay alquileres publicados ahora para comparar.') if src or res else L('Rentals listed now in this town are not loaded yet.', 'Los alquileres publicados en este pueblo aún no se cargaron.')}</div>"
+        if est:
+            body += f"<div class='cmp'>{L(f'Our estimate: {money(est)}', f'Nuestro estimado: {money(est)}')}{(' ' + H.escape(est_lbl)) if est_lbl else ''}.</div>"
+    extra = []
+    if hud:
+        extra.append(L(f"HUD fair rent ({bl or 'this size'}, this ZIP): {money(hud)}/mo", f"Renta justa de HUD ({bl or 'este tamaño'}, este ZIP): {money(hud)}/mes"))
+    if mtr and mtr.get("ok") and mtr.get("monthly_equiv_median"):
+        extra.append(L(f"Furnished 30+ day stays: about {money(mtr['monthly_equiv_median'])}/mo ({mtr.get('n', 0)} nearby)",
+                       f"Amueblado 30+ días: unos {money(mtr['monthly_equiv_median'])}/mes ({mtr.get('n', 0)} cerca)"))
+    sm = (strs or {}).get("summary") or {}
+    if air_ok is True and sm.get("adr_median"):
+        extra.append(L(f"Airbnb (with the town permit): about {money(sm['adr_median'])}/night ({sm.get('n', 0)} nearby)",
+                       f"Airbnb (con permiso del pueblo): unos {money(sm['adr_median'])}/noche ({sm.get('n', 0)} cerca)"))
+    if extra:
+        body += "<div class='ex'>" + "<br>".join(H.escape(x) for x in extra) + "</div>"
+    srcs = [L("realtor.com via Realty in US", "realtor.com vía Realty in US") if src == "realty" else "", "RentCast" if src == "rentcast" else "",
+            "HUD" if hud else "", "Inside Airbnb" if extra and (mtr or sm) else ""]
+    body += f"<div class='src'>{L('Sources', 'Fuentes')}: {', '.join(x for x in srcs if x) or '—'}</div>"
+    html(f"<div class='bz-rc'><div class='h'>{head}</div>{body}</div>")
+    if town and listings.available() and not src and calls_ok and not listings.cached(town, "for_rent"):
+        st.button(L(f"🔎 Show rentals listed now in {town}", f"🔎 Ver alquileres publicados en {town}"), key=f"rcl_{key}", width="stretch",
+                  on_click=_load_rentals, args=(town,))
+    elif town and src == "realty" and len(m) > 5 and res:
+        st.caption(L(f"Showing the 5 closest of {len(m)}. See them all under “For rent” in the town's homes list.",
+                     f"Mostramos los 5 más cercanos de {len(m)}. Véalos todos en “En alquiler” en la lista de casas del pueblo."))
+
+
+def _town_comps(a, sid, size, out):
+    ss = st.session_state
+    two = size == "2fam"
+    b = int(ss.get(f"ub_{sid}_mf") or 2) if two else int(size)
+    bb = {int(k): v for k, v in (a.get("by_beds") or {}).items()}
+    u = bb.get(min(b, 3)) or {}
+    lv = (C._unit_levels(u) or {}) if u else {}
+    est = lv.get("typ") if lv else None
+    rules = a.get("str_rules") or {}
+    rent_comps_box("t_" + sid, a.get("town"), b, None, a.get("lat"), a.get("lon"), est, L(f"({b} bd, town typical)", f"({b} hab, típico del pueblo)") if est else None,
+                   u.get("hud"), None, rules, u.get("str"), u.get("mtr"),
+                   air_ok=(out or {}).get("airbnb_allowed", C.airbnb_ok(rules, "multi-family" if two else "single-family", "unit" if two else "room")))
+
+
+def _hud_for(town, beds):
+    try:
+        from bellazu.sources import hud as _hud
+        z = (C.town_info(town) or {}).get("zip")
+        return (_hud.safmr(z) or {}).get(f"{min(max(int(beds), 0), 4)}br") if z and beds is not None else None
+    except Exception:
+        return None
+
+
 def show_property(r):
     ss = st.session_state
     f = r.get("facts") or {}
@@ -1453,6 +1777,12 @@ def show_property(r):
     heart(sv_iid, f"p_{_sv_key(sv_iid)}", _from_stash, ("prop",), wide=True)
     safety_note(r.get("town"))
     drive_badge(ex.get("drive"))
+    am = ss.setdefault("addr_meta", {}).setdefault(p_addr.strip().lower(), {})
+    am.update(town=r.get("town"), zip=r.get("zip") or am.get("zip"))
+    if not facts_for(p_addr).get("type") and ui_type_of(r):
+        am["type"] = ui_type_of(r)
+    fa = fha_for_addr(p_addr, r)
+    fha_card(fa, "p_" + sid)
     base = C.base_from_property(r)
     star = None
     if base:        # the verdict speaks about the same option the compare view stars (read the tap from last run, else the default)
@@ -1472,11 +1802,14 @@ def show_property(r):
     if base:
         sel = sel_for(sid, base)
         out = C.compare(base, sel)
-        compare_strip(out, first)
-        skew_note(base, sel)
         ln = o["loan"]
-        md(L(f"Same loan in every column: FHA {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} down + about {money(ln['closing_costs_est'])} fees = **{money(ln['cash_to_close_est'])} to close**.",
-             f"Mismo préstamo en cada columna: FHA {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} inicial + unos {money(ln['closing_costs_est'])} de cierre = **{money(ln['cash_to_close_est'])} para cerrar**."))
+        conv = ln.get("kind") == "conv"
+        compare_strip(out, first, fha_loan_lbl(fa) if (conv or fa) else None)
+        skew_note(base, sel)
+        lk = L("normal loan", "préstamo normal") if conv else "FHA"
+        md(L(f"Same loan in every column: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} down + about {money(ln['closing_costs_est'])} fees = **{money(ln['cash_to_close_est'])} to close**.",
+             f"Mismo préstamo en cada columna: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} inicial + unos {money(ln['closing_costs_est'])} de cierre = **{money(ln['cash_to_close_est'])} para cerrar**."))
+        _prop_comps(r, sel, base, own, rent, sid)
         q = out.get("qualify")
         if q:
             md(L(f"🏦 A lender can count about **{money(q['counted'])}/mo** ({q['share']:.0%} of the other unit's fair rent) as your income. Roommate rent doesn't count.",
@@ -1557,6 +1890,18 @@ def show_town_view(a):
     drive_badge(a.get("drive"))
     safety_note(t)
     rules_card(a.get("str_rules") or {}, t)
+    lim, cty = FHA.loan_limit(t, 1)
+    lim2, _ = FHA.loan_limit(t, 2)
+    cn = (cty or "").title()
+    if lim:
+        fsub = L(f"Up to {money(lim)} (1 unit) or {money(lim2)} (2 units), HUD 2026 limits for {cn} County. ", f"Hasta {money(lim)} (1 unidad) o {money(lim2)} (2 unidades), límites HUD 2026 del condado de {cn}. ")
+    else:
+        fsub = ""
+    fsub += L("Condos need an FHA-approved building; co-ops need a normal loan. Your lender has the final say.",
+              "Los condos necesitan un edificio aprobado por FHA; las co-ops, un préstamo normal. Su banco tiene la última palabra.")
+    ftop = L("✅ FHA (3.5% down) works here for houses and 2-4 family homes you live in", "✅ FHA (3.5% inicial) sirve aquí para casas y de 2 a 4 familias donde usted viva")
+    html(f"<div class='bz-fha ok'><b>{ftop}</b><div class='s'>{H.escape(fsub)}</div></div>")
+    fha_explainer("t_" + sid)
     st.markdown(f"<div class='bz-lbl'>{L('Tap a price you are looking at', 'Toque un precio que esté mirando')}</div>", unsafe_allow_html=True)
     price = st.pills(L("Price", "Precio"), C.PRICE_CHIPS + ["other"], key=f"tp_{sid}", label_visibility="collapsed",
                      format_func=lambda p: L("Other", "Otro") if p == "other" else kmoney(p))
@@ -1590,6 +1935,7 @@ def show_town_view(a):
         ref = (base["units"].get(ub) or {}).get("ltr") if size == "2fam" else (base["units"].get(int(size)) or {}).get("ltr") if size in ("1", "2", "3") else None
         cash_card(sid, out, (ref or {}).get("typ"))
         cv = report_cv(out, a.get("drive"), first, [(f"Price you picked: {money(price)} · size: {size}", f"Precio elegido: {money(price)} · tamaño: {size}")])
+    _town_comps(a, sid, size, out)
     homes_block(t, a.get("drive"), sid)
     # Airbnb market card
     mk = a.get("market") or {}
@@ -1666,10 +2012,135 @@ def feed(town, status):
 
 
 def _open_listing(row):
-    st.session_state.go = ("listing", row)
+    ss = st.session_state
+    v = ss.get("view")
+    if v and v[0] == "towns":
+        ss.from_towns = tuple(v[1])          # a "back to your towns" button on the home page
+    ss.go = ("listing", row)
 
 
-def _home_card(h, drive, rent):
+# Inline photo carousel on each feed card. The list call only carries the cover photo (checked: v3/list gives primary_photo + photo_count,
+# no photos array), so a card starts with that one photo; swiping past it loads the full set with ONE detail call (7-day cache, the same
+# call the full view uses). If the detail is already cached, all photos show right away with no call.
+CZ_CSS = """
+.cz{position:relative;width:100%;aspect-ratio:3/2;background:#1c1c1c;border:1px solid var(--line2,#2E2E2E);border-bottom:0;border-radius:22px 22px 0 0;overflow:hidden;box-sizing:border-box}
+.tr{display:flex;width:100%;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
+.tr::-webkit-scrollbar{display:none}
+.sl{flex:0 0 100%;width:100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;display:flex;align-items:center;justify-content:center;color:#DADADA;font:500 .85rem system-ui,sans-serif;text-align:center;padding:0 1rem;box-sizing:border-box}
+.sl.im{padding:0;cursor:pointer}
+.sl img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;pointer-events:none}
+.sl.no{font-size:2rem}
+.nv{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:22px;line-height:36px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+.nv[hidden]{display:none}
+.pv{left:8px}.nx{right:8px}
+.ct{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.65);color:#fff;font:600 .72rem system-ui,sans-serif;padding:.2rem .5rem;border-radius:10px;pointer-events:none}
+.ct:empty{display:none}
+.tw{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.65);color:#fff;font:600 .72rem system-ui,sans-serif;padding:.2rem .55rem;border-radius:10px;pointer-events:none}
+.tw:empty{display:none}
+"""
+CZ_JS = """
+export default function(component) {
+  const { data, parentElement, setTriggerValue } = component;
+  const d = data || {};
+  let s = parentElement.__bz;
+  if (!s) {
+    const root = document.createElement('div');          // append (never replace parentElement's content: that holds the component's <style>)
+    root.innerHTML = '<div class="cz"><div class="tr"></div><button class="nv pv" type="button">&#8249;</button>' +
+      '<button class="nv nx" type="button">&#8250;</button><div class="ct"></div><div class="tw"></div></div>';
+    parentElement.appendChild(root);
+    s = parentElement.__bz = { tr: root.querySelector('.tr'), ct: root.querySelector('.ct'), tw: root.querySelector('.tw'),
+      pv: root.querySelector('.pv'), nx: root.querySelector('.nx'), idx: 0, n: -1, extra: -1, slides: 1, asked: false, moved: false, d: d };
+    const go = (i) => s.tr.scrollTo({ left: i * s.tr.clientWidth, behavior: 'smooth' });
+    s.pv.onclick = (e) => { e.stopPropagation(); go(Math.max(s.idx - 1, 0)); };
+    s.nx.onclick = (e) => { e.stopPropagation(); go(Math.min(s.idx + 1, s.slides - 1)); };
+    let t = null, sx = 0, sy = 0;
+    s.tr.addEventListener('scroll', () => { s.moved = true; clearTimeout(t); t = setTimeout(() => s.upd(), 80); }, { passive: true });
+    s.tr.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; s.moved = false; });
+    s.tr.addEventListener('pointermove', (e) => { if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) s.moved = true; });
+    s.tr.addEventListener('click', (e) => {
+      if (s.moved || !e.target.closest('.im')) return;
+      if (s.d.open) setTriggerValue('open', String(s.d.id) + ':' + Date.now());
+      else if (s.d.url) window.open(s.d.url, '_blank', 'noopener');
+    });
+    s.upd = () => {
+      const w = s.tr.clientWidth || 1;
+      s.idx = Math.max(0, Math.min(Math.round(s.tr.scrollLeft / w), s.slides - 1));
+      const ph = s.d.photos || [];
+      const total = Math.max(s.d.count || 0, ph.length);
+      s.ct.textContent = total > 1 ? (Math.min(s.idx + 1, total) + '/' + total) : '';
+      s.pv.hidden = s.idx <= 0;
+      s.nx.hidden = s.idx >= s.slides - 1;
+      if (s.extra && s.idx >= ph.length && !s.asked) { s.asked = true; setTriggerValue('more', String(s.d.id)); }
+    };
+    let rt = null;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { s.tr.scrollLeft = s.idx * s.tr.clientWidth; }, 120); });
+  }
+  s.d = d;
+  const lb = d.lbl || {};
+  s.pv.setAttribute('aria-label', lb.prev || ''); s.nx.setAttribute('aria-label', lb.next || '');
+  s.tw.textContent = d.town || '';
+  const ph = d.photos || [];
+  const extra = (d.more && ph.length < (d.count || 0)) ? 1 : 0;
+  if (s.n !== ph.length || s.extra !== extra) {
+    const esc = (u) => String(u).replace(/[\"'<>]/g, '');
+    let h = ph.map((u, i) => '<div class="sl im"><img src="' + esc(u) + '"' + (i ? ' loading="lazy"' : '') + ' alt="' + esc(lb.photo || '') + ' ' + (i + 1) + '" draggable="false"></div>').join('');
+    if (!ph.length) h = '<div class="sl no">&#128247;</div>';
+    if (extra) h += '<div class="sl ld">' + esc(lb.loading || '...') + '</div>';
+    if (s.n >= 0 && ph.length > s.n) s.asked = false;
+    s.tr.innerHTML = h;
+    s.n = ph.length; s.extra = extra; s.slides = Math.max(1, (ph.length || 1) + extra);
+    requestAnimationFrame(() => { s.tr.scrollLeft = Math.min(s.idx, s.slides - 1) * s.tr.clientWidth; s.upd(); });
+  } else {
+    s.upd();
+  }
+}
+"""
+_CZ = st.components.v2.component("bz_carousel", css=CZ_CSS, js=CZ_JS)
+
+
+def _card_photos(h):
+    """(photos for the card, total photo count). No API call here."""
+    ss = st.session_state
+    pid = str(h.get("id") or "")
+    full = (ss.get("cz_ph") or {}).get(pid)
+    if full is None and pid:
+        d = listings.detail_cached(pid)
+        if d and d.get("ok") and d.get("photos"):
+            full = [_thumb(u) for u in d["photos"] if u]
+    if full:
+        cover = h.get("photo")
+        if cover and cover not in full:
+            full = [cover] + full
+        return full[:60], max(len(full[:60]), 0)
+    return ([h["photo"]] if h.get("photo") else []), int(h.get("photo_count") or 0)
+
+
+def _cz_more(key, h):
+    """Swiped past the last photo we have: one detail call (7-day cache) for the full set."""
+    ss = st.session_state
+    pid = str(h.get("id") or "")
+    if not pid or pid in ss.setdefault("cz_ph", {}):
+        return
+    d = listings.detail(pid)
+    if d.get("ok") and d.get("photos"):
+        ss.cz_ph[pid] = [_thumb(u) for u in d["photos"] if u]
+    else:
+        ss.setdefault("cz_fail", set()).add(pid)
+
+
+def carousel(h, key, rent, town_lbl=None):
+    ss = st.session_state
+    photos, count = _card_photos(h)
+    pid = str(h.get("id") or "")
+    more = bool(pid) and pid not in (ss.get("cz_fail") or set()) and pid not in (ss.get("cz_ph") or {}) and count > len(photos)
+    _CZ(key=key, data={"photos": photos, "count": count, "id": pid, "more": more, "open": not rent, "url": h.get("url") if rent else None,
+                       "town": town_lbl or "",
+                       "lbl": {"loading": L("Loading more photos... ✨", "Cargando más fotos... ✨"), "prev": L("Previous photo", "Foto anterior"),
+                               "next": L("Next photo", "Foto siguiente"), "photo": L("Photo", "Foto")}},
+        on_more_change=lambda k=key, x=h: _cz_more(k, x), on_open_change=(lambda x=h: _open_listing(x)) if not rent else (lambda: None))
+
+
+def _home_card(h, drive, rent, key, town_lbl=None):
     cut = f"<span class='cut'>↓ {kmoney(h['price_cut'])}</span>" if h.get("price_cut") else ("<span class='new'>" + L("NEW", "NUEVA") + "</span>" if h.get("new") else "")
     bits = [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None, f"{h['baths']:g} {L('ba', 'baños')}" if h.get("baths") else None,
             f"{h['sqft']:,} ft²" if h.get("sqft") else None,
@@ -1678,32 +2149,90 @@ def _home_card(h, drive, rent):
     dl = (L("Listed today", "Publicada hoy") if days == 0 else L("Listed 1 day ago", "Publicada hace 1 día") if days == 1
           else L(f"Listed {days} days ago", f"Publicada hace {days} días")) if days is not None else ""
     dr = L(f"🚗 {drive['min']}-{drive['rush'][1]} min to Midtown", f"🚗 {drive['min']}-{drive['rush'][1]} min a Midtown") if drive and drive.get("rush") else ""
-    img = f"<img src='{H.escape(h['photo'])}' loading='lazy' alt=''>" if h.get("photo") else "<div class='noimg'>📷</div>"
-    pc = f"<span class='pc'>📷 {h['photo_count']}</span>" if h.get("photo_count") else ""
     price = money(h["price"]) + (L("/mo", "/mes") if rent else "")
-    html(f"<div class='bz-home'><div class='ph'>{img}{pc}</div><div class='bd'><div class='p'>{price} {cut}</div>"
-         f"<div class='m'>{' · '.join(b for b in bits if b)}</div><div class='m'>{' · '.join(x for x in (dl, dr) if x)}</div>"
+    carousel(h, f"cz_{key}", rent, f"📍 {town_lbl}" if town_lbl else None)
+    fb = ""
+    if not rent:
+        fa = fha_for_row(h)
+        c = fa.get("code")
+        fb = f"<div class='fha {'ok' if c in ('ok', 'condo_ok') else 'no' if c in ('coop', 'condo_no', 'over_limit') else 'q'}'>{H.escape(fha_badge_short(fa))}</div>"
+    html(f"<div class='bz-home nb'><div class='bd'><div class='p'>{price} {cut}</div>"
+         f"<div class='m'>{' · '.join(b for b in bits if b)}</div><div class='m'>{' · '.join(x for x in (dl, dr) if x)}</div>{fb}"
          f"<div class='a'>{H.escape(h['address'])}</div>" + (f"<div class='br'>{L('Listed by', 'Publicada por')} {H.escape(h['broker'])}</div>" if h.get("broker") else "") + "</div></div>")
 
 
+FEED_SORT = {"new": ("Newest", "Más nuevas"), "low": ("Price ↑", "Precio ↑"), "high": ("Price ↓", "Precio ↓")}
+
+
+def _sort_rows(rows, how):
+    if how == "new":
+        return sorted(rows, key=lambda r: (r.get("days") is None, r.get("days") or 0))
+    return sorted(rows, key=lambda r: (r.get("price") is None, (r.get("price") or 0) * (1 if how == "low" else -1)))
+
+
+def _dedupe(rows):
+    out, ids, adr = [], set(), set()
+    for r in rows:
+        a = _norm_addr(r.get("address"))
+        if (r.get("id") and r["id"] in ids) or (a and a in adr):
+            continue
+        ids.add(r.get("id"))
+        adr.add(a)
+        out.append(r)
+    return out
+
+
+def feeds_for(ts, status):
+    """One list call per uncached town, one town after another; cached towns cost nothing. Shows progress when something has to load."""
+    need = [t for t in ts if not listings.cached(t, status)]
+    bar = st.progress(0.0, text=L("Finding homes... ✨", "Buscando casas... ✨")) if need and len(ts) > 1 else None
+    out = {}
+    for i, t in enumerate(ts):
+        if bar:
+            bar.progress(i / len(ts), text=L(f"Finding homes in {t} ({i + 1} of {len(ts)})... ✨", f"Buscando casas en {t} ({i + 1} de {len(ts)})... ✨"))
+        if len(ts) == 1 and need:
+            with st.spinner(L("Finding homes... ✨", "Buscando casas... ✨")):
+                out[t] = feed(t, status)
+        else:
+            out[t] = feed(t, status)
+    if bar:
+        bar.empty()
+    return out
+
+
+def _cap_msg():
+    u = listings.usage()
+    st.info(L(f"We've used this month's home searches ({u['used']} of {u['cap']}). They start again on {u.get('resets') or 'the next month'}. Towns you already opened still show.",
+              f"Ya usamos las búsquedas de casas de este mes ({u['used']} de {u['cap']}). Vuelven el {u.get('resets') or 'próximo mes'}. Los pueblos ya abiertos se siguen viendo."), icon="🌷")
+
+
 def homes_block(t, drive, sid):
+    feed_block([t], {t: drive}, sid)
+
+
+def feed_block(ts, drives, sid):
+    """Listings feed for one town or several (combined, deduped, town label on each card). Filters and sort apply across all of them."""
     ss = st.session_state
     if not listings.available():
         return
-    st.markdown(f"#### {L('🏡 Homes in ' + t, '🏡 Casas en ' + t)}")
+    multi = len(ts) > 1
+    st.markdown(f"#### {L('🏡 Homes in ' + ts[0], '🏡 Casas en ' + ts[0]) if not multi else L(f'🏡 Homes in your {len(ts)} towns', f'🏡 Casas en sus {len(ts)} pueblos')}")
     status = st.segmented_control(L("For sale or rent", "En venta o alquiler"), ["for_sale", "for_rent"], key=f"hst_{sid}", default="for_sale", required=True, label_visibility="collapsed", width="stretch",
                                   format_func=lambda s_: L("For sale", "En venta") if s_ == "for_sale" else L("For rent", "En alquiler"))
     rent = status == "for_rent"
-    with st.spinner(L("Finding homes... ✨", "Buscando casas... ✨")):
-        res = feed(t, status)
-    if not res.get("ok"):
-        u = listings.usage()
-        if res.get("error") == "cap":
-            st.info(L(f"We've used this month's home searches ({u['used']} of {u['cap']}). They start again on {u.get('resets') or 'the next month'}. Towns you already opened still show.",
-                      f"Ya usamos las búsquedas de casas de este mes ({u['used']} de {u['cap']}). Vuelven el {u.get('resets') or 'próximo mes'}. Los pueblos ya abiertos se siguen viendo."), icon="🌷")
+    res = feeds_for(ts, status)
+    ok = {t: r for t, r in res.items() if r.get("ok")}
+    bad = [t for t, r in res.items() if not r.get("ok")]
+    if not ok:
+        if any(r.get("error") == "cap" for r in res.values()):
+            _cap_msg()
         else:
             st.caption(L("Home listings aren't loading right now. Try again later.", "Los anuncios de casas no cargan ahora. Intente más tarde."))
         return
+    if bad:
+        if any(res[t].get("error") == "cap" for t in bad):
+            _cap_msg()
+        st.caption(L(f"Couldn't load homes for {', '.join(bad)} right now; showing the others.", f"No se pudieron cargar las casas de {', '.join(bad)} ahora; mostramos los demás."))
     st.markdown(f"<div class='bz-lbl'>{L('Price up to', 'Precio hasta')}</div>", unsafe_allow_html=True)
     mx = st.segmented_control(L("Top price", "Precio máximo"), FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=None if rent else 500_000, required=True, label_visibility="collapsed", width="stretch",
                               format_func=lambda v: L("Any", "Todo") if v is None else (money(v) if rent else kmoney(v)))
@@ -1713,12 +2242,21 @@ def homes_block(t, drive, sid):
                                   format_func=lambda b: L("Any", "Todas") if b == 0 else f"{b}+")
     with c2:
         kd = st.segmented_control(L("Type", "Tipo"), list(FEED_KIND), key=f"hkd_{sid}", default="any", required=True, width="stretch", format_func=lambda k: P(FEED_KIND[k]))
-    rows = listings.filter_rows(res["rows"], None, mx, bd or None, kd)
+    srt = st.segmented_control(L("Sort", "Ordenar"), list(FEED_SORT), key=f"hsort_{sid}", default="new", required=True, width="stretch", format_func=lambda k: P(FEED_SORT[k]))
+    allrows = _dedupe([dict(r, town=r.get("town") or t, _t=t) for t, r_ in ok.items() for r in r_["rows"]])
+    rows = _sort_rows(listings.filter_rows(allrows, None, mx, bd or None, kd), srt)
     shown = int(ss.get(f"hn_{sid}", 8))
-    st.caption(L(f"{len(rows)} of the {len(res['rows'])} newest listings match (updated {res.get('fetched', '')[-5:]}).",
-                 f"{len(rows)} de los {len(res['rows'])} anuncios más nuevos coinciden (actualizado {res.get('fetched', '')[-5:]})."))
+    upd = min((r_.get("fetched") or "") for r_ in ok.values())[-5:]
+    if multi:
+        st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings in {len(ok)} towns match (updated {upd}).",
+                     f"{len(rows)} de los {len(allrows)} anuncios más nuevos en {len(ok)} pueblos coinciden (actualizado {upd})."))
+    else:
+        st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings match (updated {upd}).",
+                     f"{len(rows)} de los {len(allrows)} anuncios más nuevos coinciden (actualizado {upd})."))
     for i, h in enumerate(rows[:shown]):
-        _home_card(h, drive, rent)
+        hk = f"{sid}_{i}_{h.get('id') or safe_name(h.get('address') or '')[:20]}"
+        with st.container(key=f"hcard_{hk}", gap=None):
+            _home_card(h, drives.get(h["_t"]), rent, hk, h["_t"] if multi else None)
         iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
         with st.container(horizontal=True, vertical_alignment="center", key=f"hrow_{sid}_{i}"):
             heart(iid, f"h_{sid}_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (h, rent))
@@ -1726,7 +2264,7 @@ def homes_block(t, drive, sid):
                 if h.get("url"):
                     st.link_button(L("Photos on realtor.com ↗", "Fotos en realtor.com ↗"), h["url"], width="stretch")
             else:
-                st.button(L("📷 Photos + my numbers", "📷 Fotos + mis números"), key=f"ho_{sid}_{i}_{h['id']}", width="stretch", type="primary",
+                st.button(L("📷 More photos + my numbers", "📷 Más fotos + mis números"), key=f"ho_{sid}_{i}_{h['id']}", width="stretch", type="primary",
                           on_click=_open_listing, args=(h,))
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
@@ -1734,8 +2272,8 @@ def homes_block(t, drive, sid):
     if not rows:
         st.caption(L("No listings match. Try another price or type.", "Ningún anuncio coincide. Pruebe otro precio o tipo."))
     u = listings.usage()
-    st.caption(L(f"Listing data from realtor.com via Realty in US. Prices and details can change; check with the agent. Home searches this month: {u['used']} of {u['cap']}.",
-                 f"Datos de anuncios de realtor.com vía Realty in US. Los precios y datos pueden cambiar; confirme con el agente. Búsquedas de casas este mes: {u['used']} de {u['cap']}."))
+    st.caption(L(f"Listing data from realtor.com via Realty in US. Prices and details can change; check with the agent. Swipe a photo to see more. Home searches this month: {u['used']} of {u['cap']}.",
+                 f"Datos de anuncios de realtor.com vía Realty in US. Los precios y datos pueden cambiar; confirme con el agente. Deslice una foto para ver más. Búsquedas de casas este mes: {u['used']} de {u['cap']}."))
 
 
 def run_listing(h, where):
@@ -1749,7 +2287,8 @@ def run_listing(h, where):
     hoa = fo.get("hoa")
     ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": (d.get("photos") if d.get("ok") else None) or h.get("photos") or [], "url": h.get("url"),
                                                           "broker": h.get("broker"), "price": h.get("price"), "hoa": hoa, "count": h.get("photo_count"),
-                                                          "id": str(h.get("id") or "")}
+                                                          "id": str(h.get("id") or ""), "text": (d.get("text") if d.get("ok") else None),
+                                                          "town": h.get("town"), "zip": h.get("zip"), "flags": h.get("flags") or []}
     ss.view = ("addr", addr)
     ss.prop_addr = addr
     run_home(addr, where)
@@ -1761,12 +2300,12 @@ def gallery_block(addr):
         return
     ph = g["photos"][:40]
     html("<div class='bz-gal'>" + "".join(f"<img src='{H.escape(u)}' loading='{'eager' if i < 2 else 'lazy'}' alt=''>" for i, u in enumerate(ph)) + "</div>")
-    bits = [L(f"Swipe for {len(ph)} photos", f"Deslice para ver {len(ph)} fotos")]
+    bits = [L(f"Swipe for {len(ph)} photos", f"Deslice para ver {len(ph)} fotos")] if len(ph) > 1 else []
     if g.get("hoa") is not None:
         bits.append(L(f"building fee {money(g['hoa'])}/mo", f"cuota {money(g['hoa'])}/mes"))
     if g.get("broker"):
         bits.append(L(f"listed by {g['broker']}", f"publicada por {g['broker']}"))
-    st.caption(" · ".join(bits) + ". " + L("Price and fee from the listing (realtor.com via Realty in US).", "Precio y cuota del anuncio (realtor.com vía Realty in US).")
+    st.caption((" · ".join(bits) + ". " if bits else "") + L("Price and fee from the listing (realtor.com via Realty in US).", "Precio y cuota del anuncio (realtor.com vía Realty in US).")
                + (f" [realtor.com ↗]({g['url']})" if g.get("url") else ""))
 
 
@@ -1777,8 +2316,11 @@ def omni_search(term):
         return []
     out = []
     low = t.lower()
+    cur = st.session_state.get("tsel") or []
     for n in [n for n in towns.names() if low in n.lower()][:4]:
         out.append((f"🏙️ {n} · {L('town view', 'ver pueblo')}", f"T|{n}"))
+        if cur and n not in cur and n != "New York City":
+            out.append((L(f"➕ Add {n} to my {len(cur)} selected", f"➕ Agregar {n} a mis {len(cur)} elegidos"), f"M|{n}"))
     if len(t) >= 5 and re.search(r"\d", t):
         try:
             from bellazu.geo import suggest
@@ -1797,7 +2339,7 @@ def resolve(val):
         if not re.search(r"\d", text) and tn["match"] in ("exact", "alias", "fuzzy"):
             return ("town", tn["name"])
         return ("addr", text)
-    return ("town" if kind == "T" else "addr", text)
+    return ("town" if kind == "T" else "addtown" if kind == "M" else "addr", text)
 
 
 @st.fragment
@@ -1828,13 +2370,6 @@ def search_block():
         st.button(L("Trouble typing? Use a plain box", "¿Problemas? Use una caja simple"), key="plain_btn", type="tertiary", on_click=lambda: ss.update(plain_addr=True))
 
 
-def _chip_town():
-    v = st.session_state.get("tchip")
-    if v:
-        st.session_state.go = ("town", v)
-    st.session_state.tchip = None
-
-
 @st.cache_data(ttl=6 * 3600, show_spinner=False)
 def fha_rate():
     try:
@@ -1845,12 +2380,374 @@ def fha_rate():
         return 6.5
 
 
+# ------------------------------------------------------------------ several towns at once
+MAX_TOWNS = 6
+
+
+def tsel():
+    return st.session_state.setdefault("tsel", [])
+
+
+def _slug(t):
+    return re.sub(r"[^a-z0-9]+", "-", str(t).lower()).strip("-")
+
+
+def _tsel_url():
+    s_ = tsel()
+    try:
+        if s_:
+            st.query_params["towns"] = ",".join(_slug(t) for t in s_)
+        elif "towns" in st.query_params:
+            del st.query_params["towns"]
+    except Exception:
+        pass
+
+
+def _set_tsel(new, open_view=True):
+    """The one place the town selection changes: dedupe, cap at 6 (friendly note), URL, and which view shows."""
+    ss = st.session_state
+    out = []
+    for t in new:
+        if t and t not in out:
+            out.append(t)
+    if len(out) > MAX_TOWNS:
+        out = out[:MAX_TOWNS]
+        ss.tsel_full = time.time()
+    ss.tsel = out
+    ss.pop("from_towns", None)
+    _tsel_url()
+    if not open_view:
+        return
+    v = ss.get("view")
+    if not out:
+        if v and v[0] in ("town", "towns"):
+            ss.view = None
+    elif len(out) == 1:
+        ss.go = ("town", out[0])
+    else:
+        ss.view = ("towns", tuple(out))
+
+
+def _merge_pick(cur, opts, picked):
+    """Widget showed `opts`, now `picked` of them are on: keep other selected towns, drop unticked ones, add new ones at the end."""
+    return [t for t in cur if t not in opts or t in picked] + [t for t in picked if t not in cur]
+
+
+def _chip_towns(hm):
+    ss = st.session_state
+    _set_tsel(_merge_pick(tsel(), set(ss.get(f"_tchips_opts_{hm}") or []), ss.get(f"tchips_{hm}") or []))
+
+
+def _pick_towns():
+    ss = st.session_state
+    _set_tsel(_merge_pick(tsel(), set(ss.get("_tpick_opts") or []), ss.get("tpick") or []))
+
+
+def _clear_towns():
+    _set_tsel([])
+
+
+def _sync_multi(key, opts):
+    """Show the canonical selection on a multi-pick widget before it is drawn (no default, so no double-set warning)."""
+    st.session_state[key] = [t for t in tsel() if t in opts]
+
+
 def town_chips(hm):
+    ss = st.session_state
     rows = C.mode_towns(hm)
     if hm == "first":
         rows = sorted(rows, key=lambda t: (C.town_info(t) or {}).get("drive_offpeak_min", 99))
-    st.markdown(f"<div class='bz-lbl'>{L('Towns near the city (closest drive first)', 'Pueblos cerca de la ciudad (más cerca primero)') if hm == 'first' else L('Towns to compare', 'Pueblos para comparar')}</div>", unsafe_allow_html=True)
-    st.pills(L("Towns", "Pueblos"), rows, key="tchip", on_change=_chip_town, label_visibility="collapsed")
+    st.markdown(f"<div class='bz-lbl'>{L('Towns near the city (closest drive first)', 'Pueblos cerca de la ciudad (más cerca primero)') if hm == 'first' else L('Towns to compare', 'Pueblos para comparar')}"
+                f" · {L('tap one or several', 'toque uno o varios')}</div>", unsafe_allow_html=True)
+    ss[f"_tchips_opts_{hm}"] = rows
+    _sync_multi(f"tchips_{hm}", rows)
+    st.pills(L("Towns", "Pueblos"), rows, selection_mode="multi", key=f"tchips_{hm}", on_change=_chip_towns, args=(hm,), label_visibility="collapsed")
+    tsel_bar("c")
+    with st.expander(L("🔎 More towns (search)", "🔎 Más pueblos (buscar)"), expanded=bool(ss.get("tpick_q"))):
+        q = st.text_input(L("Find a town", "Buscar un pueblo"), key="tpick_q", placeholder=L("Type part of a name, e.g. Nut", "Escriba parte del nombre, ej. Nut"))
+        allt = [t for t in towns.names() if t != "New York City"]
+        opts = [t for t in allt if (q or "").strip().lower() in t.lower()] if (q or "").strip() else allt
+        ss["_tpick_opts"] = opts
+        if opts:
+            _sync_multi("tpick", opts)
+            st.pills(L("All towns", "Todos los pueblos"), opts, selection_mode="multi", key="tpick", on_change=_pick_towns, label_visibility="collapsed")
+        else:
+            st.caption(L("No town matches that. Try fewer letters.", "Ningún pueblo coincide. Pruebe con menos letras."))
+
+
+def tsel_bar(where):
+    """'N towns selected' + clear all, and the friendly 6-town note."""
+    ss = st.session_state
+    s_ = tsel()
+    if time.time() - ss.get("tsel_full", 0) < 15:
+        st.info(L(f"You can compare up to {MAX_TOWNS} towns at once. Tap one to remove it, then add another 💕",
+                  f"Puede comparar hasta {MAX_TOWNS} pueblos a la vez. Toque uno para quitarlo y luego agregue otro 💕"), icon="🌷")
+    if not s_:
+        return
+    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key=f"tselbar_{where}"):
+        n = len(s_)
+        html(f"<div class='bz-tsel'>✓ <b>{L(f'{n} town selected' if n == 1 else f'{n} towns selected', f'{n} pueblo elegido' if n == 1 else f'{n} pueblos elegidos')}</b> · {H.escape(', '.join(s_))}</div>")
+        st.button(L("✕ Clear all", "✕ Borrar todo"), key=f"tclear_{where}", type="tertiary", on_click=_clear_towns)
+
+
+def _snap(t):
+    """Town snapshot from the session cache, or build it (free public data, never RentCast)."""
+    ss = st.session_state
+    tn = towns.normalize(t)
+    key = (tn["name"] or t).lower()
+    cache = ss.setdefault("town_cache", {})
+    if key in cache:
+        return cache[key]
+    try:
+        a = town_snapshot(t, {"use_rentcast": False})
+    except Exception as e:
+        a = {"ok": False, "error": e.__class__.__name__}
+    if a.get("ok"):
+        cache[key] = a
+    return a
+
+
+def _safety_short(t):
+    sf = (C.town_info(t) or {}).get("safety") or {}
+    lvl, c = C.town_caution(t)
+    r = sf.get("ratio")
+    if r is None:
+        if lvl:
+            return ("⚠️ " if lvl == "exclude" else "ℹ️ ") + L("Safety note, open the town for details", "Nota de seguridad, abra el pueblo para ver")
+        return L("Safety: no state data", "Seguridad: sin datos del estado")
+    ic = "⚠️" if lvl == "exclude" else "ℹ️" if lvl == "above" else "✓"
+    return f"{ic} " + L(f"Violent crime {r:.1f}× the NJ average", f"Crimen violento {r:.1f}× el promedio de NJ")
+
+
+def show_towns_view(ts):
+    """Several towns side by side: a compact card per town, then one combined listings feed."""
+    ss = st.session_state
+    first = ss.get("hmode", "first") == "first"
+    html(f"<div class='bz-hello'>{L(f'{len(ts)} towns side by side', f'{len(ts)} pueblos lado a lado')}</div>")
+    tsel_bar("v")
+    need = [t for t in ts if t.lower() not in ss.get("town_cache", {})]
+    snaps = {}
+    bar = st.progress(0.0, text=L("Getting the towns ready... ✨", "Preparando los pueblos... ✨")) if need else None
+    for i, t in enumerate(ts):
+        if bar and t in need:
+            bar.progress(i / len(ts), text=L(f"Looking at {t} ({i + 1} of {len(ts)})... ✨", f"Revisando {t} ({i + 1} de {len(ts)})... ✨"))
+        snaps[t] = _snap(t)
+    if bar:
+        bar.empty()
+    sale = feeds_for(ts, "for_sale") if listings.available() else {}
+    st.markdown(f"<div class='bz-lbl'>{L('Tap a price to compare the monthly cost', 'Toque un precio para comparar el costo mensual')}</div>", unsafe_allow_html=True)
+    price = st.pills(L("Price", "Precio"), C.PRICE_CHIPS, key="mt_price", label_visibility="collapsed", format_func=kmoney)
+    size = st.segmented_control(L("Size", "Tamaño"), C.TOWN_SIZES, key="mt_size", default="2fam" if first else "2", required=True, width="stretch",
+                                format_func=lambda s_: L("2-family", "2 familias") if s_ == "2fam" else f"{s_} {L('bd', 'hab')}")
+    cards, pay2 = [], {}
+    d_ = ss.get("set_down", "usual")
+    for t in ts:
+        a = snaps.get(t) or {}
+        if not a.get("ok"):
+            cards.append((t, None, f"<div class='c'><div class='t'>{H.escape(t)}</div><div class='s'>{L('Could not load this town right now.', 'No se pudo cargar este pueblo ahora.')}</div></div>"))
+            continue
+        dr = a.get("drive") or {}
+        drv = f"🚗 {dr['min']}-{dr['rush'][1]} min" if dr.get("rush") else "🚗 —"
+        rows_ = ((sale.get(t) or {}).get("rows") or []) if (sale.get(t) or {}).get("ok") else []
+        ps = sorted(r["price"] for r in rows_ if r.get("price"))
+        typ = (f"{kmoney(ps[len(ps) // 2])} · {len(ps)} {L('listings', 'anuncios')}" if ps else "—")
+        rules = a.get("str_rules") or {}
+        ok_air = C.airbnb_ok(rules, "multi-family" if size == "2fam" else "single-family", "unit" if size == "2fam" else "room")
+        body = ""
+        if price:
+            try:
+                base = C.base_from_town(a, int(price), size, None if d_ == "usual" else float(d_) / 100)
+                out = C.compare(base, C.default_sel(base))
+                ok_air = out.get("airbnb_allowed", ok_air)
+                for c in C.labels(out, first):
+                    earn = c["pay_lbl"][0] == "You earn"
+                    body += f"<div class='r'><span>{H.escape(P(c['title']))}</span><b class='{'earn' if earn else ''}'>{H.escape(c['pay'])}</b></div>"
+                p2 = out["cols"][1].get("pay")
+                if p2 is not None:
+                    pay2[t] = p2
+            except Exception:
+                body = f"<div class='s'>{L('Monthly numbers not available.', 'Números del mes no disponibles.')}</div>"
+        else:
+            body = f"<div class='s'>👆 {L('Tap a price above', 'Toque un precio arriba')}</div>"
+        badge = P(C.airbnb_badge(ok_air, C.days30(rules)))
+        cards.append((t, pay2.get(t), f"<div class='c{{best}}'><div class='t'>{H.escape(t)}</div><div class='v'>{drv}</div>"
+                                       f"<div class='k'>{L('Typical asking price', 'Precio típico pedido')}</div><div class='v'>{H.escape(typ)}</div>"
+                                       + (f"<div class='k'>{L('A month', 'Al mes')}</div>" if price else "") + body
+                                       + f"<div class='s'>{H.escape(_safety_short(t))}</div><div class='s'>{H.escape(badge)}</div></div>"))
+    best = min(pay2, key=pay2.get) if len(pay2) > 1 else None
+    if price and pay2:
+        cards.sort(key=lambda x: (x[1] is None, x[1] if x[1] is not None else 0))
+    html("<div class='bz-mt'>" + "".join(c.replace("{best}", " best" if t == best else "") for t, _, c in cards) + "</div>")
+    st.caption((L(f"Sorted by what you'd pay with a tenant or roommate (★ lowest: {best}). " if best else "Sorted by what you'd pay with a tenant or roommate. ",
+                  f"Ordenado por lo que pagaría con inquilino o compañero (★ más bajo: {best}). " if best else "Ordenado por lo que pagaría con inquilino o compañero. ") if price and pay2 else "")
+               + L("Typical asking price: middle of the newest listings under $900k. Drive: typical, not live; second number is rush hour.",
+                   "Precio típico pedido: el del medio de los anuncios más nuevos bajo $900k. Trayecto: típico, no en vivo; el segundo número es hora pico.").replace("$", "\\$"))
+    with st.container(horizontal=True, key="mt_open"):
+        for t, _, _c in cards:
+            st.button(L(f"{t} →", f"{t} →"), key=f"mto_{_slug(t)}", on_click=_open_one_town, args=(t,))
+    st.caption(L("Tap a town to open its full view.", "Toque un pueblo para abrir su vista completa."))
+    feed_block(list(ts), {t: (snaps.get(t) or {}).get("drive") for t in ts}, "mt")
+
+
+def _open_one_town(t):
+    ss = st.session_state
+    ss.from_towns = tuple(tsel())
+    ss.go = ("town", t, "keep")
+
+
+def back_to_towns():
+    ss = st.session_state
+    ft = ss.get("from_towns")
+    if ft and len(ft) > 1:
+        st.button(L(f"← Back to your {len(ft)} towns", f"← Volver a sus {len(ft)} pueblos"), key="back_towns", type="tertiary",
+                  on_click=lambda: ss.update(view=("towns", tuple(ft)), from_towns=None))
+
+
+# ------------------------------------------------------------------ navigation: scroll to top on a new town/listing, phone Back, "Back to results"
+NAV_JS = """
+export default function(component) {
+  const { data, setTriggerValue } = component;
+  const d = data || {};
+  const w = window;
+  const conts = () => {
+    const out = [document.scrollingElement, document.documentElement, document.body];
+    for (const sel of ['[data-testid="stMain"]', '[data-testid="stAppViewContainer"]', 'section.main', '.main', '[data-testid="stAppScrollToBottomContainer"]'])
+      document.querySelectorAll(sel).forEach(e => out.push(e));
+    try { if (w.parent && w.parent !== w) { out.push(w.parent.document.scrollingElement); } } catch (e) {}
+    return out.filter(Boolean);
+  };
+  const where = () => { let m = w.scrollY || 0; for (const c of conts()) m = Math.max(m, c.scrollTop || 0); return m; };
+  const go = (y) => { for (const c of conts()) { try { c.scrollTop = y; } catch (e) {} } try { w.scrollTo(0, y); } catch (e) {}
+                      try { if (w.parent !== w) w.parent.scrollTo(0, y); } catch (e) {} };
+  let g = w.__bznav;
+  if (!g) {
+    g = w.__bznav = { seq: null, vkey: null, pos: {}, pushed: 0, ignore: 0, busy: 0, stop: false, cur: 0 };
+    document.addEventListener('scroll', () => { if (g.vkey && !g.busy) g.pos[g.vkey] = where(); }, { capture: true, passive: true });
+    ['touchstart', 'wheel', 'mousedown'].forEach(ev => document.addEventListener(ev, () => { g.stop = true; }, { capture: true, passive: true }));
+    w.addEventListener('popstate', (e) => {
+      const s = (e.state && typeof e.state.bz === 'number') ? e.state.bz : 0;
+      const fwd = s > (g.cur || 0);
+      g.cur = s;
+      if (g.ignore > 0) { g.ignore--; return; }
+      if (fwd) { g.ignore++; try { history.back(); } catch (x) { g.ignore--; } return; }   // phone Forward: stay put
+      if (g.pushed > 0) { g.pushed--; if (g.set) g.set('back', String(Date.now())); }
+    });
+  }
+  g.set = setTriggerValue;
+  if (g.seq === null) { g.seq = d.seq; g.vkey = d.vkey; return; }
+  if (d.seq === g.seq) return;
+  g.seq = d.seq;
+  const anc = () => { const a = d.anchor && !d.restore ? document.querySelector('.bz-restop') : null;   // top of the results, just under the search box
+                      return a ? Math.max(0, Math.round(a.getBoundingClientRect().top + where() - 6)) : null; };
+  let y = d.restore ? (g.pos[d.vkey] || 0) : 0;
+  g.vkey = d.vkey;
+  if (d.push) { try { history.pushState({ bz: d.seq }, ''); g.pushed++; g.cur = d.seq; } catch (e) {} }
+  if (d.pyback && g.pushed > 0) { g.pushed--; g.ignore++; try { history.back(); } catch (e) { g.ignore--; } }
+  g.stop = false; g.busy = 1;
+  const t0 = Date.now();
+  const again = () => { if (g.stop && Date.now() - t0 > 150) { g.busy = 0; return; }
+                        const ay = anc(); if (ay !== null) y = ay;
+                        go(y);
+                        if (Date.now() - t0 < (d.anchor ? 3000 : 1400)) setTimeout(again, 200); else g.busy = 0; };
+  again();
+}
+"""
+_NAV = st.components.v2.component("bz_nav", js=NAV_JS)
+
+
+def _vkey(v):
+    return json.dumps(list(v) if v else None, default=list)
+
+
+def nav_mount():
+    """Count view changes (new town selection, opened listing, back). Only then does the page jump: to the top, or back to the saved place."""
+    ss = st.session_state
+    v = ss.get("view")
+    k = _vkey(v)
+    push = pyback = False
+    if k != ss.get("nav_k"):
+        if "nav_k" in ss:
+            if ss.pop("nav_isback", False):
+                pyback = ss.pop("nav_pyback", False)
+            else:
+                ss.setdefault("vstack", []).append(ss.get("nav_v"))
+                ss.vstack = ss.vstack[-20:]
+                push = True
+        ss.nav_k, ss.nav_v = k, v
+        ss.nav_seq = int(ss.get("nav_seq", 0)) + 1
+        ss.nav_rs = bool(ss.pop("nav_restore", False))
+        ss.nav_push, ss.nav_pb = push, pyback
+    _NAV(key="bz_nav", data={"seq": ss.get("nav_seq", 0), "vkey": k, "restore": ss.get("nav_rs", False), "push": ss.get("nav_push", False),
+                             "pyback": ss.get("nav_pb", False), "anchor": bool(v) and v[0] in ("town", "towns", "addr")}, on_back_change=lambda: nav_back(False))
+
+
+def nav_back(from_button=True):
+    """One step back: town(s) view, listing, or the home page. Restores the scroll place there."""
+    ss = st.session_state
+    stk = ss.get("vstack") or []
+    if not stk:
+        return
+    prev = stk.pop()
+    ss.nav_isback, ss.nav_restore, ss.nav_pyback = True, True, bool(from_button)
+    ss.tpick_open = False
+    if not prev:
+        ss.view = None
+        return
+    prev = tuple(prev)
+    if prev[0] == "towns":
+        ss.tsel = list(prev[1])
+        _tsel_url()
+        ss.view = ("towns", tuple(prev[1]))
+    elif prev[0] == "town":
+        if prev[1] not in tsel():
+            ss.tsel = [prev[1]]
+            _tsel_url()
+        ss.go = ("town", prev[1], "keep")
+    else:
+        ss.go = ("addr", prev[1], "keep")
+
+
+def back_link():
+    ss = st.session_state
+    stk = ss.get("vstack") or []
+    prev = tuple(stk[-1]) if stk and stk[-1] else None
+    if not prev or prev[0] not in ("town", "towns"):
+        return
+    lbl = L(f"← Back to your {len(prev[1])} towns", f"← Volver a sus {len(prev[1])} pueblos") if prev[0] == "towns" else \
+        L(f"← Back to results · {prev[1]}", f"← Volver a los resultados · {prev[1]}")
+    st.button(lbl, key="back_res", type="tertiary", on_click=nav_back)
+
+
+def _remove_town(t):
+    _set_tsel([x for x in tsel() if x != t])
+
+
+def town_bar(view, here=None):
+    """Always-visible bar on town, feed and home views: current towns with ✕, and a big Change town button that opens the picker right here."""
+    ss = st.session_state
+    st.markdown("<div class='bz-restop'></div>", unsafe_allow_html=True)
+    back_link()
+    with st.container(key="townbar", horizontal=True, vertical_alignment="center", gap="small"):
+        s_ = tsel() if view[0] in ("town", "towns") else []
+        if s_:
+            for t in s_:
+                st.button(f"{t}  ✕", key=f"tbx_{_slug(t)}", on_click=_remove_town, args=(t,), help=L(f"Remove {t}", f"Quitar {t}"))
+        elif here:
+            html(f"<div class='bz-tsel'>📍 <b>{H.escape(here)}</b></div>")
+        op = bool(ss.get("tpick_open"))
+        st.button((L("✓ Done", "✓ Listo") if op else (L("📍 Change town", "📍 Cambiar ciudad") if len(s_) <= 1 else L("📍 Change towns", "📍 Cambiar ciudades"))),
+                  key="tb_change", type="primary", width="stretch", on_click=lambda: ss.update(tpick_open=not op))
+    if ss.get("tpick_open"):
+        with st.container(key="tpicker", border=True):
+            town_picker()
+
+
+def town_picker():
+    ss = st.session_state
+    ss.setdefault("pk_mode", ss.get("hmode", "first"))
+    md_ = st.segmented_control(L("Which towns", "Qué pueblos"), ["first", "next"], key="pk_mode", required=True, label_visibility="collapsed", width="stretch",
+                               format_func=lambda k: L("🏙️ Near the city", "🏙️ Cerca de la ciudad") if k == "first" else L("🧭 Anywhere", "🧭 Donde sea"))
+    town_chips(md_ or "first")
 
 
 def town_ranking(hm):
@@ -1977,6 +2874,9 @@ def entry_from_feed(iid, h, rent):
     """Snapshot of a feed card. For-sale homes get quick numbers from the town's averages (no API call); opening the home later upgrades them."""
     ss = st.session_state
     a = ss.get("town") or {}
+    tk = str(h.get("_t") or h.get("town") or "").lower()
+    if tk and (ss.get("town_cache") or {}).get(tk):          # combined feed: use the card's own town
+        a = ss.town_cache[tk]
     first = ss.get("hmode", "first") == "first"
     tl = list(FEED_TYPE_LBL.get(h.get("kind"), FEED_TYPE_LBL["other"]))
     fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, h.get("hoa_monthly"), rent)
@@ -2149,6 +3049,18 @@ def saved_card(x):
             html(f"<div class='bz-sv-b'>{H.escape(P(x['legal']))}</div>")
         if x.get("safety"):
             html(f"<div class='bz-sv-b'>ℹ️ {H.escape(P(x['safety']))}</div>")
+        if x.get("kind") == "home" and not x.get("rent"):
+            fa = fha_for_saved(x)
+            if fa:
+                html(f"<div class='bz-sv-b'>{H.escape(fha_badge_short(fa))}</div>")
+        if x.get("town") and x.get("kind") in ("home", "town"):
+            with st.expander(L("🏷️ What similar places rent for", "🏷️ Lo que se alquila algo parecido"), key=f"svrc_{k}"):
+                b = x.get("beds") if x.get("kind") == "home" else (2 if x.get("size") == "2fam" else int(x.get("size") or 2))
+                if x.get("kind") == "home" and (x.get("type_lbl") or [""])[0].startswith("2") and b:
+                    b = 2
+                tk = (x.get("type_lbl") or [""])[0].lower()
+                rent_comps_box("sv_" + k, x["town"], b, "condo" if tk in ("condo", "co-op") else "house" if tk == "house" else None, None, None,
+                               None, None, _hud_for(x["town"], b), None, None, None, None)
         st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
                  format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
         st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
@@ -2267,6 +3179,7 @@ def saved_page():
 # ------------------------------------------------------------------ the one page
 def main_page():
     ss = st.session_state
+    nav_mount()
     hm = st.segmented_control(L("Mode", "Modo"), ["first", "next"], key="hmode", default="first", required=True, label_visibility="collapsed", width="stretch",
                               format_func=lambda k: L("🏙️ My first home, near the city", "🏙️ Mi primera casa, cerca de la ciudad") if k == "first"
                               else L("🧭 Next homes, anywhere", "🧭 Próximas casas, donde sea"))
@@ -2275,14 +3188,30 @@ def main_page():
         header_hero()
     search_block()
     res_box = st.container()
+    if ss.pop("tsel_boot", False) and not view and tsel():      # opened with ?towns=...
+        if len(tsel()) == 1:
+            ss.go = ("town", tsel()[0])
+        else:
+            ss.view = view = ("towns", tuple(tsel()))
     go = ss.pop("go", None)
     if ss.pop("auto_go", False):
         go = ("addr", ss.get("addr"))
+    if go and go[0] == "addtown":
+        _set_tsel(tsel() + [go[1]])
+        st.rerun()
     if go and go[0] == "listing":
         run_listing(go[1], res_box)
         st.rerun()
     elif go:
+        keep = len(go) > 2 and go[2] == "keep"
+        go = tuple(go[:2])
         ss.view = go
+        if not keep:
+            ss.pop("from_towns", None)
+            if go[0] == "town":
+                tn_ = towns.normalize(go[1])
+                ss.tsel = [tn_["name"] or go[1]] if tn_.get("match") in ("exact", "alias", "fuzzy") else []
+                _tsel_url()
         if go[0] == "addr":
             ss.prop_addr = go[1]
             run_home(go[1], res_box)
@@ -2294,7 +3223,11 @@ def main_page():
         run_home(ss.prop_addr, res_box)
         st.rerun()
     with res_box:
-        if view and view[0] == "addr":
+        if view and view[0] in ("addr", "town", "towns"):
+            town_bar(view, here=(ss.get("prop") or {}).get("town") if view[0] == "addr" else None)
+        if view and view[0] == "towns":
+            show_towns_view(list(view[1]))
+        elif view and view[0] == "addr":
             r = ss.get("prop")
             if r and not r.get("ok"):
                 not_found(r)
@@ -2308,7 +3241,10 @@ def main_page():
                 show_town_view(a)
     if view:
         st.divider()
-    town_chips(hm)
+    if not view:
+        ss.tpick_open = False
+    if not ss.get("tpick_open"):
+        town_chips(hm)
     rec = ss.get("recent", [])[:3]
     if rec:
         st.markdown(f"<div class='bz-lbl'>{L('Recent', 'Recientes')}</div>", unsafe_allow_html=True)

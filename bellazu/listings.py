@@ -132,7 +132,8 @@ def _norm(x, status):
             "photo": photo_url(ph, "card"), "photos": [photo_url(ph, "big")] if ph else [], "photo_count": x.get("photo_count") or 0,
             "days": _days(x.get("list_date")), "price_cut": x.get("price_reduced_amount") if fl.get("is_price_reduced") or x.get("price_reduced_amount") else None,
             "new": bool(fl.get("is_new_listing")), "lat": co.get("lat"), "lon": co.get("lon"), "url": x.get("href"),
-            "broker": ((x.get("branding") or [{}])[0] or {}).get("name"), "status": status, "source": SOURCE}
+            "broker": ((x.get("branding") or [{}])[0] or {}).get("name"), "status": status, "source": SOURCE,
+            "flags": [k for k, v in fl.items() if v]}
 
 
 def _cpath(name):
@@ -194,6 +195,23 @@ def filter_rows(rows, min_price=None, max_price=None, beds=None, kind="any"):
 def search(town, min_price=None, max_price=None, beds=None, kind="any", status="for_sale", zip_code=None):
     res = fetch_town(town, status, zip_code=zip_code)
     return filter_rows(res.get("rows") or [], min_price, max_price, beds, kind)
+
+
+def cached(town, status="for_sale", page=0):
+    """True if this town's list is on disk and fresh (opening it costs no call)."""
+    p = _cpath(f"{town}_{status}_{page}_v2")
+    return p.exists() and time.time() - p.stat().st_mtime < TTL_H * 3600
+
+
+def detail_cached(pid):
+    """The 7-day detail cache for one home, or None. Never calls the API."""
+    p = _cpath(f"detail_{pid}")
+    if pid and p.exists() and time.time() - p.stat().st_mtime < 7 * 86400:
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            return None
+    return None
 
 
 def detail(pid):
