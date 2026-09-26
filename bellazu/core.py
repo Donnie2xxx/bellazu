@@ -9,6 +9,7 @@ from . import http
 from .config import load_assumptions, load_env, by_beds
 from .geo import geocode, haversine_km
 from .finance import loan_costs, carrying_costs, str_operating, mtr_operating
+from . import towns
 from .sources import insideairbnb as iab, hud, census, fred, craigslist, rentcom, redfin, rentcast, listing, fha, str_rules
 from .sources import airbnb_manual, bnbcalc
 
@@ -196,10 +197,10 @@ def analyze_property(address, options=None):
     town = o.get("town") or (g or {}).get("town") or ""
     zipcode = o.get("zip") or (g or {}).get("zip") or ""
     state = o.get("state", "nj")
-    beds = int(facts.get("beds") or o.get("beds") or 2)
+    beds = int(facts["beds"]) if facts.get("beds") not in (None, "") else int(o.get("beds") or 2)   # 0 = studio
     price = float(facts.get("price") or 0)
     own = (facts.get("ownership") or "").lower()
-    missing = [k for k in ("price", "beds", "hoa_monthly") if not facts.get(k)]
+    missing = [k for k in ("price", "beds", "hoa_monthly") if facts.get(k) in (None, "") and not (k == "hoa_monthly" and own in ("single-family", "multi-family"))]
     if missing:
         warnings.append("Missing listing facts: " + ", ".join(missing) + " — pass overrides or a listing_url.")
     rules = str_rules.rules_for(town)
@@ -247,7 +248,7 @@ def analyze_property(address, options=None):
     scen = []
     cc_owner, cnotes = carrying_costs(facts, A, "owner")
     warnings += cnotes
-    rooms = beds - 1 if A["roommate"]["rooms_rented_out"] == "auto" else int(A["roommate"]["rooms_rented_out"])
+    rooms = max(beds - 1, 0) if A["roommate"]["rooms_rented_out"] == "auto" else min(int(A["roommate"]["rooms_rented_out"]), max(beds - 1, 0))   # never more roommates than spare bedrooms
     room_rent = room["median"] if room.get("ok") else (rent_mid or 0) * A["roommate"]["room_rent_fallback_share"]
     room_basis = "median Craigslist room-share asking rent nearby" if room.get("ok") else f"ASSUMPTION {A['roommate']['room_rent_fallback_share']:.0%} of unit rent per room"
     income_annual = float(o.get("income_annual") or 0) or None
@@ -369,11 +370,15 @@ def scan_arbitrage(town, options=None):
     load_env()
     http.STATUS.clear()
     A = load_assumptions(o.get("assumptions_path"), o.get("assumption_overrides"))
-    state = o.get("state", "nj")
-    g = geocode(f"{town}, {state.upper()}")
-    if not g:
-        return {"ok": False, "error": "could not geocode town", "sources_status": list(http.STATUS)}
-    tname = town.split(",")[0].strip()
+    tn = towns.normalize(town)            # forgiving: case, ', NJ', 'Ft Lee', 'WNY', small typos
+    state = tn["state"] if tn["match"] != "none" or "state" not in o else o["state"]
+    tname = tn["name"] or (town or "").split(",")[0].strip()
+    base = {"town_input": tn["typed"], "town_match": tn["match"], "town_suggestions": tn["suggestions"]}
+    if not tname:
+        return {"ok": False, "error": "no town given", "error_kind": "unknown_town", **base, "sources_status": list(http.STATUS)}
+    g = geocode(f"{tname}, {state.upper()}")
+    if not g or (tn["match"] == "none" and g.get("osm_type") not in ("city", "town", "village", "municipality", "hamlet", "suburb", "borough", "county")):
+        return {"ok": False, "error": "could not find that town", "error_kind": "unknown_town", **base, "sources_status": list(http.STATUS)}
     rules = str_rules.rules_for(tname)
     beds_ok = A["arbitrage"]["beds"]
     rows, used = [], []
@@ -390,7 +395,7 @@ def scan_arbitrage(town, options=None):
         used.append({"source": "RentCast", "ok": bool(d), "n": len(d), "note": s})
     df = pd.DataFrame(rows)
     if df.empty:
-        return _clean({"ok": False, "error": "no rental listings fetched", "sources_used": used, "sources_status": list(http.STATUS)})
+        return _clean({"ok": False, "error": "no rental listings fetched", "error_kind": "no_listings", "town": tname, **base, "sources_used": used, "sources_status": list(http.STATUS)})
     df["price"] = pd.to_numeric(df.price, errors="coerce")
     df = df[df.price.between(900, 15000) & df.beds.isin(beds_ok) & df.lat.notna()]
     bb = g.get("bbox") or []
@@ -473,7 +478,7 @@ def scan_arbitrage(town, options=None):
     iab_juris = sorted(set(U.dataset))
     covered = covered_town
     out = {"ok": True, "kind": "arbitrage", "brand": "BellaZu", "generated": dt.datetime.now().isoformat(timespec="minutes"),
-           "town": tname, "state": state, "geo": g, "str_rules": rules, "sources_used": used,
+           "town": tname, "state": state, "geo": g, **base, "str_rules": rules, "sources_used": used,
            "iab_datasets": iab_juris, "iab_covers_town": covered, "sorted_by": (sort_col if not res.empty else None),
            "n_listings_fetched": int(len(rows)), "n_listings_scored": int(len(res)),
            "summary": {

@@ -58,7 +58,7 @@ def fetch(url, source, ttl_hours=24, method="GET", data=None, headers=None, bina
         time.sleep(8)   # one polite retry for transient rate-limits
 
     body = r.content
-    ok = r.status_code == 200 and len(body) > 500
+    ok = r.status_code == 200 and (len(body) > 500 or validate is not None)
     txt = None if binary else body.decode("utf-8", "replace")
     if ok and validate is not None:
         ok = bool(validate(body if binary else txt))

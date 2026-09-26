@@ -132,7 +132,7 @@ def get_facts(address, listing_url=None, overrides=None, use_rentcast=True):
             facts[k], src[k] = v, label
 
     if use_rentcast and rentcast.available():
-        if any(not facts.get(k) for k in ("price", "beds", "hoa_monthly")):
+        if any(facts.get(k) in (None, "") for k in ("price", "beds", "hoa_monthly")):
             r, s = rentcast.sale_listing(address)
             rc_meta["sale_listing"] = s if r else (s if s not in ("ok", "cache") else "not_found")
             if r:
