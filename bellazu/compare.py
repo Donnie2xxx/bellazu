@@ -33,6 +33,23 @@ def town_info(name):
     return dict(towns_meta()["towns"][k], name=k) if k else None
 
 
+def town_caution(name):
+    """(level, [en, es]) from the safety screen (NJSP UCR violent crime vs NJ average): 'exclude' (>= 1.5x), 'above' (1.0-1.5x), or (None, None)."""
+    ti = town_info(name or "")
+    if ti and ti.get("caution"):
+        return (ti.get("safety") or {}).get("level"), ti["caution"]
+    ox = ((towns_meta()["_meta"].get("safety") or {}).get("other_excluded") or {})
+    for k, v in ox.items():
+        if k.lower() == (name or "").strip().lower():
+            return "exclude", v["caution"]
+    return None, None
+
+
+def town_tax_rate(name):
+    ti = town_info(name or "")
+    return (ti or {}).get("eff_tax")
+
+
 def mode_towns(mode):
     m = towns_meta()["_meta"]
     return list(m.get("first_home" if mode == "first" else "next_homes") or [])
@@ -372,6 +389,9 @@ def base_from_town(snap, price, size, down_pct=None):
     two = size == "2fam"
     beds = 4 if two else int(size)
     facts = {"price": price, "beds": beds, "ownership": "multi-family" if two else "single-family", "hoa_monthly": 0}
+    trate = town_tax_rate(snap.get("town"))
+    if trate:
+        facts["taxes_annual"] = round(price * trate)
     cc, _ = carrying_costs(facts, A, "owner")
     costs = {"principal_interest": lc["principal_interest"], "mortgage_insurance": lc["mortgage_insurance"], **cc}
     bb = {int(k): v for k, v in (snap.get("by_beds") or {}).items()}
@@ -386,7 +406,7 @@ def base_from_town(snap, price, size, down_pct=None):
     piti = sum(costs[k] for k in ("principal_interest", "mortgage_insurance", "property_tax", "insurance", "hoa_or_maintenance"))
     return {"A": A, "rules": snap.get("str_rules") or {}, "ptype": facts["ownership"], "total_cost": sum(costs.values()), "costs": costs, "loan": lc,
             "price": price, "beds": beds, "room_rent": room_lv, "room_str": snap.get("room_str"), "room_mtr": snap.get("room_mtr"),
-            "units": units, "units_total": 2, "piti": piti, "util_inc": False, "tax_fallback": True}
+            "units": units, "units_total": 2, "piti": piti, "util_inc": False, "tax_fallback": not trate, "tax_rate": trate or A["ownership_costs"]["property_tax_rate_fallback"]}
 
 
 def town_rank(mode, price=350_000, rate_pct=None):
@@ -398,13 +418,16 @@ def town_rank(mode, price=350_000, rate_pct=None):
     A = load_assumptions()
     fi = A["financing"]
     lc = loan_costs(price, fi["fha_down_pct"], 6.5 if rate_pct is None else rate_pct, fi["term_years"], fha=True, A=A)
-    cc, _ = carrying_costs({"price": price, "beds": 4, "ownership": "multi-family"}, A, "owner")
-    cost = lc["principal_interest"] + lc["mortgage_insurance"] + sum(cc.values())
     rows = []
     for t in mode_towns(mode):
         ti = town_info(t)
         if not ti:
             continue
+        f_ = {"price": price, "beds": 4, "ownership": "multi-family"}
+        if ti.get("eff_tax"):
+            f_["taxes_annual"] = round(price * ti["eff_tax"])
+        cc, _ = carrying_costs(f_, A, "owner")
+        cost = lc["principal_interest"] + lc["mortgage_insurance"] + sum(cc.values())
         sf = hud.safmr(ti.get("zip")) or {}
         rent2 = sf.get("2br")
         pay = round(cost - rent2 * (1 - A["ownership_costs"]["vacancy_pct_ltr"])) if rent2 else None
@@ -416,7 +439,7 @@ def town_rank(mode, price=350_000, rate_pct=None):
         ok.sort(key=lambda r: (dr[r["town"]] + pr[r["town"]], r["drive"]["min"]))
     else:
         ok.sort(key=lambda r: r["pay_2fam"])
-    return {"rows": ok + [r for r in rows if r["pay_2fam"] is None], "price": price, "cost_2fam": round(cost), "rate_pct": lc["rate_pct"]}
+    return {"rows": ok + [r for r in rows if r["pay_2fam"] is None], "price": price, "rate_pct": lc["rate_pct"]}
 
 
 # ------------------------------------------------------------------ bilingual labels shared by the app and the reports

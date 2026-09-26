@@ -224,6 +224,7 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-place img {width:68px; height:68px; object-fit:cover; border-radius:12px; flex:none; background:#222}
 .bz-place .t {font-size:.92rem; color:var(--paper); line-height:1.3} .bz-place .m {font-size:.8rem; color:#BDBDBD; margin:.15rem 0}
 .bz-place a {color:var(--rose); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em}
+.bz-warn.hi {border-width:2px; background:rgba(255,90,90,.08)}
 .bz-warn {border:1px solid var(--skip); border-radius:18px; padding:.6rem .9rem; font-size:.88rem; margin:.3rem 0 .6rem; color:var(--paper)}
 .bz-kv {display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.4rem 0; border-bottom:1px solid var(--line); font-size:.92rem; color:var(--paper)}
 .bz-kv b {font-family:var(--disp); font-size:1.5rem; font-weight:400; white-space:nowrap}
@@ -1210,6 +1211,7 @@ def show_property(r):
     ex = r.get("extra") or {}
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
+    safety_note(r.get("town"))
     drive_badge(ex.get("drive"))
     verdict_box(S.verdict_property(r))
     ask_missing(r)
@@ -1274,6 +1276,12 @@ def run_town(name, where):
     ss.town = a
 
 
+def safety_note(town):
+    lvl, c = C.town_caution(town)
+    if c:
+        html(f"<div class='bz-warn{' hi' if lvl == 'exclude' else ''}'>{'⚠️' if lvl == 'exclude' else 'ℹ️'} {H.escape(P(c))}</div>")
+
+
 def show_town_view(a):
     ss = st.session_state
     first = ss.get("hmode", "first") == "first"
@@ -1283,9 +1291,7 @@ def show_town_view(a):
         st.caption(L(f"Showing {t} (you typed “{a['town_input']}”).", f"Mostrando {t} (usted escribió “{a['town_input']}”)."))
     html(f"<div class='bz-hello'>{H.escape(t)}</div>")
     drive_badge(a.get("drive"))
-    ti = C.town_info(t)
-    if ti and ti.get("caution"):
-        html(f"<div class='bz-warn'>⚠️ {H.escape(P(ti['caution']))}</div>")
+    safety_note(t)
     rules_card(a.get("str_rules") or {}, t)
     st.markdown(f"<div class='bz-lbl'>{L('Tap a price you are looking at', 'Toque un precio que esté mirando')}</div>", unsafe_allow_html=True)
     price = st.pills("price", C.PRICE_CHIPS + ["other"], key=f"tp_{sid}", label_visibility="collapsed",
@@ -1304,8 +1310,10 @@ def show_town_view(a):
         out = C.compare(base, sel)
         compare_strip(out, first)
         ln = base["loan"]
-        md(L(f"At {money(price)} with FHA {ln['rate_pct']:.2f}%: {money(ln['cash_to_close_est'])} to close. Taxes use a {base['A']['ownership_costs']['property_tax_rate_fallback']:.1%} estimate; add any HOA fee on top.",
-             f"A {money(price)} con FHA {ln['rate_pct']:.2f}%: {money(ln['cash_to_close_est'])} para cerrar. Los impuestos usan un estimado de {base['A']['ownership_costs']['property_tax_rate_fallback']:.1%}; sume cualquier cuota HOA."))
+        tx = (L(f"Taxes use {t}'s typical rate, {base['tax_rate']:.2%} of the price (NJ Treasury 2025 average bill ÷ average sale price)", f"Los impuestos usan la tasa típica de {t}, {base['tax_rate']:.2%} del precio (Tesoro de NJ 2025: factura promedio ÷ precio promedio)")
+              if not base.get("tax_fallback") else L(f"Taxes use a {base['tax_rate']:.1%} estimate", f"Los impuestos usan un estimado de {base['tax_rate']:.1%}"))
+        md(L(f"At {money(price)} with FHA {ln['rate_pct']:.2f}%: {money(ln['cash_to_close_est'])} to close. {tx}; add any HOA fee on top.",
+             f"A {money(price)} con FHA {ln['rate_pct']:.2f}%: {money(ln['cash_to_close_est'])} para cerrar. {tx}; sume cualquier cuota HOA."))
         q = out.get("qualify")
         if q:
             md(L(f"🏦 A lender can count about **{money(q['counted'])}/mo** of the other unit's rent (75%).", f"🏦 El banco puede contar unos **{money(q['counted'])}/mes** de la renta de la otra unidad (75%)."))
@@ -1398,8 +1406,8 @@ def _home_card(h, drive, rent):
             f"{h['sqft']:,} ft²" if h.get("sqft") else None,
             (L(f"fee {money(h['hoa_monthly'])}/mo", f"cuota {money(h['hoa_monthly'])}/mes") if h.get("hoa_monthly") else None)]
     days = h.get("days")
-    dl = (L("listed today", "publicada hoy") if days == 0 else L("listed yesterday", "publicada ayer") if days == 1
-          else L(f"listed {days} days ago", f"publicada hace {days} días")) if days is not None else ""
+    dl = (L("Listed today", "Publicada hoy") if days == 0 else L("Listed 1 day ago", "Publicada hace 1 día") if days == 1
+          else L(f"Listed {days} days ago", f"Publicada hace {days} días")) if days is not None else ""
     dr = L(f"🚗 {drive['min']}-{drive['rush'][1]} min to Midtown", f"🚗 {drive['min']}-{drive['rush'][1]} min a Midtown") if drive and drive.get("rush") else ""
     img = f"<img src='{H.escape(h['photo'])}' loading='lazy' alt=''>" if h.get("photo") else "<div class='noimg'>📷</div>"
     pc = f"<span class='pc'>📷 {h['photo_count']}</span>" if h.get("photo_count") else ""
@@ -1598,7 +1606,7 @@ def town_ranking(hm):
         p = x["pay_2fam"]
         pay = (L(f"you pay {money(p)}/mo", f"paga {money(p)}/mes") if p >= 0 else L(f"you earn {money(-p)}/mo", f"gana {money(-p)}/mes")) if p is not None else "?"
         sr = S.airbnb_line(towns_rules(x["town"]), "owner")[0]
-        lab = f"{i}. {x['town']} · 🚗 {d['min']}-{d['rush'][1]} min · {pay} · {sr}"
+        lab = f"{i}. {x['town']} · 🚗 {d['min']}-{d['rush'][1]} min · {pay} · {sr}" + (" · ℹ️ " + L("safety note", "nota de seguridad") if x.get("caution") else "")
         st.button(lab, key=f"rk_{hm}_{i}", width="stretch", on_click=lambda t=x["town"]: st.session_state.update(go=("town", t)))
     st.caption(L("Homes at this price may be rare in some towns. Drive: typical, not live; the second number is a busy rush hour.",
                  "En algunos pueblos es difícil encontrar casas a este precio. Trayecto: típico, no en vivo; el segundo número es hora pico."))

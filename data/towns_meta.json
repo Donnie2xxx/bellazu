@@ -16,7 +16,6 @@
    "North Bergen",
    "Guttenberg",
    "Hoboken",
-   "Jersey City",
    "Fort Lee",
    "Edgewater",
    "Cliffside Park",
@@ -38,13 +37,96 @@
    "Rahway",
    "Hawthorne",
    "North Arlington",
-   "Newark",
    "Kearny",
    "Lyndhurst",
    "Rutherford",
-   "Bayonne",
-   "Jersey City"
-  ]
+   "Bayonne"
+  ],
+  "safety": {
+   "source": "NJ State Police Uniform Crime Report 2023 and 2024 (Index Crimes by County), violent crimes per 1,000 residents",
+   "url": "https://www.njsp.gov/ucr/",
+   "nj_avg_per_1k": 2.18,
+   "exclude_at_ratio": 1.5,
+   "excluded_towns": [
+    "Paterson",
+    "Passaic",
+    "Newark",
+    "Jersey City",
+    "East Orange",
+    "Plainfield",
+    "Elizabeth",
+    "Irvington",
+    "Orange",
+    "Perth Amboy",
+    "Englewood"
+   ],
+   "tax_source": "NJ Treasury 2025 average residential tax bill / average sale price (BellaZu v2 town screen)",
+   "other_excluded": {
+    "Paterson": {
+     "ratio": 4.61,
+     "caution": [
+      "Safety caution: violent crime here is about 4.6x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 4.6 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Passaic": {
+     "ratio": 2.96,
+     "caution": [
+      "Safety caution: violent crime here is about 3.0x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 3.0 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "East Orange": {
+     "ratio": 2.31,
+     "caution": [
+      "Safety caution: violent crime here is about 2.3x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 2.3 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Plainfield": {
+     "ratio": 2.27,
+     "caution": [
+      "Safety caution: violent crime here is about 2.3x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 2.3 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Elizabeth": {
+     "ratio": 2.25,
+     "caution": [
+      "Safety caution: violent crime here is about 2.2x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 2.2 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Irvington": {
+     "ratio": 2.22,
+     "caution": [
+      "Safety caution: violent crime here is about 2.2x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 2.2 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Orange": {
+     "ratio": 2.2,
+     "caution": [
+      "Safety caution: violent crime here is about 2.2x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 2.2 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Perth Amboy": {
+     "ratio": 1.82,
+     "caution": [
+      "Safety caution: violent crime here is about 1.8x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 1.8 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    },
+    "Englewood": {
+     "ratio": 1.54,
+     "caution": [
+      "Safety caution: violent crime here is about 1.5x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+      "Precaución de seguridad: el crimen violento aquí es unas 1.5 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+     ]
+    }
+   }
+  }
  },
  "towns": {
   "Secaucus": {
@@ -62,7 +144,16 @@
     "NJ Transit train about 11-14 min to Penn Station",
     "Tren NJ Transit unos 11-14 min a Penn Station"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.58,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.72,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "SECAUCUS PD"
+   },
+   "eff_tax": 0.0123
   },
   "Weehawken": {
    "lat": 40.76955,
@@ -76,7 +167,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.31,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.6,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "WEEHAWKEN PD"
+   },
+   "eff_tax": 0.0148
   },
   "Union City": {
    "lat": 40.77955,
@@ -93,7 +193,19 @@
     "Bus 159 about 38-50 min to Port Authority",
     "Bus 159 unos 38-50 min a Port Authority"
    ],
-   "caution": null
+   "caution": [
+    "Heads up: violent crime here is about 1.4x the New Jersey average (State Police UCR 2023-2024). Check the exact block.",
+    "Atención: el crimen violento aquí es unas 1.4 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Revise la cuadra exacta."
+   ],
+   "safety": {
+    "violent_per_1k": 2.97,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 1.36,
+    "level": "above",
+    "years": "2023-2024",
+    "agency": "UNION CITY PD"
+   },
+   "eff_tax": 0.0166
   },
   "West New York": {
    "lat": 40.78561,
@@ -110,7 +222,19 @@
     "Bus 159 about 40-50 min to Port Authority",
     "Bus 159 unos 40-50 min a Port Authority"
    ],
-   "caution": null
+   "caution": [
+    "Heads up: violent crime here is about 1.1x the New Jersey average (State Police UCR 2023-2024). Check the exact block.",
+    "Atención: el crimen violento aquí es unas 1.1 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Revise la cuadra exacta."
+   ],
+   "safety": {
+    "violent_per_1k": 2.48,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 1.14,
+    "level": "above",
+    "years": "2023-2024",
+    "agency": "WEST NEW YORK PD"
+   },
+   "eff_tax": 0.0166
   },
   "North Bergen": {
    "lat": 40.80427,
@@ -124,7 +248,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.62,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.74,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "NORTH BERGEN PD"
+   },
+   "eff_tax": 0.0155
   },
   "Guttenberg": {
    "lat": 40.79205,
@@ -138,7 +271,19 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": [
+    "Heads up: violent crime here is about 1.3x the New Jersey average (State Police UCR 2023-2024). Check the exact block.",
+    "Atención: el crimen violento aquí es unas 1.3 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Revise la cuadra exacta."
+   ],
+   "safety": {
+    "violent_per_1k": 2.83,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 1.3,
+    "level": "above",
+    "years": "2023-2024",
+    "agency": "GUTTENBERG PD"
+   },
+   "eff_tax": 0.0229
   },
   "Hoboken": {
    "lat": 40.74331,
@@ -155,7 +300,16 @@
     "PATH about 14 min to 33rd St",
     "PATH unos 14 min a la calle 33"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.73,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.79,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "HOBOKEN PD"
+   },
+   "eff_tax": 0.009
   },
   "Jersey City": {
    "lat": 40.72157,
@@ -172,7 +326,19 @@
     "PATH to Manhattan (time depends on the station)",
     "PATH a Manhattan (depende de la estación)"
    ],
-   "caution": null
+   "caution": [
+    "Safety caution: violent crime here is about 2.5x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+    "Precaución de seguridad: el crimen violento aquí es unas 2.5 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+   ],
+   "safety": {
+    "violent_per_1k": 5.56,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 2.54,
+    "level": "exclude",
+    "years": "2023-2024",
+    "agency": "JERSEY CITY PD"
+   },
+   "eff_tax": 0.0143
   },
   "Fort Lee": {
    "lat": 40.85093,
@@ -189,7 +355,16 @@
     "Bus 156/158 about 37-45 min to Port Authority",
     "Bus 156/158 unos 37-45 min a Port Authority"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.18,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.54,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "FORT LEE PD"
+   },
+   "eff_tax": 0.0185
   },
   "Edgewater": {
    "lat": 40.82704,
@@ -203,7 +378,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.46,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.21,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "EDGEWATER PD"
+   },
+   "eff_tax": null
   },
   "Cliffside Park": {
    "lat": 40.82149,
@@ -220,7 +404,16 @@
     "Bus 156 about 45-60 min to Port Authority",
     "Bus 156 unos 45-60 min a Port Authority"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.95,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.43,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "CLIFFSIDE PARK PD"
+   },
+   "eff_tax": 0.0149
   },
   "Ridgefield": {
    "lat": 40.83427,
@@ -234,7 +427,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.52,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.24,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "RIDGEFIELD BORO PD"
+   },
+   "eff_tax": 0.0152
   },
   "Palisades Park": {
    "lat": 40.84816,
@@ -251,7 +453,16 @@
     "Bus 156 about 40-55 min to Port Authority",
     "Bus 156 unos 40-55 min a Port Authority"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.41,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.19,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "PALISADES PARK PD"
+   },
+   "eff_tax": 0.0121
   },
   "Lyndhurst": {
    "lat": 40.81229,
@@ -268,7 +479,16 @@
     "NJ Transit train about 30-35 min to Penn (change at Secaucus)",
     "Tren NJ Transit unos 30-35 min a Penn (cambio en Secaucus)"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.73,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.33,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "LYNDHURST PD"
+   },
+   "eff_tax": 0.0173
   },
   "Rutherford": {
    "lat": 40.82649,
@@ -285,7 +505,16 @@
     "NJ Transit train about 30 min to Penn (change at Secaucus)",
     "Tren NJ Transit unos 30 min a Penn (cambio en Secaucus)"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.47,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.22,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "RUTHERFORD PD"
+   },
+   "eff_tax": 0.021
   },
   "Kearny": {
    "lat": 40.76843,
@@ -299,7 +528,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.52,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.7,
+    "level": "ok",
+    "years": "2023",
+    "agency": "KEARNY PD"
+   },
+   "eff_tax": 0.0185
   },
   "Harrison": {
    "lat": 40.74649,
@@ -316,7 +554,16 @@
     "PATH about 23 min to World Trade Center",
     "PATH unos 23 min al World Trade Center"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.54,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.25,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "HARRISON TWP PD"
+   },
+   "eff_tax": 0.0167
   },
   "Bayonne": {
    "lat": 40.66871,
@@ -330,7 +577,19 @@
    ],
    "crossing": "Holland Tunnel",
    "transit": null,
-   "caution": null
+   "caution": [
+    "Heads up: violent crime here is about 1.2x the New Jersey average (State Police UCR 2023-2024). Check the exact block.",
+    "Atención: el crimen violento aquí es unas 1.2 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Revise la cuadra exacta."
+   ],
+   "safety": {
+    "violent_per_1k": 2.68,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 1.23,
+    "level": "above",
+    "years": "2023-2024",
+    "agency": "BAYONNE PD"
+   },
+   "eff_tax": 0.0188
   },
   "Union": {
    "lat": 40.70447,
@@ -347,7 +606,16 @@
     "NJ Transit train about 50-70 min (change at Newark)",
     "Tren NJ Transit unos 50-70 min (cambio en Newark)"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.89,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.41,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "UNION TWP PD"
+   },
+   "eff_tax": 0.0193
   },
   "Linden": {
    "lat": 40.62205,
@@ -364,7 +632,19 @@
     "NJ Transit train about 36-39 min to Penn Station",
     "Tren NJ Transit unos 36-39 min a Penn Station"
    ],
-   "caution": null
+   "caution": [
+    "Heads up: violent crime here is about 1.4x the New Jersey average (State Police UCR 2023-2024). Check the exact block.",
+    "Atención: el crimen violento aquí es unas 1.4 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Revise la cuadra exacta."
+   ],
+   "safety": {
+    "violent_per_1k": 3.13,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 1.43,
+    "level": "above",
+    "years": "2023-2024",
+    "agency": "LINDEN PD"
+   },
+   "eff_tax": 0.0177
   },
   "Belleville": {
    "lat": 40.79371,
@@ -378,7 +658,19 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": [
+    "Heads up: violent crime here is about 1.1x the New Jersey average (State Police UCR 2023-2024). Check the exact block.",
+    "Atención: el crimen violento aquí es unas 1.1 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Revise la cuadra exacta."
+   ],
+   "safety": {
+    "violent_per_1k": 2.38,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 1.09,
+    "level": "above",
+    "years": "2023-2024",
+    "agency": "BELLEVILLE PD"
+   },
+   "eff_tax": 0.0244
   },
   "Garfield": {
    "lat": 40.88149,
@@ -395,7 +687,16 @@
     "NJ Transit train about 35-45 min to Penn (change at Secaucus)",
     "Tren NJ Transit unos 35-45 min a Penn (cambio en Secaucus)"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.58,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.72,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "GARFIELD PD"
+   },
+   "eff_tax": 0.0161
   },
   "Clifton": {
    "lat": 40.85843,
@@ -412,7 +713,16 @@
     "NJ Transit train about 35-45 min to Penn (change at Secaucus)",
     "Tren NJ Transit unos 35-45 min a Penn (cambio en Secaucus)"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.58,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.72,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "CLIFTON PD"
+   },
+   "eff_tax": 0.0188
   },
   "Bloomfield": {
    "lat": 40.79348,
@@ -426,7 +736,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.14,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.52,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "BLOOMFIELD PD"
+   },
+   "eff_tax": 0.0199
   },
   "Rahway": {
    "lat": 40.60816,
@@ -443,7 +762,16 @@
     "NJ Transit train about 40-50 min to Penn Station",
     "Tren NJ Transit unos 40-50 min a Penn Station"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 1.67,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.76,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "RAHWAY PD"
+   },
+   "eff_tax": 0.021
   },
   "Hawthorne": {
    "lat": 40.94926,
@@ -460,7 +788,16 @@
     "NJ Transit train about 35-45 min to Penn (change at Secaucus)",
     "Tren NJ Transit unos 35-45 min a Penn (cambio en Secaucus)"
    ],
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.31,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.14,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "HAWTHORNE PD"
+   },
+   "eff_tax": 0.0192
   },
   "North Arlington": {
    "lat": 40.78843,
@@ -474,7 +811,16 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": null,
+   "safety": {
+    "violent_per_1k": 0.82,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 0.38,
+    "level": "ok",
+    "years": "2023-2024",
+    "agency": "NORTH ARLINGTON PD"
+   },
+   "eff_tax": 0.0179
   },
   "Newark": {
    "lat": 40.73566,
@@ -488,7 +834,19 @@
    ],
    "crossing": "Lincoln Tunnel",
    "transit": null,
-   "caution": null
+   "caution": [
+    "Safety caution: violent crime here is about 2.5x the New Jersey average (State Police UCR 2023-2024). Our plan leaves this town out of the suggestions. Check the exact block before you decide.",
+    "Precaución de seguridad: el crimen violento aquí es unas 2.5 veces el promedio de Nueva Jersey (UCR de la Policía Estatal 2023-2024). Nuestro plan deja este pueblo fuera de las sugerencias. Revise la cuadra exacta antes de decidir."
+   ],
+   "safety": {
+    "violent_per_1k": 5.58,
+    "nj_avg_per_1k": 2.18,
+    "ratio": 2.55,
+    "level": "exclude",
+    "years": "2023-2024",
+    "agency": "NEWARK PD"
+   },
+   "eff_tax": 0.0142
   }
  }
 }
