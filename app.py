@@ -1703,7 +1703,7 @@ def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est
             d = r.get("days")
             dl = (L("today", "hoy") if d == 0 else L("1 day", "1 día") if d == 1 else L(f"{d} days", f"{d} días")) if d is not None else ""
             dist = (f"{r['_mi']:.1f} mi" if r.get("_mi") is not None else (r.get("town") or ""))
-            facts = " · ".join(x for x in [f"{r['beds']} {L('bd', 'hab')}" if r.get("beds") is not None else "", f"{float(r['baths']):g} {L('ba', 'baños')}" if r.get("baths") else "", dist, dl] if x)
+            facts = " · ".join(x for x in [f"{r['beds']} {L('bd', 'hab')}" if r.get("beds") is not None else "", f"{float(r['baths']):g} {L('ba', 'baño' if float(r['baths']) == 1 else 'baños')}" if r.get("baths") else "", dist, dl] if x)
             img = f"<img src='{H.escape(r['photo'])}' loading='lazy' alt=''>" if r.get("photo") else "<div class='ni'>🏠</div>"
             a0, a1 = (f"<a href='{H.escape(r['url'])}' target='_blank' rel='noopener'>", "</a>") if r.get("url") else ("", "")
             body += f"{a0}<div class='row'>{img}<div><b>{money(r['price'])}{L('/mo', '/mes')}</b><div class='f'>{H.escape(facts)}</div><div class='f a'>{H.escape((r.get('address') or '').split(',')[0])}</div></div></div>{a1}"
@@ -2142,7 +2142,7 @@ def carousel(h, key, rent, town_lbl=None):
 
 def _home_card(h, drive, rent, key, town_lbl=None):
     cut = f"<span class='cut'>↓ {kmoney(h['price_cut'])}</span>" if h.get("price_cut") else ("<span class='new'>" + L("NEW", "NUEVA") + "</span>" if h.get("new") else "")
-    bits = [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None, f"{h['baths']:g} {L('ba', 'baños')}" if h.get("baths") else None,
+    bits = [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None, f"{h['baths']:g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
             f"{h['sqft']:,} ft²" if h.get("sqft") else None,
             (L(f"fee {money(h['hoa_monthly'])}/mo", f"cuota {money(h['hoa_monthly'])}/mes") if h.get("hoa_monthly") else None)]
     days = h.get("days")
