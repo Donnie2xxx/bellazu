@@ -9,4 +9,4 @@ pyyaml==6.0.3
 streamlit-searchbox==0.1.24
 dulwich==1.2.15
 paramiko==5.0.0
-# rev 2026-09-26c (restart test for saved homes) saved homes (online copy over SSH)
+# rev 2026-09-26d (restart test for saved homes) saved homes (online copy over SSH)
