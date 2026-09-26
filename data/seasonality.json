@@ -1,0 +1,88 @@
+{
+ "_meta": {
+  "method": "data/seasonality.json: busy vs slow months from Inside Airbnb REVIEW dates (a proxy for bookings: guests review after a stay).\nShort stays = listings with minimum_nights <= 29; 30+ day = minimum_nights >= 28. Counts over the last 3 full years, per calendar month,\nshown as a share of the average month (1.0 = average).",
+  "source": "Inside Airbnb reviews.csv (https://insideairbnb.com/get-the-data/)"
+ },
+ "jersey-city": {
+  "dataset": "nj/jersey-city/2026-06-27",
+  "window": [
+   "2023-06-01",
+   "2026-05-31"
+  ],
+  "short": {
+   "n_reviews": 55460,
+   "index": [
+    0.71,
+    0.61,
+    0.91,
+    1.1,
+    1.35,
+    0.95,
+    0.94,
+    0.94,
+    1.11,
+    1.16,
+    0.99,
+    1.24
+   ]
+  },
+  "monthly": {
+   "n_reviews": 6669,
+   "index": [
+    0.75,
+    0.52,
+    0.76,
+    0.82,
+    1.07,
+    1.1,
+    0.99,
+    1.09,
+    1.18,
+    1.3,
+    1.08,
+    1.34
+   ]
+  }
+ },
+ "newark": {
+  "dataset": "nj/newark/2026-06-30",
+  "window": [
+   "2023-06-01",
+   "2026-05-31"
+  ],
+  "short": {
+   "n_reviews": 51055,
+   "index": [
+    0.72,
+    0.61,
+    0.9,
+    1.01,
+    1.29,
+    1.0,
+    0.99,
+    1.04,
+    1.17,
+    1.17,
+    0.97,
+    1.15
+   ]
+  },
+  "monthly": {
+   "n_reviews": 838,
+   "index": [
+    0.86,
+    0.52,
+    0.69,
+    0.77,
+    1.17,
+    0.96,
+    0.86,
+    1.35,
+    1.26,
+    1.17,
+    1.02,
+    1.37
+   ]
+  }
+ }
+}

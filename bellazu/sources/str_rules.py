@@ -15,6 +15,6 @@ def rules_for(town):
                 "sources": ["https://ecode360.com/"], "source_type": "none", "last_verified": None}
     r = dict(r)
     r["last_verified"] = d["_meta"]["last_verified"]
-    r["str_legal_for_owner"] = r.get("owner_str") not in (False, None)
+    r["str_legal_for_owner"] = r.get("owner_str") not in (False, None) and not str(r.get("owner_str")).startswith("unknown")
     r["str_legal_for_tenant"] = r.get("tenant_str") not in (False, None) and not str(r.get("tenant_str")).startswith("unknown")
     return r

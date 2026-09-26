@@ -1,0 +1,494 @@
+{
+ "_meta": {
+  "built": "2026-09-26",
+  "destination": "Times Square, Midtown Manhattan",
+  "offpeak_source": "OSRM demo server (router.project-osrm.org, OpenStreetMap data; free-flow, no traffic)",
+  "rush_method": "off-peak x 1.683 (TomTom Traffic Index 2025, New York: morning rush-hour congestion 68.3%, https://www.tomtom.com/traffic-index/city/new-york-ny/) plus 5-45 min for the inbound Hudson crossing queue (typical weekday 7-9 AM inbound Lincoln Tunnel wait 20-45 min per TollGuru, https://tollguru.com/lincoln-tunnel-toll; tunnel crossing itself about 4-8 min per MTA figures reported by nj.com, Jan 2025). Typical, not live.",
+  "tolls": [
+   "https://www.panynj.gov/bridges-tunnels/en/tolls.html",
+   "https://congestionreliefzone.mta.info/tolling"
+  ],
+  "first_home": [
+   "Secaucus",
+   "Weehawken",
+   "Union City",
+   "West New York",
+   "North Bergen",
+   "Guttenberg",
+   "Hoboken",
+   "Jersey City",
+   "Fort Lee",
+   "Edgewater",
+   "Cliffside Park",
+   "Ridgefield",
+   "Palisades Park",
+   "Lyndhurst",
+   "Rutherford",
+   "Kearny",
+   "Harrison",
+   "Bayonne"
+  ],
+  "next_homes": [
+   "Union",
+   "Linden",
+   "Belleville",
+   "Garfield",
+   "Clifton",
+   "Bloomfield",
+   "Rahway",
+   "Hawthorne",
+   "North Arlington",
+   "Newark",
+   "Kearny",
+   "Lyndhurst",
+   "Rutherford",
+   "Bayonne",
+   "Jersey City"
+  ]
+ },
+ "towns": {
+  "Secaucus": {
+   "lat": 40.78993,
+   "lon": -74.05667,
+   "zip": "07094",
+   "drive_offpeak_min": 15,
+   "drive_miles": 6.3,
+   "drive_rush_min": [
+    30,
+    70
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 11-14 min to Penn Station",
+    "Tren NJ Transit unos 11-14 min a Penn Station"
+   ],
+   "caution": null
+  },
+  "Weehawken": {
+   "lat": 40.76955,
+   "lon": -74.02042,
+   "zip": "07086",
+   "drive_offpeak_min": 10,
+   "drive_miles": 3.5,
+   "drive_rush_min": [
+    20,
+    60
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Union City": {
+   "lat": 40.77955,
+   "lon": -74.02375,
+   "zip": "07087",
+   "drive_offpeak_min": 13,
+   "drive_miles": 4.7,
+   "drive_rush_min": [
+    25,
+    65
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "Bus 159 about 38-50 min to Port Authority",
+    "Bus 159 unos 38-50 min a Port Authority"
+   ],
+   "caution": null
+  },
+  "West New York": {
+   "lat": 40.78561,
+   "lon": -74.00931,
+   "zip": "07093",
+   "drive_offpeak_min": 13,
+   "drive_miles": 4.9,
+   "drive_rush_min": [
+    25,
+    65
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "Bus 159 about 40-50 min to Port Authority",
+    "Bus 159 unos 40-50 min a Port Authority"
+   ],
+   "caution": null
+  },
+  "North Bergen": {
+   "lat": 40.80427,
+   "lon": -74.01208,
+   "zip": "07047",
+   "drive_offpeak_min": 17,
+   "drive_miles": 6.5,
+   "drive_rush_min": [
+    35,
+    75
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Guttenberg": {
+   "lat": 40.79205,
+   "lon": -74.00375,
+   "zip": "07093",
+   "drive_offpeak_min": 15,
+   "drive_miles": 5.5,
+   "drive_rush_min": [
+    30,
+    70
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Hoboken": {
+   "lat": 40.74331,
+   "lon": -74.03238,
+   "zip": "07030",
+   "drive_offpeak_min": 14,
+   "drive_miles": 4.4,
+   "drive_rush_min": [
+    30,
+    70
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "PATH about 14 min to 33rd St",
+    "PATH unos 14 min a la calle 33"
+   ],
+   "caution": null
+  },
+  "Jersey City": {
+   "lat": 40.72157,
+   "lon": -74.04745,
+   "zip": "07306",
+   "drive_offpeak_min": 19,
+   "drive_miles": 6.8,
+   "drive_rush_min": [
+    35,
+    75
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "PATH to Manhattan (time depends on the station)",
+    "PATH a Manhattan (depende de la estación)"
+   ],
+   "caution": null
+  },
+  "Fort Lee": {
+   "lat": 40.85093,
+   "lon": -73.97014,
+   "zip": "07024",
+   "drive_offpeak_min": 17,
+   "drive_miles": 9.4,
+   "drive_rush_min": [
+    35,
+    75
+   ],
+   "crossing": "GWB",
+   "transit": [
+    "Bus 156/158 about 37-45 min to Port Authority",
+    "Bus 156/158 unos 37-45 min a Port Authority"
+   ],
+   "caution": null
+  },
+  "Edgewater": {
+   "lat": 40.82704,
+   "lon": -73.97569,
+   "zip": "07020",
+   "drive_offpeak_min": 18,
+   "drive_miles": 8.4,
+   "drive_rush_min": [
+    35,
+    75
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Cliffside Park": {
+   "lat": 40.82149,
+   "lon": -73.98764,
+   "zip": "07010",
+   "drive_offpeak_min": 17,
+   "drive_miles": 7.7,
+   "drive_rush_min": [
+    35,
+    75
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "Bus 156 about 45-60 min to Port Authority",
+    "Bus 156 unos 45-60 min a Port Authority"
+   ],
+   "caution": null
+  },
+  "Ridgefield": {
+   "lat": 40.83427,
+   "lon": -74.00875,
+   "zip": "07657",
+   "drive_offpeak_min": 20,
+   "drive_miles": 8.7,
+   "drive_rush_min": [
+    40,
+    80
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Palisades Park": {
+   "lat": 40.84816,
+   "lon": -73.99764,
+   "zip": "07650",
+   "drive_offpeak_min": 20,
+   "drive_miles": 11.2,
+   "drive_rush_min": [
+    40,
+    80
+   ],
+   "crossing": "GWB",
+   "transit": [
+    "Bus 156 about 40-55 min to Port Authority",
+    "Bus 156 unos 40-55 min a Port Authority"
+   ],
+   "caution": null
+  },
+  "Lyndhurst": {
+   "lat": 40.81229,
+   "lon": -74.12473,
+   "zip": "07071",
+   "drive_offpeak_min": 21,
+   "drive_miles": 10.7,
+   "drive_rush_min": [
+    40,
+    80
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 30-35 min to Penn (change at Secaucus)",
+    "Tren NJ Transit unos 30-35 min a Penn (cambio en Secaucus)"
+   ],
+   "caution": null
+  },
+  "Rutherford": {
+   "lat": 40.82649,
+   "lon": -74.10681,
+   "zip": "07070",
+   "drive_offpeak_min": 20,
+   "drive_miles": 10.8,
+   "drive_rush_min": [
+    40,
+    80
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 30 min to Penn (change at Secaucus)",
+    "Tren NJ Transit unos 30 min a Penn (cambio en Secaucus)"
+   ],
+   "caution": null
+  },
+  "Kearny": {
+   "lat": 40.76843,
+   "lon": -74.14542,
+   "zip": "07032",
+   "drive_offpeak_min": 26,
+   "drive_miles": 13.4,
+   "drive_rush_min": [
+    50,
+    90
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Harrison": {
+   "lat": 40.74649,
+   "lon": -74.15626,
+   "zip": "07029",
+   "drive_offpeak_min": 25,
+   "drive_miles": 12.0,
+   "drive_rush_min": [
+    45,
+    85
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "PATH about 23 min to World Trade Center",
+    "PATH unos 23 min al World Trade Center"
+   ],
+   "caution": null
+  },
+  "Bayonne": {
+   "lat": 40.66871,
+   "lon": -74.11431,
+   "zip": "07002",
+   "drive_offpeak_min": 29,
+   "drive_miles": 12.6,
+   "drive_rush_min": [
+    55,
+    95
+   ],
+   "crossing": "Holland Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Union": {
+   "lat": 40.70447,
+   "lon": -74.27878,
+   "zip": "07083",
+   "drive_offpeak_min": 37,
+   "drive_miles": 21.4,
+   "drive_rush_min": [
+    65,
+    105
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 50-70 min (change at Newark)",
+    "Tren NJ Transit unos 50-70 min (cambio en Newark)"
+   ],
+   "caution": null
+  },
+  "Linden": {
+   "lat": 40.62205,
+   "lon": -74.24459,
+   "zip": "07036",
+   "drive_offpeak_min": 37,
+   "drive_miles": 21.6,
+   "drive_rush_min": [
+    65,
+    105
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 36-39 min to Penn Station",
+    "Tren NJ Transit unos 36-39 min a Penn Station"
+   ],
+   "caution": null
+  },
+  "Belleville": {
+   "lat": 40.79371,
+   "lon": -74.15014,
+   "zip": "07109",
+   "drive_offpeak_min": 25,
+   "drive_miles": 14.3,
+   "drive_rush_min": [
+    45,
+    85
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Garfield": {
+   "lat": 40.88149,
+   "lon": -74.1132,
+   "zip": "07026",
+   "drive_offpeak_min": 27,
+   "drive_miles": 15.7,
+   "drive_rush_min": [
+    50,
+    90
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 35-45 min to Penn (change at Secaucus)",
+    "Tren NJ Transit unos 35-45 min a Penn (cambio en Secaucus)"
+   ],
+   "caution": null
+  },
+  "Clifton": {
+   "lat": 40.85843,
+   "lon": -74.16376,
+   "zip": "07011",
+   "drive_offpeak_min": 27,
+   "drive_miles": 14.9,
+   "drive_rush_min": [
+    50,
+    90
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 35-45 min to Penn (change at Secaucus)",
+    "Tren NJ Transit unos 35-45 min a Penn (cambio en Secaucus)"
+   ],
+   "caution": null
+  },
+  "Bloomfield": {
+   "lat": 40.79348,
+   "lon": -74.19793,
+   "zip": "07003",
+   "drive_offpeak_min": 31,
+   "drive_miles": 17.3,
+   "drive_rush_min": [
+    55,
+    95
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Rahway": {
+   "lat": 40.60816,
+   "lon": -74.27765,
+   "zip": "07065",
+   "drive_offpeak_min": 42,
+   "drive_miles": 23.8,
+   "drive_rush_min": [
+    75,
+    115
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": [
+    "NJ Transit train about 40-50 min to Penn Station",
+    "Tren NJ Transit unos 40-50 min a Penn Station"
+   ],
+   "caution": null
+  },
+  "Hawthorne": {
+   "lat": 40.94926,
+   "lon": -74.15375,
+   "zip": "07506",
+   "drive_offpeak_min": 35,
+   "drive_miles": 22.0,
+   "drive_rush_min": [
+    65,
+    105
+   ],
+   "crossing": "GWB",
+   "transit": [
+    "NJ Transit train about 35-45 min to Penn (change at Secaucus)",
+    "Tren NJ Transit unos 35-45 min a Penn (cambio en Secaucus)"
+   ],
+   "caution": null
+  },
+  "North Arlington": {
+   "lat": 40.78843,
+   "lon": -74.1332,
+   "zip": "07031",
+   "drive_offpeak_min": 23,
+   "drive_miles": 12.4,
+   "drive_rush_min": [
+    45,
+    85
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  },
+  "Newark": {
+   "lat": 40.73566,
+   "lon": -74.17237,
+   "zip": "07102",
+   "drive_offpeak_min": 27,
+   "drive_miles": 13.9,
+   "drive_rush_min": [
+    50,
+    90
+   ],
+   "crossing": "Lincoln Tunnel",
+   "transit": null,
+   "caution": null
+  }
+ }
+}

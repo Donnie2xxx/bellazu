@@ -10,6 +10,7 @@ from .config import load_assumptions, load_env, by_beds
 from .geo import geocode, haversine_km
 from .finance import loan_costs, carrying_costs, str_operating, mtr_operating
 from . import towns
+from . import compare as cmpmod
 from .sources import insideairbnb as iab, hud, census, fred, craigslist, rentcom, redfin, rentcast, listing, fha, str_rules
 from .sources import airbnb_manual, bnbcalc
 
@@ -180,6 +181,47 @@ def mtr_rate(raw_monthly, ltr_rent, A, n=None):
     return disc, f"Inside Airbnb 28+ night listings{'' if n is None else f' (n={n})'}: listed nightly x 30.4 less {t.get('monthly_discount_on_listed_nightly', 0.2):.0%} monthly discount"
 
 
+
+STR_COLS = ["name", "neighbourhood_cleansed", "bedrooms", "price_num", "estimated_occupancy_l365d", "estimated_revenue_l365d", "number_of_reviews_ltm",
+            "minimum_nights", "dist_km", "license", "listing_url", "picture_url", "dataset"]
+
+
+def _recs(df, n, cols=STR_COLS):
+    if df is None or not len(df):
+        return []
+    return df.head(n)[[c for c in cols if c in df.columns]].to_dict("records")
+
+
+def _iab_pack(res, n=10):
+    res = dict(res or {})
+    df = res.pop("comps", None)
+    res["comps"] = _recs(df, n)
+    return res
+
+
+def _extra_comps(lat, lon, town, state, zipcode, own, beds, ltr_df, safmr, A, units_total=None, units_for=(1, 2, 3)):
+    """Comps the compare view needs beyond the whole-home ones. All Inside Airbnb work is local pandas (no network)."""
+    rad, mn, rv = tuple(A["comps"]["str_radius_km"]), A["comps"]["str_min_comps"], A["comps"]["str_active_min_reviews_ltm"]
+    out = {"room_str": _iab_pack(iab.comps(lat, lon, None, room_type="Private room", radii=rad, min_n=mn, min_reviews_ltm=rv, state=state)),
+           "room_mtr": _iab_pack(iab.mtr_comps(lat, lon, None, state=state, room_type="Private room"), 8)}
+    whole = iab.mtr_comps(lat, lon, beds, state=state)
+    out["mtr_levels"] = {k: whole.get(k) for k in ("monthly_equiv_p25", "monthly_equiv_median", "monthly_equiv_p75", "n")}
+    if own == "multi-family":
+        out["units_total"] = int(units_total or 2)
+        units = {}
+        for b in units_for:
+            e = rent_estimate(ltr_df, b, A, lat, lon)
+            units[b] = {"ltr": {k: v for k, v in e.items() if k != "comps"}, "ltr_comps": e["comps"].head(8).to_dict("records") if e.get("ok") else [],
+                        "hud": (safmr or {}).get(f"{b}br"),
+                        "str": _iab_pack(iab.comps(lat, lon, b, radii=rad, min_n=mn, min_reviews_ltm=rv, state=state)),
+                        "mtr": _iab_pack(iab.mtr_comps(lat, lon, b, state=state), 8)}
+        out["units"] = units
+    try:
+        out["drive"] = cmpmod.drive(lat, lon, town)
+    except Exception:
+        out["drive"] = None
+    return out
+
 # ------------------------------------------------------------------ A) property analysis
 def analyze_property(address, options=None):
     o = options or {}
@@ -227,6 +269,8 @@ def analyze_property(address, options=None):
                         f"(comps up to {strc['radius_km']:.1f} km away) — different market and different STR law; use only as a rough reference.")
     mtr = iab.mtr_comps(lat, lon, beds, state=state)
     mtr_df = mtr.pop("comps", None)
+    # --- extra comps for the compare view: a furnished ROOM you host, and (2-4 family) the OTHER unit by size
+    extra = _extra_comps(lat, lon, town, state, zipcode, own, beds, ltr_df, safmr, A, o.get("units_total"))
     manual = airbnb_manual.parse_saved_search(o["airbnb_saved_html"]) if o.get("airbnb_saved_html") else None
     bnb = bnbcalc.parse_analysis(o["bnbcalc_url"]) if o.get("bnbcalc_url") else None
 
@@ -355,9 +399,9 @@ def analyze_property(address, options=None):
                 "basis": rent_basis, "comps": rent.get("comps").to_dict("records") if rent.get("ok") else []},
         "rooms": {k: v for k, v in room.items() if k != "comps"} | {"comps": room["comps"].to_dict("records") if room.get("ok") else []},
         "str": {**strc, "method": iab.__doc__.strip(),
-                "comps": str_comps_df.head(20)[["name", "neighbourhood_cleansed", "bedrooms", "price_num", "estimated_occupancy_l365d", "estimated_revenue_l365d", "number_of_reviews_ltm", "minimum_nights", "dist_km", "license", "listing_url", "dataset"]].to_dict("records") if str_comps_df is not None else []},
-        "mtr": {**mtr, "comps": mtr_df.head(10)[["name", "bedrooms", "price_num", "minimum_nights", "dist_km", "listing_url"]].to_dict("records") if mtr_df is not None and len(mtr_df) else []},
-        "airbnb_manual": manual, "bnbcalc": bnb,
+                "comps": _recs(str_comps_df, 20)},
+        "mtr": {**mtr, "comps": _recs(mtr_df, 10)},
+        "airbnb_manual": manual, "bnbcalc": bnb, "extra": extra,
         "scenarios": scen, "assumptions": A, "warnings": warnings,
         "sources_status": list(http.STATUS),
     }
@@ -497,5 +541,63 @@ def scan_arbitrage(town, options=None):
                           "Los ingresos STR son estimaciones del modelo San Francisco de Inside Airbnb para anuncios activos cercanos con igual número de habitaciones; los resultados reales varían mucho (ver P25-P75).",
                           "Las rentas son rentas PEDIDAS en la fecha de consulta; Rent.com muestra el precio más bajo por plano."],
            "rentcast": {"enabled": use_rc, "usage": rentcast.usage()},
+           "sources_status": list(http.STATUS)}
+    return _clean(out)
+
+
+# ------------------------------------------------------------------ C) town snapshot (same layout as a home)
+def town_snapshot(town, options=None):
+    """Everything the town view needs, from free sources. No typical home value is invented: the app asks the user to tap a price."""
+    o = options or {}
+    load_env()
+    http.STATUS.clear()
+    A = load_assumptions(o.get("assumptions_path"), o.get("assumption_overrides"))
+    tn = towns.normalize(town)
+    state = tn["state"] if tn["match"] != "none" else "nj"
+    tname = tn["name"] or (town or "").split(",")[0].strip()
+    base = {"town_input": tn["typed"], "town_match": tn["match"], "town_suggestions": tn["suggestions"]}
+    if not tname:
+        return {"ok": False, "error": "no town given", "error_kind": "unknown_town", **base}
+    ti = cmpmod.town_info(tname)
+    if ti:
+        lat, lon, zipcode, g = ti["lat"], ti["lon"], ti.get("zip"), {"lat": ti["lat"], "lon": ti["lon"], "town": tname}
+    else:
+        g = geocode(f"{tname}, {state.upper()}")
+        if not g or (tn["match"] == "none" and g.get("osm_type") not in ("city", "town", "village", "municipality", "hamlet", "suburb", "borough", "county")):
+            return {"ok": False, "error": "could not find that town", "error_kind": "unknown_town", **base, "sources_status": list(http.STATUS)}
+        lat, lon, zipcode = g["lat"], g["lon"], g.get("zip")
+    rules = str_rules.rules_for(tname)
+    rates = _rates(A)
+    safmr = hud.safmr(zipcode) if zipcode else None
+    use_rc = bool(o.get("use_rentcast", False)) and rentcast.available()
+    ltr_df, used = _ltr_rows(tname, state, zipcode, lat, lon, include_rentcast=use_rc)
+    if not ltr_df.empty:
+        ltr_df = ltr_df[(ltr_df.dist_km <= 4) | ltr_df.dist_km.isna()]
+    by_beds = {}
+    for b in (0, 1, 2, 3):
+        e = rent_estimate(ltr_df, b, A, lat, lon)
+        by_beds[b] = {"ltr": {k: v for k, v in e.items() if k != "comps"}, "ltr_comps": e["comps"].head(10).to_dict("records") if e.get("ok") else [],
+                      "hud": (safmr or {}).get(f"{b}br")}
+    room = room_estimate(tname, state, zipcode, lat, lon, A)
+    rad, mn, rv = tuple(A["comps"]["str_radius_km"]), A["comps"]["str_min_comps"], A["comps"]["str_active_min_reviews_ltm"]
+    for b in (1, 2, 3):
+        by_beds[b]["str"] = _iab_pack(iab.comps(lat, lon, b, radii=rad, min_n=mn, min_reviews_ltm=rv, state=state))
+        by_beds[b]["mtr"] = _iab_pack(iab.mtr_comps(lat, lon, b, state=state), 8)
+    room_str = _iab_pack(iab.comps(lat, lon, None, room_type="Private room", radii=rad, min_n=mn, min_reviews_ltm=rv, state=state))
+    room_mtr = _iab_pack(iab.mtr_comps(lat, lon, None, state=state, room_type="Private room"), 8)
+    # Airbnb market card: all active whole-home short stays around the town centre (3.5 km), or the nearest 40 if none
+    mk = iab.comps(lat, lon, None, radii=(3.5,), min_n=15, min_reviews_ltm=rv, state=state, nearest_k=40)
+    mdf = mk.get("comps")
+    juris = sorted(set(mdf.dataset.str.split("/").str[1])) if mdf is not None and len(mdf) else []
+    covered = any(tname.lower().replace(" ", "-") == j for j in juris)
+    market = {"summary": mk.get("summary") or {}, "radius_km": mk.get("radius_km"), "datasets": juris, "covered": covered,
+              "n_30plus": int(by_beds[2]["mtr"].get("n") or 0)}
+    out = {"ok": True, "kind": "town", "brand": "BellaZu", "generated": dt.datetime.now().isoformat(timespec="minutes"),
+           "town": tname, "state": state, "zip": zipcode, "lat": lat, "lon": lon, **base,
+           "str_rules": rules, "rates": rates, "hud_safmr": safmr, "by_beds": by_beds,
+           "rooms": {k: v for k, v in room.items() if k != "comps"} | {"comps": room["comps"].to_dict("records") if room.get("ok") else []},
+           "room_str": room_str, "room_mtr": room_mtr, "market": market, "iab_covers_town": covered,
+           "seasonality": cmpmod.seasonality(mk.get("datasets") or []), "drive": cmpmod.drive(town=tname, route=False) if ti else cmpmod.drive(lat, lon, tname),
+           "sources_used": used, "assumptions": A, "rentcast": {"enabled": use_rc, "usage": rentcast.usage()},
            "sources_status": list(http.STATUS)}
     return _clean(out)

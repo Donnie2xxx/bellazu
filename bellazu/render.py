@@ -188,10 +188,34 @@ def _rc_status_text(s):
             "not_found": "RentCast had no estimate for this address", None: "not requested"}.get(s, f"RentCast unavailable ({s})")
 
 
-def property_html(r, lang="both"):
+CMP_CSS = ("<style>.cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:.6em 0}.cmp div.c{border:1px solid var(--line);border-radius:16px;padding:10px 8px}"
+           ".cmp .h{font-size:.72em;text-transform:uppercase;letter-spacing:.06em;font-weight:600}.cmp .n{font-family:'League Gothic',Impact,sans-serif;font-size:30px;line-height:1.05}"
+           ".cmp .s,.cmp .b{font-size:.75em;color:var(--mute)}.cmp .b{border-top:1px solid var(--line);margin-top:6px;padding-top:6px;color:var(--ink)}</style>")
+
+
+def compare_html(cv):
+    """The 3-column compare strip (built by the app from bellazu.compare.labels) for the downloadable reports."""
+    if not cv:
+        return ""
+    cells = "".join(f"<div class='c'><div class='h'>{bi(H.escape(c['title'][0]), H.escape(c['title'][1]))}</div><div class='s'>{bi(H.escape(c['pay_lbl'][0]), H.escape(c['pay_lbl'][1]))}</div>"
+                    f"<div class='n'>{H.escape(c['pay'])}</div><div class='s'>{bi(H.escape(c['sub'][0]), H.escape(c['sub'][1]))}</div>"
+                    f"<div class='b'>{bi(H.escape(c['badge'][0]), H.escape(c['badge'][1]))}</div></div>" for c in cv["cols"])
+    extra = "".join(f"<li>{bi(H.escape(a), H.escape(b))}</li>" for a, b in ([cv["drive"]] if cv.get("drive") else []) + list(cv.get("lines") or []))
+    return (CMP_CSS + f"<h2>{bi('What you pay each month (same FHA loan)', 'Lo que paga al mes (mismo préstamo FHA)')}</h2><div class='cmp'>{cells}</div>"
+            + (f"<ul class='small'>{extra}</ul>" if extra else "")
+            + "<p class='small'>" + bi("Drive times are typical, not live. Rush-hour range = off-peak route time × 1.68 (TomTom Traffic Index 2025, New York) plus 5-45 min crossing queue. Hudson crossings and Midtown have tolls: panynj.gov/bridges-tunnels/en/tolls.html, congestionreliefzone.mta.info.",
+                                      "Los tiempos en carro son típicos, no en vivo. Rango en hora pico = tiempo sin tráfico × 1.68 (TomTom 2025, Nueva York) más 5-45 min de fila en el cruce. Los cruces del Hudson y Midtown tienen peajes: panynj.gov/bridges-tunnels/en/tolls.html, congestionreliefzone.mta.info.") + "</p>")
+
+
+def _cv_rows(cv):
+    return [{"option_en": c["title"][0], "option_es": c["title"][1], "label": c["pay_lbl"][0], "per_month": c["pay"], "detail": c["sub"][0], "rules": c["badge"][0]} for c in (cv or {}).get("cols", [])]
+
+
+def property_html(r, lang="both", cv=None):
     f, fs = r["facts"], r["fact_sources"]
     parts = [_open(f"BellaZu Home Report: {H.escape(r['address'])}", lang),
              f"<h1>{bk('prop_title')}</h1><div><b>{H.escape(r['address'])}</b></div><div class='small'>{bk('generated')}: {r['generated']} ET · BellaZu v0.1</div>",
+             compare_html(cv),
              f"<h2>{bk('bottom_line')}</h2><ul>" + "".join(f"<li>{bi(H.escape(a), H.escape(b), 'div')}</li>" for a, b in property_bullets(r)) + "</ul>"]
     if r["warnings"]:
         parts.append("<div class='box'><b>" + bk("warnings") + "</b><ul>" + "".join(f"<li>{H.escape(w)}</li>" for w in r["warnings"]) + "</ul></div>")
@@ -431,11 +455,11 @@ def _style_xlsx(path):
     wb.save(path)
 
 
-def write_property(r, outdir):
+def write_property(r, outdir, cv=None):
     outdir = pathlib.Path(outdir); outdir.mkdir(parents=True, exist_ok=True)
     base = outdir / f"BellaZu_Property_Report_{slug(r['address'])}_{r['generated'][:10]}"
     files = {}
-    (p := base.with_suffix(".html")).write_text(property_html(r)); files["html"] = str(p)
+    (p := base.with_suffix(".html")).write_text(property_html(r, cv=cv)); files["html"] = str(p)
     (p := base.with_suffix(".md")).write_text(property_md(r, "en") + "\n\n---\n\n" + property_md(r, "es")); files["md"] = str(p)
     (p := base.with_suffix(".json")).write_text(json.dumps(r, indent=1, default=str)); files["json"] = str(p)
     sc_rows = []
@@ -450,6 +474,8 @@ def write_property(r, outdir):
     p = base.with_suffix(".xlsx")
     with pd.ExcelWriter(p, engine="openpyxl") as w:
         facts = pd.DataFrame([{"field": k, "value": (", ".join(v) if isinstance(v, list) else v), "source": r["fact_sources"].get(k, "")} for k, v in r["facts"].items() if k != "description"])
+        if cv:
+            pd.DataFrame(_cv_rows(cv)).to_excel(w, sheet_name="Compare", index=False)
         facts.to_excel(w, sheet_name="Facts", index=False)
         sc.to_excel(w, sheet_name="Monthly numbers", index=False)
         pd.DataFrame(r["ltr"]["comps"]).to_excel(w, sheet_name="Rentals nearby", index=False)
@@ -488,3 +514,57 @@ def write_arbitrage(r, outdir):
     _style_xlsx(p)
     files["xlsx"] = str(p)
     return files
+
+
+# ------------------------------------------------------------------ town snapshot report
+def town_html(a, cv=None, lang="both"):
+    sr = a.get("str_rules") or {}
+    mk = (a.get("market") or {}).get("summary") or {}
+    d = a.get("drive") or {}
+    parts = [_open(f"BellaZu Town Report: {H.escape(a['town'])}", lang),
+             f"<h1>{H.escape(a['town'])}</h1><div class='small'>{bk('generated')}: {a['generated']} ET · BellaZu v0.1</div>"]
+    parts.append(compare_html(cv) if cv else "<p>" + bi("Tap a price in the app to add the monthly compare.", "Toque un precio en la app para agregar la comparación mensual.") + "</p>")
+    cls = "bad" if not sr.get("str_legal_for_owner") else "ok"
+    parts.append(f"<h2>{bk('legality')}</h2><div class='box {cls}'>{bi(H.escape(sr.get('summary_en', '')), H.escape(sr.get('summary_es', '')))}<div class='small'>Sources: "
+                 + "; ".join(_rule_src(x) for x in sr.get("sources", [])) + f" · checked {sr.get('checked') or sr.get('last_verified')} · confidence {sr.get('confidence', '?')}</div></div>")
+    rows = []
+    for b, v in sorted(((int(k), v) for k, v in (a.get("by_beds") or {}).items())):
+        e = v.get("ltr") or {}
+        rows.append([f"{b} bd" if b else "Studio", money(e.get("median")) if e.get("ok") else "—", f"{money(e.get('p25'))}–{money(e.get('p75'))}" if e.get("ok") else "—", e.get("n") or 0, money(v.get("hud"))])
+    parts.append(f"<h2>{bi('Rent by size', 'Renta por tamaño')}</h2>" + _table([bi("Size", "Tamaño"), bi("Typical", "Típica"), bi("Usual range", "Rango usual"), "n", "HUD SAFMR"], rows, (1, 3, 4)))
+    ro = a.get("rooms") or {}
+    if ro.get("ok"):
+        parts.append(f"<p>{bi('Room in a shared home', 'Cuarto en casa compartida')}: <b>{money(ro['median'])}</b>/mo ({money(ro['p25'])}–{money(ro['p75'])}, n={ro['n']}, Craigslist)</p>")
+    if mk.get("n"):
+        rough = "" if (a.get("market") or {}).get("covered") else bi(" Rough estimate borrowed from nearby city data.", " Estimado aproximado con datos de una ciudad cercana.")
+        parts.append(f"<h2>{bi('Airbnb market nearby', 'Mercado de Airbnb cerca')}</h2><p>n={mk['n']} · {bi('typical nightly', 'noche típica')} <b>{money(mk.get('adr_median'))}</b> · "
+                     f"{bi('nights/yr', 'noches/año')} <b>{round((mk.get('occ_median_sf_model') or 0) * 365)}</b> · {bi('income/yr', 'ingreso/año')} <b>{money(mk.get('revenue_median'))}</b> "
+                     f"({money(mk.get('revenue_p25'))}–{money(mk.get('revenue_p75'))}).{rough}</p>")
+    s = a.get("seasonality") or {}
+    if (s.get("short") or {}).get("index"):
+        mn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        parts.append(f"<h2>{bi('Busy vs slow months', 'Meses de mucho y poco movimiento')}</h2>" + _table(mn, [[f"{v:.2f}" for v in s["short"]["index"]]], tuple(range(12)))
+                     + "<p class='small'>" + bi("1.00 = average month. Guest reviews per month (a stand-in for bookings), Inside Airbnb, " + s["city"], "1.00 = mes promedio. Reseñas por mes (aproximación de reservas), Inside Airbnb, " + s["city"]) + "</p>")
+    if d:
+        parts.append(f"<p class='small'>Drive to Midtown: about {d.get('min')} min off-peak, {d.get('rush', ['?', '?'])[0]}-{d.get('rush', ['?', '?'])[1]} at rush hour via {d.get('crossing')}. Typical, not live.</p>")
+    parts.append(f"<p class='small'>{bk('disclaimer')}</p>{JS}</body></html>")
+    return plainify("\n".join(parts))
+
+
+def write_town(a, cv, outdir):
+    outdir = pathlib.Path(outdir); outdir.mkdir(parents=True, exist_ok=True)
+    p = outdir / f"BellaZu_Town_{slug(a['town'])}_{a['generated'][:10]}.xlsx"
+    with pd.ExcelWriter(p, engine="openpyxl") as w:
+        if cv:
+            pd.DataFrame(_cv_rows(cv)).to_excel(w, sheet_name="Compare", index=False)
+        pd.DataFrame([{"beds": k, **{kk: vv for kk, vv in (v.get("ltr") or {}).items()}, "hud_safmr": v.get("hud")} for k, v in (a.get("by_beds") or {}).items()]).to_excel(w, sheet_name="Rent by size", index=False)
+        for b, v in (a.get("by_beds") or {}).items():
+            if v.get("ltr_comps"):
+                pd.DataFrame(v["ltr_comps"]).to_excel(w, sheet_name=f"Rentals {b}bd", index=False)
+        pd.DataFrame((a.get("rooms") or {}).get("comps") or []).to_excel(w, sheet_name="Rooms", index=False)
+        pd.DataFrame([(a.get("market") or {}).get("summary") or {}]).to_excel(w, sheet_name="Airbnb market", index=False)
+        pd.DataFrame([{"field": k, "value": str(v)} for k, v in (a.get("str_rules") or {}).items()]).to_excel(w, sheet_name="Airbnb rules", index=False)
+        pd.DataFrame(a.get("sources_status") or []).to_excel(w, sheet_name="Data log", index=False)
+        _flat_assumptions(a["assumptions"]).to_excel(w, sheet_name="Our estimates", index=False)
+    _style_xlsx(p)
+    return str(p)

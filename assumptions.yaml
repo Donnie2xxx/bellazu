@@ -67,3 +67,15 @@ arbitrage:
   beds: [1, 2, 3]
   max_pages_rentcom: 3
   max_listings: 1000             # scoring is fast; keep all sources (RentCast returns up to 500)
+
+room:                           # renting ONE furnished room to short-stay or 30+ day guests while you live there (hosted)
+  furnishing_cost: 1500         # ASSUMPTION: bed, dresser, linens for one room
+  cleaning_per_turn: 45         # ASSUMPTION
+  insurance_monthly: 40         # ASSUMPTION: host liability add-on
+
+fha_rules:                      # HUD Handbook 4000.1 II.A.4.c (Rental Income) as revised by Mortgagee Letter 2023-17
+  rent_share_counted: 0.75      # 75% of the lesser of appraiser's fair market rent or the lease, for 2-4 unit subject property
+  self_sufficiency_deduct: 0.25 # 3-4 units: PITI / (fair rent of ALL units minus the greater of vacancy+maintenance or 25%) must be <= 100%
+
+growth:
+  rent_growth_pct: 0.0          # the 5-year picture keeps rents flat (conservative); value growth is the user's chip (0/2/3%)

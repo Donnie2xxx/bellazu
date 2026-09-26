@@ -24,7 +24,7 @@ CENTERS = {
 KEEP = ["id", "listing_url", "name", "latitude", "longitude", "neighbourhood_cleansed", "room_type",
         "property_type", "accommodates", "bedrooms", "bathrooms", "price", "minimum_nights",
         "availability_365", "number_of_reviews", "number_of_reviews_ltm", "reviews_per_month",
-        "estimated_occupancy_l365d", "estimated_revenue_l365d", "review_scores_rating", "license",
+        "estimated_occupancy_l365d", "estimated_revenue_l365d", "review_scores_rating", "license", "picture_url",
         "last_scraped", "price_quote_checkin_date", "price_quote_checkout_date", "host_listings_count"]
 
 
@@ -142,7 +142,7 @@ def summarize(c):
     }
 
 
-def mtr_comps(lat, lon, beds=None, radii=(1.0, 2.0, 3.5, 8.0, 15.0), min_n=5, state=None):
+def mtr_comps(lat, lon, beds=None, radii=(1.0, 2.0, 3.5, 8.0, 15.0), min_n=5, state=None, room_type="Entire home/apt"):
     """Furnished 28+ night listings (mid-term rentals). Occupancy not modeled (few reviews)."""
     frames = []
     for d, st, city, date in nearby_datasets(lat, lon, state=state):
@@ -153,7 +153,7 @@ def mtr_comps(lat, lon, beds=None, radii=(1.0, 2.0, 3.5, 8.0, 15.0), min_n=5, st
         return {"ok": False}
     df = pd.concat(frames, ignore_index=True)
     df["dist_km"] = [haversine_km(lat, lon, a, b) for a, b in zip(df.latitude, df.longitude)]
-    base = df[(df.room_type == "Entire home/apt") & df.price_num.notna() & (df.minimum_nights >= 28)]
+    base = df[(df.room_type == room_type) & df.price_num.notna() & (df.minimum_nights >= 28)]
     for r in radii:
         sub = base[base.dist_km <= r]
         if beds is not None:
@@ -163,4 +163,7 @@ def mtr_comps(lat, lon, beds=None, radii=(1.0, 2.0, 3.5, 8.0, 15.0), min_n=5, st
     return {"ok": len(sub) > 0, "n": int(len(sub)), "radius_km": r,
             "nightly_median": float(sub.price_num.median()) if len(sub) else None,
             "monthly_equiv_median": float(sub.price_num.median() * 30.4) if len(sub) else None,
+            "monthly_equiv_p25": float(sub.price_num.quantile(.25) * 30.4) if len(sub) else None,
+            "monthly_equiv_p75": float(sub.price_num.quantile(.75) * 30.4) if len(sub) else None,
+            "datasets": sorted(df.dataset.unique().tolist()),
             "comps": sub.sort_values("dist_km")}

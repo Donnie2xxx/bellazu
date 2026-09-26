@@ -1,0 +1,10 @@
+{
+ "v": 1,
+ "kdf": "scrypt",
+ "n": 65536,
+ "r": 8,
+ "p": 1,
+ "salt": "0cb312bee42f5a9d0e1c5d00f8a147cc",
+ "ct": "55b2e31fb070dd64c625a121deaf0c12894a8ffd21289b89118b474e897dcec765379caaf52a88829f89086fb0c1e554f732",
+ "tag": "4497572916ea96276cf1e0ff3ffac5d1278bbeeddd79341d2b770527cd651dfb"
+}

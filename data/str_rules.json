@@ -1,35 +1,443 @@
 {
-  "_meta": {
-    "last_verified": "2026-09-25",
-    "note": "Curated from municipal code / official city pages where possible; secondary sources flagged. ALWAYS re-verify with the town clerk/zoning office before acting. Laws change (several NJ towns changed rules for the 2026 World Cup)."
-  },
-  "fort lee": {"status": "banned", "min_nights_allowed": 31, "owner_str": false, "tenant_str": false,
-    "summary_en": "Rentals of 30 days or less for payment are prohibited (owners and tenants); advertising them is also prohibited. Fines up to $1,250/day. 31+ day rentals allowed.",
-    "summary_es": "Prohibido alquilar por 30 días o menos a cambio de pago (dueños e inquilinos), y también anunciarlo. Multas de hasta $1,250 por día. Se permiten alquileres de 31+ días.",
-    "sources": ["https://ecode360.com/31804664 (Borough Code Ch. 321 Art. V)"], "source_type": "official code"},
-  "west new york": {"status": "banned_for_condos_coops_tenants", "min_nights_allowed": 30, "owner_str": "only owner-occupied legal 2-4 family (disputed/limited)", "tenant_str": false,
-    "summary_en": "Short-term (<30 day) rentals are prohibited in apartments, condos and co-ops and for tenants. The 2018 amendment (Ord. 3/18) allowed only an owner-occupied 2-4 unit house with registration; several 2026 sources describe the town as a full ban. Fines $500-$1,000/day.",
-    "summary_es": "Prohibidos los alquileres de menos de 30 días en apartamentos, condominios y cooperativas, y para inquilinos. La enmienda de 2018 (Ord. 3/18) solo permitía casas de 2-4 unidades ocupadas por el dueño con registro; fuentes de 2026 la describen como prohibición total. Multas de $500-$1,000 por día.",
-    "sources": ["https://westnewyorknj.org/wp-content/uploads/2023/11/ord3-18.pdf", "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "official ordinance + secondary"},
-  "union city": {"status": "banned", "min_nights_allowed": 31, "owner_str": false, "tenant_str": false,
-    "summary_en": "Short-term vacation rentals of 30 consecutive days or less are prohibited in residential property, owner-occupied or not. Minimum $250 fine per violation per day.",
-    "summary_es": "Prohibidos los alquileres vacacionales de 30 días consecutivos o menos en propiedades residenciales, aunque el dueño viva allí. Multa mínima de $250 por violación por día.",
-    "sources": ["https://ecode360.com/31144900 (City Code Ch. 296 Art. V, §296-13)"], "source_type": "official code"},
-  "jersey city": {"status": "owner_occupied_permit_only", "min_nights_allowed": 1, "owner_str": "permit; owner must live there as principal residence (275+ days/yr); unhosted whole-unit max 60 nights/yr; buildings >4 units banned unless condo/co-op bylaws allow and it is the owner's principal residence", "tenant_str": false,
-    "summary_en": "Only an OWNER whose principal residence is the property can get a permit ($250, renew $200/yr; zoning letter; $500k liability insurance). Unhosted whole-unit stays capped at 60 nights/yr. Tenants can never get a permit, so rental arbitrage is NOT legal. Rent-controlled units excluded.",
-    "summary_es": "Solo un DUEÑO que viva en la propiedad como residencia principal puede obtener permiso ($250, renovación $200/año; carta de zonificación; seguro de responsabilidad de $500k). Estadías sin anfitrión limitadas a 60 noches/año. Los inquilinos nunca pueden obtener permiso: el arbitraje de alquiler NO es legal. Se excluyen unidades con control de renta.",
-    "sources": ["Jersey City Municipal Code Ch. 255, Ord. 25-059 (June 2025): https://cdnsm5-hosted.civiclive.com/UserFiles/Servers/Server_6189660/File/City%20Hall/Housing%20Economic%20Development/Tenant%20Landlord%20Relations/Ord.%2025-059%20(Chapter%20255%20-%20STR%20)%20.pdf", "https://www.jerseycitynj.gov/cityhall/housinganddevelopment/housingpreservation"], "source_type": "official ordinance"},
-  "hoboken": {"status": "no_dedicated_ordinance_pending", "min_nights_allowed": 1, "owner_str": "no dedicated STR ordinance as of Sep 2026 (one was introduced in 2026 - verify)", "tenant_str": "possibly, with landlord/condo permission; rent-controlled units cannot be used as STR",
-    "summary_en": "Secondary sources (Sep 2026) say Hoboken has no dedicated STR ordinance yet, but one was introduced in 2026 ahead of the World Cup. Rent-controlled units cannot be STRs. VERIFY with City Hall before acting.",
-    "summary_es": "Fuentes secundarias (sept. 2026) indican que Hoboken aún no tiene ordenanza específica de STR, pero se presentó una en 2026. Las unidades con control de renta no pueden ser STR. VERIFICAR con el municipio.",
-    "sources": ["https://staystra.com/hoboken-nj-short-term-rental-ordinance-2026/ (secondary)", "https://www.nj.com/hudson/2026/04/nj-city-considers-regulating-airbnb-rentals-as-demand-surges-ahead-of-the-world-cup.html"], "source_type": "secondary"},
-  "weehawken": {"status": "banned", "min_nights_allowed": 30, "owner_str": false, "tenant_str": false, "summary_en": "Banned under 30 consecutive days (Ord. 19-2022).", "summary_es": "Prohibido por menos de 30 días consecutivos (Ord. 19-2022).", "sources": ["https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "secondary"},
-  "guttenberg": {"status": "banned", "min_nights_allowed": 30, "owner_str": false, "tenant_str": false, "summary_en": "Banned, hosted or not (Code Ch. 29).", "summary_es": "Prohibido, con o sin anfitrión (Código Cap. 29).", "sources": ["https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "secondary"},
-  "north bergen": {"status": "owner_occupied_permit_only", "min_nights_allowed": 1, "owner_str": "owner-occupied, 60 nights/yr (Ord. 706-26, Mar 2026)", "tenant_str": false, "summary_en": "Owner-occupied permit only, 60 nights/yr.", "summary_es": "Solo con permiso y dueño residente, 60 noches/año.", "sources": ["https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "secondary"},
-  "bayonne": {"status": "owner_occupied_permit_only", "min_nights_allowed": 1, "owner_str": "owner-occupied, 60 unhosted nights/yr", "tenant_str": false, "summary_en": "Owner-occupied permit only; 60 unhosted nights/yr.", "summary_es": "Solo con permiso y dueño residente; 60 noches sin anfitrión/año.", "sources": ["https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "secondary"},
-  "secaucus": {"status": "banned", "min_nights_allowed": 30, "owner_str": false, "tenant_str": false, "summary_en": "Banned (Board of Health Ch. 154).", "summary_es": "Prohibido (Junta de Salud Cap. 154).", "sources": ["https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "secondary"},
-  "kearny": {"status": "banned", "min_nights_allowed": 30, "owner_str": false, "tenant_str": false, "summary_en": "Banned in all residential dwellings (Ord. 2026-7).", "summary_es": "Prohibido en todas las viviendas (Ord. 2026-7).", "sources": ["https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"], "source_type": "secondary"},
-  "edgewater": {"status": "banned", "min_nights_allowed": 30, "owner_str": false, "tenant_str": false, "summary_en": "Bans short-term rentals (per Gothamist 2026).", "summary_es": "Prohíbe alquileres a corto plazo (según Gothamist 2026).", "sources": ["https://gothamist.com/news/booking-an-airbnb-in-new-jersey-for-the-world-cup-it-may-be-illegal (secondary)"], "source_type": "secondary"},
-  "englewood": {"status": "banned", "min_nights_allowed": 30, "owner_str": false, "tenant_str": false, "summary_en": "Bans rentals under 30 days (per Gothamist 2026).", "summary_es": "Prohíbe alquileres de menos de 30 días (según Gothamist 2026).", "sources": ["https://gothamist.com/news/booking-an-airbnb-in-new-jersey-for-the-world-cup-it-may-be-illegal (secondary)"], "source_type": "secondary"},
-  "new york": {"status": "registration_required_host_present", "min_nights_allowed": 1, "owner_str": "Local Law 18: register; <30-day stays only with host present, max 2 guests", "tenant_str": "only if host lives there + lease allows", "summary_en": "NYC Local Law 18: whole-unit stays under 30 days are effectively illegal; hosts must register and be present.", "summary_es": "Ley Local 18 de NYC: estadías de unidad completa de menos de 30 días son prácticamente ilegales; el anfitrión debe registrarse y estar presente.", "sources": ["https://www.nyc.gov/site/specialenforcement/registration-law/registration.page"], "source_type": "official"}
+ "_meta": {
+  "last_verified": "2026-09-26",
+  "note": "Curated from municipal code / official city pages where possible; secondary sources flagged. ALWAYS re-verify with the town clerk/zoning office before acting. Laws change (several NJ towns changed rules for the 2026 World Cup).",
+  "confidence_note": "confidence: high = read in the official code/city page; medium = official index or reliable secondary summary; low = no ordinance found, only secondary. 'unknown' means we could not confirm; never guessed."
+ },
+ "fort lee": {
+  "status": "banned",
+  "min_nights_allowed": 31,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Rentals of 30 days or less for payment are prohibited (owners and tenants); advertising them is also prohibited. Fines up to $1,250/day. 31+ day rentals allowed.",
+  "summary_es": "Prohibido alquilar por 30 días o menos a cambio de pago (dueños e inquilinos), y también anunciarlo. Multas de hasta $1,250 por día. Se permiten alquileres de 31+ días.",
+  "sources": [
+   "https://ecode360.com/31804664 (Borough Code Ch. 321 Art. V)"
+  ],
+  "source_type": "official code",
+  "confidence": "high"
+ },
+ "west new york": {
+  "status": "banned_for_condos_coops_tenants",
+  "min_nights_allowed": 30,
+  "owner_str": "only owner-occupied legal 2-4 family (disputed/limited)",
+  "tenant_str": false,
+  "summary_en": "Short-term (<30 day) rentals are prohibited in apartments, condos and co-ops and for tenants. The 2018 amendment (Ord. 3/18) allowed only an owner-occupied 2-4 unit house with registration; several 2026 sources describe the town as a full ban. Fines $500-$1,000/day.",
+  "summary_es": "Prohibidos los alquileres de menos de 30 días en apartamentos, condominios y cooperativas, y para inquilinos. La enmienda de 2018 (Ord. 3/18) solo permitía casas de 2-4 unidades ocupadas por el dueño con registro; fuentes de 2026 la describen como prohibición total. Multas de $500-$1,000 por día.",
+  "sources": [
+   "https://westnewyorknj.org/wp-content/uploads/2023/11/ord3-18.pdf",
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "official ordinance + secondary",
+  "confidence": "low",
+  "str_types": [
+   "multi-family"
+  ]
+ },
+ "union city": {
+  "status": "banned",
+  "min_nights_allowed": 31,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Short-term vacation rentals of 30 consecutive days or less are prohibited in residential property, owner-occupied or not. Minimum $250 fine per violation per day.",
+  "summary_es": "Prohibidos los alquileres vacacionales de 30 días consecutivos o menos en propiedades residenciales, aunque el dueño viva allí. Multa mínima de $250 por violación por día.",
+  "sources": [
+   "https://ecode360.com/31144900 (City Code Ch. 296 Art. V, §296-13)"
+  ],
+  "source_type": "official code",
+  "confidence": "high"
+ },
+ "jersey city": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "permit; owner must live there as principal residence (275+ days/yr); unhosted whole-unit max 60 nights/yr; buildings >4 units banned unless condo/co-op bylaws allow and it is the owner's principal residence",
+  "tenant_str": false,
+  "summary_en": "Only an OWNER whose principal residence is the property can get a permit ($250, renew $200/yr; zoning letter; $500k liability insurance). Unhosted whole-unit stays capped at 60 nights/yr. Tenants can never get a permit, so rental arbitrage is NOT legal. Rent-controlled units excluded.",
+  "summary_es": "Solo un DUEÑO que viva en la propiedad como residencia principal puede obtener permiso ($250, renovación $200/año; carta de zonificación; seguro de responsabilidad de $500k). Estadías sin anfitrión limitadas a 60 noches/año. Los inquilinos nunca pueden obtener permiso: el arbitraje de alquiler NO es legal. Se excluyen unidades con control de renta.",
+  "sources": [
+   "Jersey City Municipal Code Ch. 255, Ord. 25-059 (June 2025): https://cdnsm5-hosted.civiclive.com/UserFiles/Servers/Server_6189660/File/City%20Hall/Housing%20Economic%20Development/Tenant%20Landlord%20Relations/Ord.%2025-059%20(Chapter%20255%20-%20STR%20)%20.pdf",
+   "https://www.jerseycitynj.gov/cityhall/housinganddevelopment/housingpreservation"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "unhosted_cap_nights": 60
+ },
+ "hoboken": {
+  "status": "no_dedicated_ordinance_pending",
+  "min_nights_allowed": 1,
+  "owner_str": "no dedicated STR ordinance as of Sep 2026 (one was introduced in 2026 - verify)",
+  "tenant_str": "possibly, with landlord/condo permission; rent-controlled units cannot be used as STR",
+  "summary_en": "Secondary sources (Sep 2026) say Hoboken has no dedicated STR ordinance yet, but one was introduced in 2026 ahead of the World Cup. Rent-controlled units cannot be STRs. VERIFY with City Hall before acting.",
+  "summary_es": "Fuentes secundarias (sept. 2026) indican que Hoboken aún no tiene ordenanza específica de STR, pero se presentó una en 2026. Las unidades con control de renta no pueden ser STR. VERIFICAR con el municipio.",
+  "sources": [
+   "https://staystra.com/hoboken-nj-short-term-rental-ordinance-2026/ (secondary)",
+   "https://www.nj.com/hudson/2026/04/nj-city-considers-regulating-airbnb-rentals-as-demand-surges-ahead-of-the-world-cup.html"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "weehawken": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned under 30 consecutive days (Ord. 19-2022).",
+  "summary_es": "Prohibido por menos de 30 días consecutivos (Ord. 19-2022).",
+  "sources": [
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "guttenberg": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned, hosted or not (Code Ch. 29).",
+  "summary_es": "Prohibido, con o sin anfitrión (Código Cap. 29).",
+  "sources": [
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "north bergen": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "owner-occupied, 60 nights/yr (Ord. 706-26, Mar 2026)",
+  "tenant_str": false,
+  "summary_en": "Owner-occupied permit only, 60 nights/yr.",
+  "summary_es": "Solo con permiso y dueño residente, 60 noches/año.",
+  "sources": [
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium",
+  "max_nights_year": 60
+ },
+ "bayonne": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "owner-occupied, 60 unhosted nights/yr",
+  "tenant_str": false,
+  "summary_en": "Owner-occupied permit only; 60 unhosted nights/yr.",
+  "summary_es": "Solo con permiso y dueño residente; 60 noches sin anfitrión/año.",
+  "sources": [
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium",
+  "unhosted_cap_nights": 60
+ },
+ "secaucus": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned (Board of Health Ch. 154).",
+  "summary_es": "Prohibido (Junta de Salud Cap. 154).",
+  "sources": [
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "kearny": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned in all residential dwellings (Ord. 2026-7).",
+  "summary_es": "Prohibido en todas las viviendas (Ord. 2026-7).",
+  "sources": [
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Hudson-County-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "edgewater": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Bans short-term rentals (per Gothamist 2026).",
+  "summary_es": "Prohíbe alquileres a corto plazo (según Gothamist 2026).",
+  "sources": [
+   "https://gothamist.com/news/booking-an-airbnb-in-new-jersey-for-the-world-cup-it-may-be-illegal (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "englewood": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Bans rentals under 30 days (per Gothamist 2026).",
+  "summary_es": "Prohíbe alquileres de menos de 30 días (según Gothamist 2026).",
+  "sources": [
+   "https://gothamist.com/news/booking-an-airbnb-in-new-jersey-for-the-world-cup-it-may-be-illegal (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium"
+ },
+ "new york": {
+  "status": "registration_required_host_present",
+  "min_nights_allowed": 1,
+  "owner_str": "Local Law 18: register; <30-day stays only with host present, max 2 guests",
+  "tenant_str": "only if host lives there + lease allows",
+  "summary_en": "NYC Local Law 18: whole-unit stays under 30 days are effectively illegal; hosts must register and be present.",
+  "summary_es": "Ley Local 18 de NYC: estadías de unidad completa de menos de 30 días son prácticamente ilegales; el anfitrión debe registrarse y estar presente.",
+  "sources": [
+   "https://www.nyc.gov/site/specialenforcement/registration-law/registration.page"
+  ],
+  "source_type": "official",
+  "confidence": "high"
+ },
+ "union": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "permit; owner's principal residence; max 15 bookings or 90 nights a year",
+  "tenant_str": false,
+  "summary_en": "Only an OWNER who lives there (principal residence) can get a Zoning Officer license ($500 first year, $250 renewal; $500k liability insurance; fire and property inspections). Limit: 15 bookings or 90 nights a year, whichever comes first. Tenants and absentee owners can't.",
+  "summary_es": "Solo un DUEÑO que viva allí (residencia principal) puede obtener licencia del Oficial de Zonificación ($500 el primer año, $250 renovación; seguro de $500k; inspecciones). Límite: 15 reservas o 90 noches al año, lo que llegue primero. Inquilinos y dueños ausentes no pueden.",
+  "sources": [
+   "Township of Union Code, Article IV Short-Term Rentals: https://ecode360.com/43091994",
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Union-New-Jersey-Guide (secondary)"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "checked": "2026-09-26",
+  "max_nights_year": 90
+ },
+ "linden": {
+  "status": "banned",
+  "min_nights_allowed": 31,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned: paid stays of 30 days or less are illegal citywide (City Code §1-5.2), and so is advertising them. Rentals of 31+ days follow the normal rental rules.",
+  "summary_es": "Prohibido: estadías pagadas de 30 días o menos son ilegales en toda la ciudad (Código §1-5.2), igual que anunciarlas. Alquileres de 31+ días siguen las reglas normales.",
+  "sources": [
+   "City of Linden Code Ch. 1 §1-5.2: https://ecode360.com/34725993"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "checked": "2026-09-26"
+ },
+ "belleville": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 3,
+  "owner_str": "permit; only ONE unit of an owner-occupied 2- to 5-family house; 3-night minimum",
+  "tenant_str": false,
+  "summary_en": "Only in ONE unit of an owner-occupied 2- to 5-family house, with a township permit, insurance and on-site parking; stays of at least 3 nights. Not allowed in single-family homes, condos or townhomes. Fines up to $2,000 a day.",
+  "summary_es": "Solo en UNA unidad de una casa de 2 a 5 familias donde vive el dueño, con permiso municipal, seguro y estacionamiento; estadías de al menos 3 noches. No se permite en casas unifamiliares, condos ni townhomes. Multas de hasta $2,000 por día.",
+  "sources": [
+   "Belleville Code Ch. 39 Rental Property: https://ecode360.com/42349248",
+   "https://patch.com/new-jersey/belleville/belleville-oks-strict-rules-airbnbs-short-term-rental-properties (news)"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "checked": "2026-09-26",
+  "str_types": [
+   "multi-family"
+  ]
+ },
+ "bloomfield": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "Fire Dept permit; one unit of an owner-occupied 2- to 5-family house",
+  "tenant_str": false,
+  "summary_en": "Stays under 30 days are banned unless they fit Chapter 433: generally one unit of an owner-occupied 2- to 5-family house, with a yearly Fire Department permit ($250), inspection and proof you live there.",
+  "summary_es": "Las estadías de menos de 30 días están prohibidas salvo bajo el Capítulo 433: en general una unidad de una casa de 2 a 5 familias donde vive el dueño, con permiso anual de Bomberos ($250), inspección y prueba de residencia.",
+  "sources": [
+   "Bloomfield Code Ch. 433 Short-Term Rental Property: https://ecode360.com/36304801",
+   "https://bloomfieldtwpnj.com/DocumentCenter/View/14767/Short-Term-Rental-Application-PDF"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "medium",
+  "checked": "2026-09-26",
+  "str_types": [
+   "multi-family"
+  ]
+ },
+ "garfield": {
+  "status": "unknown",
+  "min_nights_allowed": 30,
+  "owner_str": "unknown",
+  "tenant_str": "unknown",
+  "summary_en": "We found no Garfield law written for Airbnb. Normal rental permits and a dwelling certificate still apply. Ask the city before renting short-term.",
+  "summary_es": "No encontramos una ley de Garfield para Airbnb. Aplican los permisos normales de alquiler y el certificado de vivienda. Pregunte a la ciudad antes de alquilar por noches.",
+  "sources": [
+   "City of Garfield Code Ch. 128 Dwelling Certificates: https://ecode360.com/10083757",
+   "https://cityrulelookup.com/cities/garfield-nj/short-term-rentals (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "low",
+  "checked": "2026-09-26"
+ },
+ "rahway": {
+  "status": "unknown",
+  "min_nights_allowed": 30,
+  "owner_str": "unknown",
+  "tenant_str": "unknown",
+  "summary_en": "Rahway says it has no local law on short-term rentals like Airbnb. Every rental unit still has to be registered and inspected (CACO). Ask the city first.",
+  "summary_es": "Rahway dice que no tiene ley local sobre alquileres cortos como Airbnb. Toda unidad en alquiler debe registrarse e inspeccionarse (CACO). Pregunte a la ciudad primero.",
+  "sources": [
+   "https://www.cityofrahway.com/FAQ.aspx?QID=233",
+   "Rahway Code Art. IV rental registration: https://ecode360.com/48040889"
+  ],
+  "source_type": "official city page",
+  "confidence": "medium",
+  "checked": "2026-09-26"
+ },
+ "hawthorne": {
+  "status": "banned",
+  "min_nights_allowed": 31,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned: renting a home for 30 days or less is not allowed in any zone (§540-136C), and neither is renting out a pool.",
+  "summary_es": "Prohibido: alquilar una vivienda por 30 días o menos no se permite en ninguna zona (§540-136C), ni alquilar una piscina.",
+  "sources": [
+   "Hawthorne Ord. 2323-23 (Ch. 540-136): https://hawthornenj.org/DocumentCenter/View/4114/Ord-2323-23-Amend-Chapter-540-136-Short-Term-Rentals-to-include-swimming-pools_Adopt?bidId=",
+   "https://ecode360.com/42357755"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "checked": "2026-09-26"
+ },
+ "north arlington": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned: no home or room may be rented for less than 30 days (Ch. 304, 2022). The code also bans renting a home 'for commercial or corporate purposes', so ask before a furnished corporate rental.",
+  "summary_es": "Prohibido: ninguna vivienda ni cuarto puede alquilarse por menos de 30 días (Cap. 304, 2022). El código también prohíbe alquilar 'con fines comerciales o corporativos', así que pregunte antes de un alquiler amueblado corporativo.",
+  "sources": [
+   "North Arlington Code Ch. 304 Short-Term Rentals: https://ecode360.com/45453168"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "checked": "2026-09-26"
+ },
+ "clifton": {
+  "status": "permit_required",
+  "min_nights_allowed": 1,
+  "owner_str": "permit (Ord. 8076-26, Feb 2026); not in condos or townhomes; may end 12/31/2026",
+  "tenant_str": "unknown",
+  "summary_en": "Allowed with a city permit since Feb 2026 ($500 a year + $75 fire inspection, $500k insurance, inspections). Not allowed in condos or townhomes. The law may expire on Dec 31, 2026, so confirm with Zoning.",
+  "summary_es": "Se permite con permiso de la ciudad desde feb. 2026 ($500 al año + $75 de inspección de bomberos, seguro de $500k, inspecciones). No se permite en condos ni townhomes. La ley podría vencer el 31/12/2026; confirme con Zonificación.",
+  "sources": [
+   "https://www.northjersey.com/story/news/passaic/clifton/2026/02/09/clifton-passaic-to-allow-short-term-rentals-in-time-for-world-cup/88472893007/ (news)",
+   "https://www.bnbcalc.com/blog/short-term-rental-regulation/Clifton-New-Jersey-guide (secondary)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium",
+  "checked": "2026-09-26",
+  "str_types": [
+   "single-family",
+   "multi-family"
+  ]
+ },
+ "newark": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "permit; owner's principal residence (house, one side of a 2-family, a unit where you live in another, approved condo, or up to 2 rooms); stays up to 28 nights",
+  "tenant_str": false,
+  "summary_en": "Only if the OWNER lives there: a house, one side of a 2-family, another unit in your building, an approved condo, or up to 2 rooms in your home. $250 yearly permit, Certificate of Habitability, $500k insurance. Tenants can't.",
+  "summary_es": "Solo si el DUEÑO vive allí: casa, un lado de una casa de 2 familias, otra unidad de su edificio, condo aprobado, o hasta 2 cuartos de su casa. Permiso anual de $250, Certificado de Habitabilidad, seguro de $500k. Los inquilinos no pueden.",
+  "sources": [
+   "Newark Code Ch. 18:14 (summarized): https://www.bnbcalc.com/blog/short-term-rental-regulation/newark-new-jersey-guide (secondary, cites the code)",
+   "https://newarknjstr.munirevs.com"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium",
+  "checked": "2026-09-26"
+ },
+ "cliffside park": {
+  "status": "unknown",
+  "min_nights_allowed": 30,
+  "owner_str": "unknown",
+  "tenant_str": "unknown",
+  "summary_en": "We couldn't find a Cliffside Park law on Airbnb. Its zoning bans any use it doesn't list, so ask the borough before renting short-term.",
+  "summary_es": "No encontramos una ley de Cliffside Park sobre Airbnb. Su zonificación prohíbe usos que no aparecen en la lista; pregunte al municipio antes de alquilar por noches.",
+  "sources": [
+   "https://www.zoneomics.com/code/cliffside-park-NJ/chapter_1 (zoning text mirror)"
+  ],
+  "source_type": "secondary",
+  "confidence": "low",
+  "checked": "2026-09-26"
+ },
+ "ridgefield": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned: the zoning code has a section titled 'Short-term rentals prohibited' (§390-25.1).",
+  "summary_es": "Prohibido: el código de zonificación tiene una sección llamada 'Alquileres a corto plazo prohibidos' (§390-25.1).",
+  "sources": [
+   "Ridgefield Code Ch. 390 §390-25.1: https://ecode360.com/9125889",
+   "https://www.zoneomics.com/code/ridgefield-NJ (index)"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "medium",
+  "checked": "2026-09-26"
+ },
+ "palisades park": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned: the borough prohibited short-term vacation rentals (under 30 days) in 2016.",
+  "summary_es": "Prohibido: el municipio prohibió los alquileres vacacionales cortos (menos de 30 días) en 2016.",
+  "sources": [
+   "https://www.northjersey.com/story/news/2016/08/28/palisades-park-bans-shortterm-vacation-rentals/92967724/ (news)"
+  ],
+  "source_type": "secondary",
+  "confidence": "medium",
+  "checked": "2026-09-26"
+ },
+ "lyndhurst": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned: renting for fewer than 30 days is prohibited, and so is advertising it (Ch. 8, §8-9).",
+  "summary_es": "Prohibido: alquilar por menos de 30 días está prohibido, igual que anunciarlo (Cap. 8, §8-9).",
+  "sources": [
+   "Lyndhurst Code Ch. 8 §8-9 Short-Term Rental Property: https://ecode360.com/34769747"
+  ],
+  "source_type": "official ordinance",
+  "confidence": "high",
+  "checked": "2026-09-26"
+ },
+ "rutherford": {
+  "status": "banned",
+  "min_nights_allowed": 30,
+  "owner_str": false,
+  "tenant_str": false,
+  "summary_en": "Banned (Ord. 3473-18, Ch. 96A): fines up to $1,250 a day. Rentals need a 30-day minimum lease and zoning registration. A World Cup-only exception was discussed in 2025/26; the borough site still says banned.",
+  "summary_es": "Prohibido (Ord. 3473-18, Cap. 96A): multas de hasta $1,250 por día. Los alquileres necesitan contrato mínimo de 30 días y registro de zonificación. Se discutió una excepción solo para el Mundial; el sitio del municipio sigue diciendo prohibido.",
+  "sources": [
+   "https://www.rutherfordboronj.com/building-page-list/505-short-term-rental-prohibition",
+   "https://ecode360.com/33940319"
+  ],
+  "source_type": "official city page",
+  "confidence": "high",
+  "checked": "2026-09-26"
+ },
+ "harrison": {
+  "status": "owner_occupied_permit_only",
+  "min_nights_allowed": 1,
+  "owner_str": "yearly permit; proof of ownership AND principal residence; 24/7 contact; insurance",
+  "tenant_str": false,
+  "summary_en": "Needs a yearly town permit (Ord. 1550) before listing. You must prove you own it AND live there, name a 24/7 contact and carry insurance. Stays of 28 days or less count as short-term.",
+  "summary_es": "Necesita un permiso anual del municipio (Ord. 1550) antes de anunciar. Debe probar que es dueño Y vive allí, nombrar un contacto 24/7 y tener seguro. Estadías de 28 días o menos cuentan como cortas.",
+  "sources": [
+   "https://www.townofharrisonnj.com/342/Short-Term-Rental"
+  ],
+  "source_type": "official city page",
+  "confidence": "high",
+  "checked": "2026-09-26"
+ }
 }
