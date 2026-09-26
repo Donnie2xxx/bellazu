@@ -342,6 +342,10 @@ hr {border-color:var(--line) !important}
 .bz-hello {font-family:var(--disp); text-transform:uppercase; font-size:2.6rem; line-height:.95; color:var(--paper); margin:.4rem 0 .5rem}
 .bz-sub {text-transform:uppercase; letter-spacing:.05em; font-size:.8rem; line-height:1.6; color:#CFCFCF; font-weight:300; margin:.1rem 0 1.1rem}
 .bz-addr {text-transform:uppercase; letter-spacing:.07em; font-size:.76rem; color:var(--mute); margin:.2rem 0 .6rem}
+.bz-price {font-family:var(--body); font-weight:800; font-size:32px; line-height:1.1; letter-spacing:-.02em; color:var(--rose); margin:-.2rem 0 .15rem}
+.bz-price .f {display:block; font-size:.95rem; font-weight:500; letter-spacing:0; color:#DADADA; margin-top:.2rem}
+.bz-tsum {border:1px solid var(--line2); border-radius:18px; background:var(--ink2); padding:.55rem .85rem; margin:.45rem 0 .2rem; font-size:.9rem; line-height:1.45}
+.bz-tsum div + div {margin-top:.15rem}
 /* result: verdict, tiles grid, airbnb line, cards */
 .bz-verdict {border:1px solid var(--line2); border-radius:28px; padding:1.3rem 1.3rem 1.2rem; margin:.3rem 0 1rem; background:var(--ink2)}
 .bz-verdict .big {font-family:var(--disp); text-transform:uppercase; font-size:3.4rem; line-height:.9; letter-spacing:.01em}
@@ -405,7 +409,8 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-home .ph .noimg {display:flex; align-items:center; justify-content:center; height:100%; font-size:2rem}
 .bz-home .ph .pc {position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.65); color:#fff; font-size:.72rem; padding:.2rem .5rem; border-radius:10px}
 .bz-home .bd {padding:.65rem .9rem .8rem}
-.bz-home .p {font-family:var(--disp); font-size:2rem; line-height:1.05; color:var(--paper)}
+.bz-home .p {font-family:var(--body); font-weight:800; font-size:30px; line-height:1.1; letter-spacing:-.02em; color:var(--rose)}
+.bz-home .p .mo {font-size:.55em; font-weight:700; color:var(--rose2); margin-left:.1rem}
 .bz-home .cut, .bz-home .new {font-family:var(--body, inherit); font-size:.7rem; vertical-align:middle; border-radius:10px; padding:.15rem .45rem; margin-left:.3rem; letter-spacing:.05em}
 .bz-home .cut {background:var(--good); color:#111} .bz-home .new {background:var(--rose); color:#111}
 .bz-home .m {font-size:.86rem; color:#DADADA; margin-top:.15rem} .bz-home .a {font-size:.8rem; color:var(--mute); margin-top:.3rem}
@@ -459,7 +464,7 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-sv {display:flex; gap:.8rem; align-items:flex-start}
 .bz-sv img, .bz-sv .noimg {width:104px; height:78px; object-fit:cover; border-radius:14px; flex:none; background:#222; display:flex; align-items:center; justify-content:center; font-size:1.6rem}
 .bz-sv .t {font-weight:600; color:var(--paper); line-height:1.3; font-size:.95rem; overflow-wrap:anywhere}
-.bz-sv .p {font-family:var(--disp); font-size:1.7rem; line-height:1.05; color:var(--paper); margin-top:.15rem}
+.bz-sv .p {font-family:var(--body); font-weight:800; font-size:26px; line-height:1.1; letter-spacing:-.02em; color:var(--rose); margin-top:.2rem}
 .bz-sv .m {font-size:.8rem; color:#CFCFCF; margin-top:.1rem; line-height:1.35} .bz-sv .d {font-size:.72rem; color:var(--mute); margin-top:.2rem}
 .bz-sv-nums {margin:.55rem 0 .2rem} .bz-sv-nums .bz-col .n {font-size:1.6rem} .bz-sv-nums .bz-col .h {min-height:0}
 .bz-sv-b {font-size:.8rem; color:#DADADA; margin:.15rem 0; line-height:1.35}
@@ -857,7 +862,7 @@ def property_details(r, f, sc, o, rent, rent_src, own):
     # --- the home
     st.markdown(f"#### {L('🏡 The home', '🏡 La casa')}")
     inc = [P(INC_LBL.get(x, (x, x))) for x in (f.get("hoa_includes") or [])]
-    lines = [L(f"Price: {money(f.get('price'))}", f"Precio: {money(f.get('price'))}") if f.get("price") else L("Price: unknown", "Precio: no se sabe"),
+    lines = [L(f"**Price: {money(f.get('price'))}**", f"**Precio: {money(f.get('price'))}**") if f.get("price") else L("Price: unknown", "Precio: no se sabe"),
              L("Bedrooms", "Habitaciones") + f": {f.get('beds') or '?'}" + (" · " + L("Bathrooms", "Baños") + f": {f.get('baths')}" if f.get("baths") else ""),
              L("Building fee", "Cuota del edificio") + f": {money(f.get('hoa_monthly')) + L('/mo', '/mes') if f.get('hoa_monthly') else L('unknown', 'no se sabe')}"
              + (L(f" (includes {', '.join(inc)})", f" (incluye {', '.join(inc)})") if inc else "")]
@@ -1874,8 +1879,18 @@ def fha_card(fa, where):
     fha_explainer(where)
 
 
-def fha_explainer(where):
+def fha_explainer(where, inline=False):
+    """The FHA explainer in its own expander, or (inline=True) as plain text inside an expander the caller already opened."""
+    if inline:
+        st.markdown(f"**{L('What is FHA approval?', '¿Qué es la aprobación FHA?')}**")
+        _fha_text()
+        return
     with st.expander(L("What is FHA approval?", "¿Qué es la aprobación FHA?"), key=f"fhax_{where}"):
+        _fha_text()
+
+
+def _fha_text():
+    if True:
         md(L("**FHA** is a government-backed loan that lets you buy with **3.5% down** if you'll live in the home. It works for houses and 2-4 family homes "
              "if the price is under the county limit and the home passes the FHA appraisal (safe, sound, working heat, water and power).\n\n"
              "**Condos:** the whole building must be on HUD's FHA-approved list (approvals expire every few years). If it isn't, you need a normal loan "
@@ -2056,6 +2071,10 @@ def show_property(r):
     ex = r.get("extra") or {}
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
+    if f.get("price"):
+        fl_ = " · ".join(x for x in [f"{f['beds']} {L('bd', 'hab')}" if f.get("beds") is not None else "", f"{f['baths']} {L('ba', 'baños')}" if f.get("baths") else "",
+                                      L(f"fee {money(f['hoa_monthly'])}/mo", f"cuota {money(f['hoa_monthly'])}/mes") if f.get("hoa_monthly") else ""] if x)
+        html(f"<div class='bz-price'>{money(f['price'])}" + (f"<span class='f'>{H.escape(fl_)}</span>" if fl_ else "") + "</div>")
     p_addr = ss.get("prop_addr", r["address"])
     lid = ((ss.get("gallery") or {}).get(p_addr.strip().lower()) or {}).get("id")
     sv_iid = find_home(p_addr, lid) or (saves.item_id("listing", lid) if lid else saves.item_id("address", p_addr))
@@ -2236,25 +2255,32 @@ def show_town_view(a):
     html(f"<div class='bz-hello'>{H.escape(t)}</div>")
     drive_badge(a.get("drive"))
     safety_note(t)
-    rules_card(a.get("str_rules") or {}, t)
+    # town rules + FHA: a two-line summary here, the full cards one tap away, so the first home shows on the first screen
+    sr = a.get("str_rules") or {}
+    icon, en_, es_ = S.airbnb_line(sr, "owner")
     lim, cty = FHA.loan_limit(t, 1)
     lim2, _ = FHA.loan_limit(t, 2)
-    cn = (cty or "").title()
-    if lim:
-        fsub = L(f"Up to {money(lim)} (1 unit) or {money(lim2)} (2 units), HUD 2026 limits for {cn} County. ", f"Hasta {money(lim)} (1 unidad) o {money(lim2)} (2 unidades), límites HUD 2026 del condado de {cn}. ")
-    else:
-        fsub = ""
-    fsub += L("Condos need an FHA-approved building; co-ops need a normal loan. Your lender has the final say.",
-              "Los condos necesitan un edificio aprobado por FHA; las co-ops, un préstamo normal. Su banco tiene la última palabra.")
-    ftop = L("✅ FHA (3.5% down) works here for houses and 2-4 family homes you live in", "✅ FHA (3.5% inicial) sirve aquí para casas y de 2 a 4 familias donde usted viva")
-    html(f"<div class='bz-fha ok'><b>{ftop}</b><div class='s'>{H.escape(fsub)}</div></div>")
-    fha_explainer("t_" + sid)
+    html(f"<div class='bz-tsum'><div>{icon} {H.escape(es_ if ES() else en_)}</div>"
+         f"<div>{L('✅ FHA 3.5% down works here', '✅ FHA con 3.5% inicial sirve aquí')}" + (f" · {L('up to', 'hasta')} {kmoney(lim)}" if lim else "") + "</div></div>")
+    with st.expander(L("📋 Town rules and FHA details", "📋 Reglas del pueblo y detalles de FHA"), key=f"tinfo_{sid}"):
+        rules_card(sr, t)
+        cn = (cty or "").title()
+        if lim:
+            fsub = L(f"Up to {money(lim)} (1 unit) or {money(lim2)} (2 units), HUD 2026 limits for {cn} County. ", f"Hasta {money(lim)} (1 unidad) o {money(lim2)} (2 unidades), límites HUD 2026 del condado de {cn}. ")
+        else:
+            fsub = ""
+        fsub += L("Condos need an FHA-approved building; co-ops need a normal loan. Your lender has the final say.",
+                  "Los condos necesitan un edificio aprobado por FHA; las co-ops, un préstamo normal. Su banco tiene la última palabra.")
+        ftop = L("✅ FHA (3.5% down) works here for houses and 2-4 family homes you live in", "✅ FHA (3.5% inicial) sirve aquí para casas y de 2 a 4 familias donde usted viva")
+        html(f"<div class='bz-fha ok'><b>{ftop}</b><div class='s'>{H.escape(fsub)}</div></div>")
+        fha_explainer("t_" + sid, inline=True)
+    homes_block(t, a.get("drive"), sid)
+    st.markdown(f"#### {L('💵 What you would pay here', '💵 Lo que pagaría aquí')}")
     ss.setdefault(f"_tph_{sid}", {})["full_run"] = True
     _town_price_block(a, sid, first)
     hold = ss.get(f"_tph_{sid}") or {}
     size, out, cv = hold.get("size"), hold.get("out"), hold.get("cv")
     _town_comps(a, sid, size, out)
-    homes_block(t, a.get("drive"), sid)
     # Airbnb market card
     mk = a.get("market") or {}
     s_ = mk.get("summary") or {}
@@ -2352,6 +2378,11 @@ CZ_CSS = """
 .pv{left:8px}.nx{right:8px}
 .ct{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.65);color:#fff;font:600 .72rem system-ui,sans-serif;padding:.2rem .5rem;border-radius:10px;pointer-events:none}
 .ct:empty{display:none}
+.pb{position:absolute;left:10px;bottom:10px;max-width:calc(100% - 90px);background:rgba(12,12,12,.86);color:#fff;font:800 1.5rem/1.05 Inter,system-ui,sans-serif;letter-spacing:-.02em;padding:.38rem .65rem .4rem;border-radius:14px;border:1px solid rgba(244,167,187,.55);box-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:none;white-space:nowrap}
+.pb:empty{display:none}
+.pb small{font-size:.62em;font-weight:700;opacity:.9;margin-left:.08rem}
+.pb .tg{display:inline-block;font:800 .62rem/1 Inter,system-ui,sans-serif;letter-spacing:.05em;padding:.28rem .42rem;border-radius:8px;margin-left:.45rem;vertical-align:.3em;color:#111}
+.pb .tg.cut{background:#8FE3B5}.pb .tg.new{background:#F4A7BB}
 .tw{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.65);color:#fff;font:600 .72rem system-ui,sans-serif;padding:.2rem .55rem;border-radius:10px;pointer-events:none}
 .tw:empty{display:none}
 """
@@ -2363,9 +2394,9 @@ export default function(component) {
   if (!s) {
     const root = document.createElement('div');          // append (never replace parentElement's content: that holds the component's <style>)
     root.innerHTML = '<div class="cz"><div class="tr"></div><button class="nv pv" type="button">&#8249;</button>' +
-      '<button class="nv nx" type="button">&#8250;</button><div class="ct"></div><div class="tw"></div></div>';
+      '<button class="nv nx" type="button">&#8250;</button><div class="ct"></div><div class="tw"></div><div class="pb"></div></div>';
     parentElement.appendChild(root);
-    s = parentElement.__bz = { tr: root.querySelector('.tr'), ct: root.querySelector('.ct'), tw: root.querySelector('.tw'),
+    s = parentElement.__bz = { tr: root.querySelector('.tr'), ct: root.querySelector('.ct'), tw: root.querySelector('.tw'), pb: root.querySelector('.pb'),
       pv: root.querySelector('.pv'), nx: root.querySelector('.nx'), idx: 0, n: -1, extra: -1, slides: 1, asked: false, moved: false, d: d };
     const go = (i) => s.tr.scrollTo({ left: i * s.tr.clientWidth, behavior: 'smooth' });
     s.pv.onclick = (e) => { e.stopPropagation(); go(Math.max(s.idx - 1, 0)); };
@@ -2402,6 +2433,10 @@ export default function(component) {
   const lb = d.lbl || {};
   s.pv.setAttribute('aria-label', lb.prev || ''); s.nx.setAttribute('aria-label', lb.next || '');
   s.tw.textContent = d.town || '';
+  { // price badge: stays in the corner while the photos move under it
+    const e = (x) => String(x == null ? '' : x).replace(/[&<>\"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    s.pb.innerHTML = d.price ? e(d.price) + (d.per ? '<small>' + e(d.per) + '</small>' : '') + (d.tag ? '<span class="tg ' + (d.tagc === 'cut' ? 'cut' : 'new') + '">' + e(d.tag) + '</span>' : '') : '';
+  }
   const ph = d.photos || [];
   const extra = (d.more && ph.length < (d.count || 0)) ? 1 : 0;
   if (s.n !== ph.length || s.extra !== extra) {
@@ -2458,11 +2493,13 @@ def _cz_more(key, h):
 
 def carousel(h, key, rent, town_lbl=None):
     ss = st.session_state
+    tag, tagc = ((f"↓ {kmoney(h['price_cut'])}", "cut") if h.get("price_cut") else (L("NEW", "NUEVA"), "new") if h.get("new") else ("", ""))
     photos, count = _card_photos(h)
     pid = str(h.get("id") or "")
     more = bool(pid) and pid not in (ss.get("cz_fail") or set()) and pid not in (ss.get("cz_ph") or {}) and count > len(photos)
     _CZ(key=key, data={"photos": photos, "count": count, "id": pid, "more": more, "open": not rent, "url": h.get("url") if rent else None,
-                       "town": town_lbl or "",
+                       "town": town_lbl or "", "price": money(h["price"]) if h.get("price") else "", "per": L("/mo", "/mes") if rent else "",
+                       "tag": tag, "tagc": tagc,
                        "lbl": {"loading": L("Loading more photos... ✨", "Cargando más fotos... ✨"), "prev": L("Previous photo", "Foto anterior"),
                                "next": L("Next photo", "Foto siguiente"), "photo": L("Photo", "Foto")}},
         on_more_change=lambda k=key, x=h: _cz_more(k, x), on_open_change=(lambda x=h: _open_listing(x)) if not rent else (lambda: None))
@@ -2478,7 +2515,7 @@ def _home_card(h, drive, rent, key, town_lbl=None):
     dl = (L("Listed today", "Publicada hoy") if days == 0 else L("Listed 1 day ago", "Publicada hace 1 día") if days == 1
           else L(f"Listed {days} days ago", f"Publicada hace {days} días")) if days is not None else ""
     dr = L(f"🚗 {drive['min']}-{drive['rush'][1]} min to Midtown", f"🚗 {drive['min']}-{drive['rush'][1]} min a Midtown") if drive and drive.get("rush") else ""
-    price = money(h["price"]) + (L("/mo", "/mes") if rent else "")
+    price = money(h["price"]) + (f"<span class='mo'>{L('/mo', '/mes')}</span>" if rent else "")
     carousel(h, f"cz_{key}", rent, f"📍 {town_lbl}" if town_lbl else None)
     fb = ""
     if not rent:
@@ -2981,7 +3018,8 @@ def show_towns_view(ts):
                 ss.setdefault("town_cache", {})[(towns.normalize(k[1])["name"] or k[1]).lower()] = r
     snaps = {t: _snap(t) for t in ts}
     sale = feeds_for(ts, "for_sale", pre) if listings.available() else {}
-    _towns_summary(list(ts), snaps, sale, first)
+    with st.expander(L(f"📊 Compare the {len(ts)} towns: monthly cost, rules, drive", f"📊 Comparar los {len(ts)} pueblos: costo mensual, reglas, manejo"), key="mt_sum"):
+        _towns_summary(list(ts), snaps, sale, first)     # kept one tap away so the first home shows on the first screen
     feed_block(list(ts), {t: (snaps.get(t) or {}).get("drive") for t in ts}, "mt")
 
 
@@ -3448,7 +3486,7 @@ def saved_card(x):
         fl = x.get("facts_line_es" if ES() else "facts_line_en") or ""
         src = {"full": L("full check", "revisión completa"), "town": L("quick estimate from town averages", "estimado rápido con promedios del pueblo")}.get(x.get("nums_src"), "")
         title = x.get("addr") or x.get("title") or ""
-        html(f"<div class='bz-sv'>{img}<div style='min-width:0'><div class='t'>{H.escape(title)}</div><div class='p'>{H.escape(price)}</div>"
+        html(f"<div class='bz-sv'>{img}<div style='min-width:0'>" + (f"<div class='p'>{H.escape(price)}</div>" if price else "") + f"<div class='t'>{H.escape(title)}</div>"
              f"<div class='m'>{H.escape(fl)}</div><div class='d'>♥ {L('Saved', 'Guardada')} {H.escape(_date_txt(x.get('saved')))}"
              + (f" · {H.escape(src)}" if src and x.get("cols") else "") + "</div></div></div>")
         if x.get("cols"):
