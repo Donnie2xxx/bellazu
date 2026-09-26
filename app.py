@@ -813,7 +813,8 @@ def property_details(r, f, sc, o, rent, rent_src, own):
         xb, xn = xlsx_bytes(r, "property")
         st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), xb, xn, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_prop", width="stretch", on_click="ignore")
     except Exception as e:
-        st.caption(f"Excel: {e.__class__.__name__}")
+        import traceback; traceback.print_exc()          # server log only
+        st.caption(L(f"The Excel file couldn't be made this time ({e.__class__.__name__}).", f"No se pudo crear el archivo de Excel esta vez ({e.__class__.__name__})."))
     st.caption(L("Estimates from public data, not financial, legal or lending advice. Confirm with your lender, agent and the town.",
                  "Estimados con datos públicos; no es asesoría financiera, legal ni hipotecaria. Confirme con su prestamista, agente y el municipio."))
 
@@ -1628,7 +1629,8 @@ def show_town_view(a):
             st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), pathlib.Path(fx).read_bytes(), pathlib.Path(fx).name,
                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_town", width="stretch", on_click="ignore")
     except Exception as e:
-        st.caption(f"Excel: {e.__class__.__name__}")
+        import traceback; traceback.print_exc()          # server log only
+        st.caption(L(f"The Excel file couldn't be made this time ({e.__class__.__name__}).", f"No se pudo crear el archivo de Excel esta vez ({e.__class__.__name__})."))
 
 
 def town_problem(a):

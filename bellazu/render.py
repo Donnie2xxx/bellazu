@@ -600,10 +600,10 @@ def _one_lang(df, lang):
             df = df[~df["field"].astype(str).isin(RULE_ROWS_EN_ONLY)].copy()
             if "value" in df.columns:
                 df["value"] = df["value"].map(lambda v: ", ".join(VAL_ES.get(x.strip(" '"), x.strip(" '")) for x in v.strip("[]").split(",")) if isinstance(v, str) and v.startswith("[") and "http" not in v else v)
-    if lang == "es" and "section" in df.columns:
-        df = df.copy(); df["section"] = df["section"].map(lambda v: COLS_ES.get(v, v))
         df["field"] = df["field"].astype(str).map(lambda k: k[:-3] if k.endswith("_" + lang) else k)
         df["field"] = df["field"].map(lambda k: t(k, lang) if (T_ES(k) or t(k, "en") != k) else (COLS_ES.get(k, k) if lang == "es" else k.replace("_", " ")))
+    if lang == "es" and "section" in df.columns:
+        df = df.copy(); df["section"] = df["section"].map(lambda v: COLS_ES.get(v, v))
     return df
 
 
