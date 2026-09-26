@@ -72,12 +72,11 @@ export default function(component) {
   const root = document.createElement("div");
   root.className = "mv";
   root.innerHTML = '<div class="w">BellaZu</div><div class="h">' + T.h + '</div><p>' + T.p + '</p>' +
-    '<a class="b" target="_top" rel="noopener" href="' + url.replace(/"/g, "") + '">' + T.b + '</a><p class="s">' + T.s + '</p>';
+    '<a class="b" target="_blank" rel="noopener" href="' + url.replace(/"/g, "") + '">' + T.b + '</a><p class="s">' + T.s + '</p>';
   parentElement.appendChild(root);
-  setTimeout(() => {
-    try { window.top.location.href = url; }
-    catch (e) { try { window.open(url, "_top"); } catch (e2) {} }
-  }, 900);
+  // Automatic jump where the page may navigate the whole tab (e.g. opened directly). On Streamlit Cloud the app runs in a
+  // sandboxed frame without top navigation, so this is refused there and the button (opens a new tab) does the job.
+  setTimeout(() => { try { window.top.location.href = url; } catch (e) {} }, 900);
 }
 """
 MOVED_CSS = """
