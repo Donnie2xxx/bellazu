@@ -1,0 +1,18 @@
+# secrets: never commit
+.streamlit/secrets.toml
+secrets.toml
+.passcode
+.env
+
+# runtime caches (the bundled HUD and Inside Airbnb data files ARE committed)
+cache/*
+!cache/hud/
+!cache/insideairbnb/
+cache/hud/*
+!cache/hud/fy2026_safmrs_revised.xlsx
+cache/insideairbnb/*
+!cache/insideairbnb/nj_*.pkl
+__pycache__/
+*.pyc
+.venv/
+outputs/

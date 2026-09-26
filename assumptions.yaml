@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------
+# BellaZu assumptions. EDIT FREELY. Every number here is an
+# ASSUMPTION (not market data) unless a source is noted.
+# Values marked "auto" are fetched live (FRED mortgage rate).
+# ---------------------------------------------------------------
+financing:
+  base_rate_30yr: auto          # auto = latest Freddie Mac PMMS 30-yr (FRED MORTGAGE30US)
+  fha_rate_adjust: 0.00         # FHA rate = base + this (FHA often ~0-0.25 below conv; set per lender quote)
+  owner_conv_rate_adjust: 0.00  # owner-occupied conventional (co-op/condo) = base + this
+  investment_rate_adjust: 0.75  # investment-property pricing add-on (typ. +0.5 to +0.875)
+  term_years: 30
+  fha_down_pct: 0.035           # FHA minimum w/ credit >= 580
+  fha_upfront_mip_pct: 0.0175   # HUD UFMIP (financed into loan)
+  fha_annual_mip_pct: 0.0055    # HUD annual MIP, base loan <= $726,200, LTV > 95%, >15yr (life of loan)
+  owner_conv_down_pct: 0.10     # owner-occupied conventional / co-op share loan (co-ops often require 10-25%)
+  investment_down_pct: 0.25     # conventional investment property (condo)
+  closing_cost_pct: 0.03        # buyer closing costs (NJ typical 2-5%); co-ops add flip/board/application fees
+  pmi_annual_pct_if_lt20: 0.005 # conventional PMI if <20% down (varies with credit score; get a lender quote)
+
+ownership_costs:
+  ho6_insurance_monthly: 35     # condo/co-op walls-in policy (HO-6)
+  landlord_policy_monthly: 60   # DP/landlord HO-6 if renting the whole unit
+  maintenance_reserve_pct_of_price: 0.005   # yearly in-unit repairs reserve (building covered by HOA)
+  vacancy_pct_ltr: 0.05         # long-term rental vacancy/credit loss
+  mgmt_pct_ltr: 0.00            # self-managed by default; set 0.08-0.10 for a manager
+  property_tax_rate_fallback: 0.022   # ONLY used if the listing/tax bill is missing. REPLACE with actual tax bill.
+  utilities_owner_monthly_by_beds: {0: 150, 1: 180, 2: 230, 3: 280, 4: 330}   # electric+gas+internet if NOT included in HOA
+
+roommate:
+  rooms_rented_out: auto        # auto = bedrooms - 1 (owner keeps one bedroom)
+  room_rent_fallback_share: 0.40   # if no room comps: room rent = this x whole-unit rent estimate (per room)
+
+str:                            # short-term rental (Airbnb-style) operating assumptions
+  platform_fee_pct: 0.03        # Airbnb split-fee host fee ~3%; host-only fee is ~15.5% (set if using PMS/host-only)
+  cleaning_cost_per_turn_by_beds: {0: 70, 1: 85, 2: 110, 3: 140}
+  count_cleaning_fee_revenue: false   # conservative: Inside Airbnb revenue excludes cleaning fees; we do NOT add them back
+  avg_stay_nights: 3.0          # Inside Airbnb "San Francisco model" default for cities
+  supplies_per_booked_night: 6
+  utilities_monthly_by_beds: {0: 200, 1: 230, 2: 280, 3: 330}   # electric, gas, internet, streaming
+  insurance_monthly: 110        # STR liability policy (JC requires >= $500k liability)
+  furnishing_cost_by_beds: {0: 5000, 1: 7000, 2: 10000, 3: 13000}
+  furnishing_amortization_months: 36
+  repairs_pct_of_revenue: 0.03
+  software_monthly: 0           # free tier / none (PriceLabs etc. not used)
+  permit_fees_annual: 0         # set per town (JC: $250 initial / $200 renewal - owner only)
+  occupancy_cap: 0.70           # Inside Airbnb caps modeled occupancy at 70%
+
+mtr:                            # mid-term (30+ night, furnished) rental — legal in most towns that ban STR
+  occupancy: 0.80               # ASSUMPTION (no free occupancy data for 30+ night stays)
+  platform_fee_pct: 0.03
+  turnovers_per_year: 4
+  utilities_monthly_by_beds: {0: 200, 1: 230, 2: 280, 3: 330}
+  insurance_monthly: 60
+  monthly_discount_on_listed_nightly: 0.20   # Airbnb hosts typically give monthly discounts off the listed nightly price
+  max_premium_over_ltr: 1.5   # sanity cap: furnished 30+ night rate rarely exceeds ~1.5x unfurnished long-term rent
+  mtr_discount_vs_str_nightly: 0.55   # fallback only: monthly-equivalent nightly = STR ADR x this, if no 28+ night comps
+
+comps:
+  str_radius_km: [1.0, 2.0, 3.5]      # expanding search radii
+  str_min_comps: 8
+  str_active_min_reviews_ltm: 1       # "active" = >=1 review in last 12 months
+  ltr_radius_km: [1.5, 3.0, 5.0]
+  ltr_min_comps: 5
+  outlier_trim_pct: 0.10              # trim top/bottom 10% before medians
+
+arbitrage:
+  beds: [1, 2, 3]
+  max_pages_rentcom: 3
+  max_listings: 1000             # scoring is fast; keep all sources (RentCast returns up to 500)
