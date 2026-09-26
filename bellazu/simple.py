@@ -68,7 +68,7 @@ def verdict_property(r):
     f = r.get("facts") or {}
     if not o:
         return {"level": "maybe", "en": "We need the price to give you an answer.", "es": "Necesitamos el precio para darle una respuesta.",
-                "next_en": "Add the price under Add details and check again.", "next_es": "Agregue el precio en Agregar detalles y revise otra vez."}
+                "next_en": "Tap 'Add the price' just below and we'll redo the math.", "next_es": "Toque 'Agregar el precio' aquí abajo y volvemos a calcular."}
     rent, _ = rent_used(r)
     inc = r.get("income_annual")
     ic = r.get("coop_income_check")
@@ -105,8 +105,8 @@ def verdict_property(r):
                "Siga buscando y pruebe otra dirección. Es gratis, y la casa indicada existe 💕")
     elif yellow:
         lvl, why = "maybe", yellow[0]
-        nxt = (("Ask the listing agent about the board's income rule, and add your income under Add details.",
-                "Pregunte al agente por la regla de ingreso de la junta y agregue su ingreso en Agregar detalles.") if board_q else
+        nxt = (("Ask the listing agent about the board's income rule, and add your income in ⚙️ My settings.",
+                "Pregunte al agente por la regla de ingreso de la junta y agregue su ingreso en ⚙️ Mis ajustes.") if board_q else
                ("Ask a lender if you pre-qualify, and check the items under See details.",
                 "Pregunte a un prestamista si precalifica y revise los puntos en Ver detalles."))
     elif green:
@@ -169,7 +169,7 @@ def plain_warnings(r):
             ks = [k.strip() for k in w.split(":", 1)[1].split("—")[0].split(",")]
             en = ", ".join(FIELD.get(k, (k, k))[0] for k in ks if k)
             es = ", ".join(FIELD.get(k, (k, k))[1] for k in ks if k)
-            out.append((f"We're missing the {en}. Add it under Add details.", f"Falta: {es}. Agréguelo en Agregar detalles."))
+            out.append((f"We couldn't find the {en}. Tap 'Fix the home facts' to add it.", f"No encontramos: {es}. Toque 'Corregir datos de la casa' para agregarlo."))
         elif w.startswith("No Inside Airbnb dataset covers"):
             t = r.get("town") or "this town"
             out.append((f"Airbnb price data comes from a nearby city, not {t}, so treat Airbnb numbers as rough.",

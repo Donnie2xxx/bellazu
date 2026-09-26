@@ -1,10 +1,14 @@
 [theme]
-primaryColor = "#C2466B"
-backgroundColor = "#FFF8F5"
-secondaryBackgroundColor = "#FCEEF1"
-textColor = "#3A2E35"
-baseFontSize = 17
+base = "dark"
+primaryColor = "#F4A7BB"
+backgroundColor = "#141414"
+secondaryBackgroundColor = "#1E1E1E"
+textColor = "#FFFFFF"
+borderColor = "#2E2E2E"
+baseFontSize = 16
 baseRadius = "full"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap, sans-serif"
+headingFont = "League Gothic:https://fonts.googleapis.com/css2?family=League+Gothic&display=swap, sans-serif"
 
 [client]
 toolbarMode = "viewer"

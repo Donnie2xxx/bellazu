@@ -31,45 +31,113 @@ from bellazu import analyze_property, scan_arbitrage          # noqa: E402
 from bellazu.render import property_html, arb_html, write_property, write_arbitrage  # noqa: E402
 from bellazu.sources import rentcast                          # noqa: E402
 from bellazu import simple as S                               # noqa: E402
+from bellazu import towns                                     # noqa: E402
 from bellazu.simple import money                              # noqa: E402
 
 st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>
+/* Design language: dark editorial landing page. Near-black canvas, white type, hairline dividers, tall condensed uppercase
+   display type (League Gothic), neo-grotesk body (Inter), serif wordmark (Instrument Serif), outlined + solid pill buttons,
+   one soft rose accent. */
+@import url('https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter:wght@300;400;500;600;700&family=Instrument+Serif&display=swap');
+:root {--ink:#141414; --ink2:#1B1B1B; --line:#2E2E2E; --line2:#3A3A3A; --paper:#FFFFFF; --mute:#A9A9A9; --rose:#F4A7BB; --rose2:#FFD3DE;
+       --good:#8FE3B5; --maybe:#FFCF7A; --skip:#FF9DB5; --disp:'League Gothic', 'Oswald', Impact, sans-serif; --body:'Inter', system-ui, sans-serif}
+html, body, .stApp, [class*="st-"], .stMarkdown, button, input, textarea, select, p, li, label {font-family:var(--body)}
 #MainMenu, footer, header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {display:none !important}
-.block-container {padding-top:1.3rem; padding-bottom:4rem; max-width:640px}
+.stApp {background:var(--ink); color:var(--paper)}
+.block-container {padding-top:.4rem; padding-bottom:4rem; max-width:640px}
 input {font-size:16px !important}
-.stButton button, .stDownloadButton button, .stFormSubmitButton button {min-height:3.2rem; font-size:1.08rem; font-weight:600; border-radius:999px}
-[data-testid="stExpander"] details {border-radius:16px; border-color:#F3D9E0; background:#FFFFFF}
-.bz-brand {font-size:2.05rem; font-weight:800; color:#C2466B; letter-spacing:-.4px; line-height:1.1}
-.bz-sub {color:#7A6570; font-size:1rem; margin:.15rem 0 1rem; line-height:1.45}
-.bz-hello {font-size:1.35rem; font-weight:700; color:#3A2E35; margin:.4rem 0 .2rem}
-.bz-addr {font-size:1.02rem; font-weight:600; color:#3A2E35; margin:.2rem 0 .4rem}
-.bz-card, .bz-tile, .bz-verdict, .bz-how, .bz-line {box-shadow:0 2px 10px rgba(194,70,107,.08)}
-.bz-verdict {border-radius:20px; padding:1rem 1.1rem; margin:.3rem 0 1rem}
-.bz-verdict .big {font-size:1.7rem; font-weight:800; line-height:1.15}
-.bz-verdict .head {font-size:1.12rem; font-weight:700; margin-top:.35rem; line-height:1.35}
-.bz-verdict .why {font-size:1.05rem; margin-top:.25rem; line-height:1.4}
-.bz-verdict .next {font-size:.98rem; margin-top:.6rem; padding-top:.55rem; border-top:1px dashed rgba(0,0,0,.15); line-height:1.4}
-.bz-good {background:#E6F4EC; color:#1E5E3A} .bz-maybe {background:#FFF1DA; color:#6E4A00} .bz-skip {background:#FBE6EC; color:#8E2B4B}
-.bz-tiles {display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin:.2rem 0 1rem}
-.bz-tile {background:#FFFFFF; border:1px solid #F3D9E0; border-radius:18px; padding:.75rem .85rem}
-.bz-tile .lbl {font-size:.88rem; color:#7A6570}
-.bz-tile .num {font-size:1.5rem; font-weight:800; color:#3A2E35; line-height:1.25}
-.bz-tile .sub {font-size:.8rem; color:#7A6570; line-height:1.3}
-.bz-tile details {margin-top:.35rem; font-size:.8rem; color:#6B5A63}
-.bz-tile summary {color:#C2466B; cursor:pointer; font-weight:600; list-style:none}
+h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--disp) !important; text-transform:uppercase; font-weight:400 !important; letter-spacing:.01em; line-height:.95 !important}
+[data-testid="stMarkdownContainer"] h4 {font-size:2rem; margin:1.6rem 0 .5rem; padding-top:1rem; border-top:1px solid var(--line)}
+[data-testid="stMarkdownContainer"] a {color:var(--rose)}
+[data-testid="stCaptionContainer"], .stCaption {color:var(--mute) !important}
+hr {border-color:var(--line) !important}
+/* buttons: outlined pill (secondary), solid white pill (primary), uppercase micro-type */
+.stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopover"] > div > button {
+  min-height:3.3rem; border-radius:100px; border:1px solid var(--paper); background:transparent; color:var(--paper);
+  text-transform:uppercase; letter-spacing:.06em; font-weight:500; font-size:.92rem; transition:color .35s cubic-bezier(.39,.575,.565,1), background-color .3s}
+.stButton button:hover, .stDownloadButton button:hover, [data-testid="stPopover"] > div > button:hover {background:var(--paper); color:var(--ink); border-color:var(--paper)}
+.stButton button[kind="primary"], .stDownloadButton button[kind="primary"], .stFormSubmitButton button[kind="primary"] {
+  background:var(--paper); color:var(--ink); border:1px solid var(--paper); font-weight:700; min-height:3.6rem}
+.stButton button[kind="primary"]:hover, .stDownloadButton button[kind="primary"]:hover, .stFormSubmitButton button[kind="primary"]:hover {background:var(--rose); border-color:var(--rose); color:var(--ink)}
+.stButton button[kind="tertiary"] {border:none; min-height:2.2rem; color:var(--rose); text-decoration:underline; text-underline-offset:4px; background:transparent}
+.stButton button p, .stDownloadButton button p, .stFormSubmitButton button p, [data-testid="stPopover"] button p {font-weight:inherit}
+/* inputs: outlined pills, centered uppercase placeholder like a newsletter field */
+[data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="select"] > div, [data-baseweb="textarea"] {background:transparent !important; border-radius:100px !important; border:1px solid var(--line2) !important}
+[data-baseweb="input"]:focus-within, [data-baseweb="select"] > div:focus-within {border-color:var(--paper) !important}
+[data-baseweb="input"] input, [data-baseweb="select"] input {color:var(--paper) !important; padding-left:1.1rem !important}
+[data-baseweb="input"] input::placeholder {color:#8C8C8C !important; text-transform:uppercase; letter-spacing:.05em; font-size:.85rem !important}
+[data-testid="stTextInput"] label p, [data-testid="stSelectbox"] label p, [data-testid="stNumberInput"] label p, [data-testid="stWidgetLabel"] p {
+  text-transform:uppercase; letter-spacing:.08em; font-size:.74rem !important; color:var(--mute); font-weight:500}
+[data-testid="stNumberInput"] button {background:transparent; color:var(--paper); border:none}
+/* pills + segmented controls */
+[data-testid="stButtonGroup"] button {border-radius:100px !important; min-height:2.7rem; padding:0 1.05rem; border:1px solid var(--line2) !important; background:transparent !important;
+  color:var(--paper) !important; text-transform:uppercase; letter-spacing:.05em; font-size:.8rem; font-weight:500}
+[data-testid="stButtonGroup"] button[kind$="Active"] {background:var(--paper) !important; color:var(--ink) !important; border-color:var(--paper) !important}
+[data-testid="stButtonGroup"] button[kind$="Active"] p {color:var(--ink) !important}
+.st-key-mode [data-testid="stButtonGroup"] button {min-height:3.3rem; font-size:.86rem}
+.st-key-lang [data-testid="stButtonGroup"] button {min-height:2.2rem; padding:0 .8rem; font-size:.75rem}
+/* expanders + popovers */
+[data-testid="stExpander"] details {border:none; border-top:1px solid var(--line); border-bottom:1px solid var(--line); border-radius:0; background:transparent}
+[data-testid="stExpander"] summary {padding-left:0}
+[data-testid="stExpander"] summary p {text-transform:uppercase; letter-spacing:.08em; font-size:.82rem; font-weight:500}
+[data-testid="stPopoverBody"] {background:var(--ink2) !important; border:1px solid var(--line2) !important; border-radius:24px !important}
+[data-testid="stAlert"] {background:var(--ink2); border:1px solid var(--line2); border-radius:20px; color:var(--paper)}
+[data-testid="stDataFrame"] {border:1px solid var(--line); border-radius:12px}
+/* top bar + hero */
+.bz-top {display:flex; align-items:center; justify-content:space-between; padding:.2rem 0 .7rem; border-bottom:1px solid var(--line); margin-bottom:1.2rem}
+.bz-word {font-family:'Instrument Serif', Georgia, serif; font-size:2rem; line-height:1; color:var(--paper)}
+.bz-word i {color:var(--rose); font-style:normal}
+.bz-eyebrow {text-transform:uppercase; letter-spacing:.1em; font-size:.74rem; color:var(--paper); display:flex; align-items:center; gap:.6rem; margin:.2rem 0 .8rem}
+.bz-eyebrow:before {content:""; width:.55rem; height:.55rem; border-radius:50%; background:var(--rose); display:inline-block}
+.bz-h1 {font-family:var(--disp); text-transform:uppercase; font-size:4.3rem; line-height:.9; letter-spacing:.01em; color:var(--paper); margin:0 0 .9rem}
+.bz-h1 em {font-style:normal; color:var(--rose)}
+.bz-lede {text-transform:uppercase; letter-spacing:.05em; font-size:.84rem; line-height:1.6; color:#D8D8D8; font-weight:300; margin:0 0 1.2rem; max-width:30rem}
+.bz-marquee {overflow:hidden; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:1.6rem 0 1.4rem; padding:.55rem 0; white-space:nowrap}
+.bz-marquee .track {display:inline-block; animation:bzscroll 26s linear infinite; font-family:var(--disp); text-transform:uppercase; font-size:2.3rem; line-height:1}
+.bz-marquee .o {color:transparent; -webkit-text-stroke:1px var(--paper)} .bz-marquee .f {color:var(--paper)} .bz-marquee .st {color:var(--rose); font-size:1.4rem; margin:0 .9rem; vertical-align:middle}
+@keyframes bzscroll {from {transform:translateX(0)} to {transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce) {.bz-marquee .track {animation:none}}
+.bz-steps {display:grid; grid-template-columns:1fr 1fr 1fr; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:1.4rem 0 1rem}
+.bz-steps .s {padding:.9rem .6rem .9rem 0; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:#D8D8D8; line-height:1.35}
+.bz-steps .s + .s {border-left:1px solid var(--line); padding-left:.7rem}
+.bz-steps .n {display:block; font-family:var(--disp); font-size:2rem; color:var(--rose); line-height:1; margin-bottom:.25rem}
+.bz-hello {font-family:var(--disp); text-transform:uppercase; font-size:2.6rem; line-height:.95; color:var(--paper); margin:.4rem 0 .5rem}
+.bz-sub {text-transform:uppercase; letter-spacing:.05em; font-size:.8rem; line-height:1.6; color:#CFCFCF; font-weight:300; margin:.1rem 0 1.1rem}
+.bz-addr {text-transform:uppercase; letter-spacing:.07em; font-size:.76rem; color:var(--mute); margin:.2rem 0 .6rem}
+/* result: verdict, tiles grid, airbnb line, cards */
+.bz-verdict {border:1px solid var(--line2); border-radius:28px; padding:1.3rem 1.3rem 1.2rem; margin:.3rem 0 1rem; background:var(--ink2)}
+.bz-verdict .big {font-family:var(--disp); text-transform:uppercase; font-size:3.4rem; line-height:.9; letter-spacing:.01em}
+.bz-verdict .head {font-size:1.08rem; font-weight:600; margin-top:.6rem; line-height:1.4; color:var(--paper)}
+.bz-verdict .why {font-size:1rem; margin-top:.3rem; line-height:1.5; color:#DADADA}
+.bz-verdict .next {font-size:.95rem; margin-top:.9rem; padding-top:.8rem; border-top:1px solid var(--line2); line-height:1.5; color:#DADADA}
+.bz-good .big {color:var(--good)} .bz-maybe .big {color:var(--maybe)} .bz-skip .big {color:var(--skip)}
+.bz-good {box-shadow:inset 0 3px 0 var(--good)} .bz-maybe {box-shadow:inset 0 3px 0 var(--maybe)} .bz-skip {box-shadow:inset 0 3px 0 var(--skip)}
+.bz-tiles {display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--line); border-left:1px solid var(--line); margin:.4rem 0 1.1rem}
+.bz-tile {border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:1rem .9rem .9rem}
+.bz-tile .lbl {text-transform:uppercase; letter-spacing:.08em; font-size:.68rem; color:var(--mute)}
+.bz-tile .num {font-family:var(--disp); font-size:2.6rem; line-height:1; color:var(--paper); margin:.35rem 0 .2rem; letter-spacing:.01em}
+.bz-tile .sub {font-size:.78rem; color:#BDBDBD; line-height:1.35}
+.bz-tile details {margin-top:.45rem; font-size:.78rem; color:#BDBDBD}
+.bz-tile summary {color:var(--rose); cursor:pointer; list-style:none; text-transform:uppercase; letter-spacing:.06em; font-size:.66rem}
 .bz-tile summary::-webkit-details-marker {display:none}
-.bz-tile details p {margin:.25rem 0 0; line-height:1.35}
-.bz-line {font-size:1.02rem; padding:.75rem .9rem; border-radius:16px; background:#F1ECFA; margin:.2rem 0 1rem; line-height:1.4}
-.bz-how {background:#FFFFFF; border:1px solid #F3D9E0; border-radius:20px; padding:.9rem 1rem; margin:.3rem 0 1rem}
-.bz-how .step {display:flex; gap:.7rem; align-items:center; margin:.45rem 0; font-size:1rem; line-height:1.35}
-.bz-how .n {flex:0 0 2rem; height:2rem; border-radius:50%; background:#FBE6EC; color:#C2466B; font-weight:800; display:flex; align-items:center; justify-content:center}
-.bz-card {background:#FFFFFF; border:1px solid #F3D9E0; border-radius:18px; padding:.8rem .9rem; margin:.55rem 0}
-.bz-card .t {font-weight:600; color:#3A2E35; line-height:1.3}
-.bz-card .m {margin:.25rem 0; font-size:1rem}
-.bz-card a {color:#C2466B; font-weight:600}
-.bz-small {font-size:.85rem; color:#7A6570}
+.bz-tile details p {margin:.3rem 0 0; line-height:1.4}
+.bz-line {display:flex; gap:.7rem; align-items:flex-start; font-size:.95rem; padding:1rem 1.1rem; border-radius:100px; border:1px solid var(--rose); color:var(--paper); margin:.2rem 0 1.1rem; line-height:1.45}
+.bz-ask {border:1px dashed var(--rose); border-radius:22px; padding:.85rem 1.1rem; margin:.2rem 0 .7rem; color:var(--paper); font-size:.95rem}
+.bz-card {border:1px solid var(--line2); border-radius:24px; padding:1rem 1.1rem; margin:.65rem 0; background:var(--ink2)}
+.bz-card .t {font-weight:600; color:var(--paper); line-height:1.35}
+.bz-card .m {margin:.3rem 0; font-size:.98rem; color:#DADADA}
+.bz-card .m b {color:var(--paper)}
+.bz-card a {color:var(--rose); text-transform:uppercase; letter-spacing:.07em; font-size:.76rem; text-decoration:none; border-bottom:1px solid var(--rose)}
+.bz-small {font-size:.85rem; color:var(--mute)}
+.bz-small a {color:var(--rose)}
+.bz-lbl {text-transform:uppercase; letter-spacing:.08em; font-size:.74rem; color:var(--mute); font-weight:500; margin:.6rem 0 .35rem}
+html, body, .stApp, [data-testid="stMain"] {overflow-x:hidden !important; max-width:100vw}
+[data-testid="stButtonGroup"] button {min-height:3rem !important}
+.stButton button {min-height:3rem}
+iframe[title*="searchbox"] {min-height:58px}
+.bz-foot {text-transform:uppercase; letter-spacing:.08em; font-size:.66rem; color:#7D7D7D; text-align:center; margin-top:1.4rem}
 </style>""", unsafe_allow_html=True)
 
 
@@ -95,17 +163,30 @@ def md(s):
 
 
 def header():
-    top = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute")
-    top.markdown("<div class='bz-brand'>🏡 BellaZu</div>", unsafe_allow_html=True)
+    top = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key="topbar")
+    top.markdown("<div class='bz-word'>Bella<i>Zu</i></div>", unsafe_allow_html=True)
     top.segmented_control("Language / Idioma", ["EN", "ES"], key="lang", default="EN", required=True, label_visibility="collapsed")
+    html("<div style='border-bottom:1px solid #2E2E2E; margin:-.3rem 0 1.1rem'></div>")
+
+
+def header_hero():
+    html(f"<div class='bz-eyebrow'>{L('For first-time buyers in North Jersey', 'Para primeros compradores en el norte de NJ')}</div>"
+         f"<div class='bz-h1'>{L('Your first home, <em>made simple.</em>', 'Su primera casa, <em>sin complicaciones.</em>')}</div>"
+         f"<div class='bz-lede'>{L('Paste an address. We check the price, the monthly cost and the rent it could earn, and give you a plain answer in about a minute.', 'Pegue una dirección. Revisamos el precio, el costo mensual y la renta posible, y le damos una respuesta clara en más o menos un minuto.')}</div>")
+
+
+def marquee():
+    words = [L("Check a home", "Revise una casa"), L("Find rentals", "Busque alquileres"), L("Plain answers", "Respuestas claras"), L("English + Español", "Español + English")]
+    seq = "".join(f"<span class='{'f' if i % 2 == 0 else 'o'}'>{H.escape(w)}</span><span class='st'>✺</span>" for i, w in enumerate(words))
+    html(f"<div class='bz-marquee' aria-hidden='true'><div class='track'>{seq}{seq}</div></div>")
 
 
 # ------------------------------------------------------------------ passcode gate
 def gate():
     header()
-    st.markdown("<div class='bz-hello'>Welcome to BellaZu 💕<br>Bienvenida a BellaZu 💕</div>"
-                "<div class='bz-sub'>Your friendly helper for buying your first home. Type your passcode to come in.<br>"
-                "Su guía amiga para comprar su primera casa. Escriba su código para entrar.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='bz-eyebrow'>Private beta · Beta privada</div>"
+                "<div class='bz-h1'>Welcome to <em>BellaZu</em></div>"
+                "<div class='bz-lede'>Bienvenida a BellaZu 💕<br>Type your passcode to come in. · Escriba su código para entrar.</div>", unsafe_allow_html=True)
     pc = secret("APP_PASSCODE").lower()
     if not pc:
         st.error("This app is not set up yet (missing APP_PASSCODE). / La app aún no está configurada (falta APP_PASSCODE).")
@@ -134,7 +215,7 @@ if not st.session_state.get("authed"):
 
 header()
 mode = st.segmented_control("Mode", ["home", "town"], key="mode", default="home", required=True, label_visibility="collapsed", width="stretch",
-                            format_func=lambda k: L("🏠 Check a home", "🏠 Revisar una casa") if k == "home" else L("🔑 Find rentals in a town", "🔑 Buscar alquileres en un pueblo"))
+                            format_func=lambda k: L("Check a home", "Revisar una casa") if k == "home" else L("Find rentals in a town", "Buscar alquileres en un pueblo"))
 
 
 # ------------------------------------------------------------------ shared bits
@@ -151,10 +232,10 @@ def safe_name(s):
 def verdict_box(v):
     lvl = v["level"]
     if v.get("title_en"):      # town scan: the title is the rule itself
-        big = f"{'🚫' if lvl == 'skip' else '❓'} {v['title_es'] if ES() else v['title_en']}"
+        big = v['title_es'] if ES() else v['title_en']
         head = ""
     else:
-        big = {"good": L("✨ Good deal", "✨ Buen negocio"), "maybe": L("🤔 Maybe", "🤔 Tal vez"), "skip": L("🌷 Skip", "🌷 Mejor no")}[lvl]
+        big = {"good": L("Good deal", "Buen negocio"), "maybe": L("Maybe", "Tal vez"), "skip": L("Skip this one", "Mejor no")}[lvl]
         head = {"good": L("Great news, this one could work!", "¡Buenas noticias, esta podría funcionar!"),
                 "maybe": L("This one could work, but let's check a few things first.", "Esta podría funcionar, pero revisemos algunas cosas primero."),
                 "skip": L("This one's not a fit, and here's why:", "Esta no le conviene, y le explicamos por qué:")}[lvl]
@@ -204,7 +285,8 @@ COST_LBL = {"principal_interest": ("Mortgage payment (loan + interest)", "Pago d
             "repairs_reserve": ("Savings for repairs", "Ahorro para reparaciones")}
 TYPE_LBL = {"co-op": ("Co-op", "Co-op"), "condo": ("Condo", "Condo"), "single-family": ("House", "Casa"), "multi-family": ("2 to 4 family", "Multifamiliar"),
             "townhouse": ("Townhouse", "Townhouse")}
-INC_LBL = {"taxes": ("taxes", "impuestos"), "utilities": ("utilities", "servicios"), "internet": ("internet", "internet"), "heat/hot water": ("heat and hot water", "calefacción y agua caliente")}
+INC_LBL = {"taxes": ("taxes", "impuestos"), "utilities": ("utilities", "servicios"), "internet": ("internet", "internet"), "heat/hot water": ("heat and hot water", "calefacción y agua caliente"),
+           "parking": ("parking", "estacionamiento")}
 
 
 def profit_txt(v):
@@ -240,6 +322,8 @@ def show_property(r):
             L("What a tenant would likely pay each month to rent the whole home.", "Lo que un inquilino probablemente pagaría al mes por toda la casa."))])
     icon, en, es = S.airbnb_line(r.get("str_rules") or {}, "owner")
     html(f"<div class='bz-line'>{icon} {H.escape(es if ES() else en)}</div>")
+    ask_missing(r)
+    fix_facts(r)
     st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), property_html(r).encode(),
                        f"BellaZu_Report_{safe_name(r['address'])}.html", "text/html", key="dl_prop", type="primary", width="stretch", on_click="ignore")
     with st.expander(L("See details", "Ver detalles")):
@@ -290,8 +374,8 @@ def property_details(r, f, sc, o, rent, rent_src, own):
             md(L(f"Housing would take {d:.0%} of the income you entered. Lenders usually want this under about 31% to 43%. They normally don't count roommate rent.",
                  f"La vivienda se llevaría el {d:.0%} del ingreso que puso. Los prestamistas suelen querer menos de 31% a 43%. Normalmente no cuentan la renta de compañeros."))
         else:
-            st.caption(L("Add your income under Add details to see if a lender would likely approve the payment.",
-                         "Agregue su ingreso en Agregar detalles para ver si un prestamista aprobaría el pago."))
+            st.caption(L("Add your income in ⚙️ My settings to see if a lender would likely approve the payment.",
+                         "Agregue su ingreso en ⚙️ Mis ajustes para ver si un prestamista aprobaría el pago."))
 
     # --- loan type
     fh = r.get("fha") or {}
@@ -451,10 +535,9 @@ def glossary():
 
 
 def how_it_works():
-    steps = [L("Type or paste an address", "Escriba o pegue una dirección"), L("We check the numbers for you", "Revisamos los números por usted"),
-             L("You get a simple answer", "Usted recibe una respuesta sencilla")]
-    html("<div class='bz-how'><b>" + L("How it works ✨", "Cómo funciona ✨") + "</b>"
-         + "".join(f"<div class='step'><div class='n'>{i}</div><div>{H.escape(t)}</div></div>" for i, t in enumerate(steps, 1)) + "</div>")
+    steps = [L("Type an address", "Escriba una dirección"), L("We check the numbers", "Revisamos los números"),
+             L("You get a plain answer", "Recibe una respuesta clara")]
+    html("<div class='bz-steps'>" + "".join(f"<div class='s'><span class='n'>0{i}</span>{H.escape(t)}</div>" for i, t in enumerate(steps, 1)) + "</div>")
 
 
 def example():
@@ -469,98 +552,405 @@ def example():
         return {"address": raw}
 
 
+# ------------------------------------------------------------------ taps instead of typing: choices
+UI_TYPES = {"single-family": ("House", "Casa"), "2-family": ("2-family", "2 familias"), "3-4-family": ("3-4 family", "3-4 familias"),
+            "condo": ("Condo", "Condo"), "co-op": ("Co-op", "Co-op"), "townhouse": ("Townhouse", "Townhouse")}
+ENGINE_TYPE = {"2-family": "multi-family", "3-4-family": "multi-family"}
+UI_INC = {"taxes": ("taxes", "impuestos"), "heat": ("heat", "calefacción"), "water": ("water", "agua"), "electric": ("electric", "luz"),
+          "gas": ("gas", "gas"), "internet": ("internet", "internet"), "parking": ("parking", "estacionamiento")}
+BEDS = [0, 1, 2, 3, 4]
+BATHS = [1.0, 1.5, 2.0, 2.5, 3.0]
+BOARD = ["none", 3.0, 4.0, "other"]
+INCOME_PICKS = ["skip", 50_000, 75_000, 100_000, 125_000, 150_000]
+DOWN_PICKS = ["usual", 5.0, 10.0, 20.0]
+
+
+def beds_fmt(k):
+    return L("Studio", "Estudio") if k == 0 else ("4+" if k == 4 else str(k))
+
+
+def baths_fmt(k):
+    return "3+" if k >= 3 else f"{k:g}"
+
+
+def board_fmt(k):
+    if k == "none":
+        return L("None / not sure", "Ninguna / no sé")
+    if k == "other":
+        return L("Other", "Otra")
+    return f"{float(k):g}:1"
+
+
+def includes_engine(sel):
+    """UI 'fee includes' pills -> the engine's list. The math counts utilities as included only when electric AND gas are."""
+    sel = set(sel or [])
+    out = [x for x in ("taxes", "internet", "parking") if x in sel]
+    if {"electric", "gas"} <= sel:
+        out.append("utilities")
+    if sel & {"heat", "water"}:
+        out.append("heat/hot water")
+    return out
+
+
+def includes_ui(eng):
+    eng = [x.lower() for x in (eng or [])]
+    out = [x for x in ("taxes", "internet", "parking") if x in eng]
+    if "utilities" in eng:
+        out += ["electric", "gas"]
+    if "heat/hot water" in eng:
+        out += ["heat", "water"]
+    return out
+
+
+# ------------------------------------------------------------------ My settings (remembered in the session)
+SET_KEYS = ("set_income", "set_down", "set_rm", "set_rc", "inc_chip")
+
+
+def settings_defaults():
+    ss = st.session_state
+    ss.setdefault("set_income", 0)
+    ss.setdefault("set_down", "usual")
+    ss.setdefault("set_rm", 1)
+    ss.setdefault("set_rc", rentcast.available())
+    for k in SET_KEYS:          # keep widget values alive even on pages where the popover isn't drawn
+        if k in ss:
+            ss[k] = ss[k]
+
+
+def _inc_chip():
+    v = st.session_state.get("inc_chip")
+    if v is not None:
+        st.session_state.set_income = 0 if v == "skip" else int(v)
+
+
+def settings_popover():
+    with st.popover(L("⚙️ My settings", "⚙️ Mis ajustes"), width="content"):
+        st.markdown(f"**{L('Your yearly income (before taxes)', 'Su ingreso anual (antes de impuestos)')}**")
+        st.caption(L("Only used to check lender and co-op board rules. Never saved.", "Solo se usa para revisar reglas del banco y de la junta. Nunca se guarda."))
+        st.pills(L("Quick pick", "Elegir rápido"), INCOME_PICKS, key="inc_chip", on_change=_inc_chip, label_visibility="collapsed",
+                 format_func=lambda k: L("Skip", "Omitir") if k == "skip" else f"${k // 1000:,}K")
+        st.number_input(L("Exact amount ($)", "Cantidad exacta ($)"), min_value=0, max_value=5_000_000, step=5000, key="set_income")
+        st.markdown(f"**{L('Down payment', 'Pago inicial')}**")
+        st.pills(L("Down payment", "Pago inicial"), DOWN_PICKS, key="set_down", required=True, label_visibility="collapsed",
+                 format_func=lambda k: L("3.5% FHA (usual)", "3.5% FHA (usual)") if k == "usual" else f"{k:g}%")
+        st.caption(L("Co-ops can't use FHA, so 'usual' means 10% down there.", "Las co-ops no aceptan FHA; ahí 'usual' significa 10% inicial."))
+        st.markdown(f"**{L('Roommates', 'Compañeros de cuarto')}**")
+        st.pills(L("Roommates", "Compañeros"), [0, 1, 2], key="set_rm", required=True, label_visibility="collapsed",
+                 format_func=lambda k: {0: L("None", "Ninguno"), 1: "1", 2: "2"}[k])
+        st.caption(L("Never more than the spare bedrooms.", "Nunca más que los cuartos libres."))
+        st.toggle(L("Use RentCast lookups (better numbers)", "Usar consultas de RentCast (mejores números)"), key="set_rc", disabled=not rentcast.available())
+        st.caption(rc_usage_line())
+
+
+# ------------------------------------------------------------------ Check a home: running
+def facts_for(addr):
+    return st.session_state.setdefault("facts_over", {}).setdefault(addr.strip().lower(), {})
+
+
+def home_opts(addr):
+    ss = st.session_state
+    fo = facts_for(addr)
+    ov = {"price": fo.get("price"), "hoa_monthly": fo.get("hoa"), "taxes_annual": fo.get("taxes"), "beds": fo.get("beds"), "baths": fo.get("baths"),
+          "ownership": ENGINE_TYPE.get(fo.get("type"), fo.get("type")), "hoa_includes": includes_engine(fo.get("inc")) if fo.get("inc") is not None else None}
+    b = fo.get("board")
+    bp = {"en": "Board income rule entered by the user.", "es": "Regla de ingreso de la junta ingresada por el usuario.",
+          "source": "user input", "income_multiple": float(b)} if isinstance(b, (int, float)) and b else None
+    aov = {"roommate": {"rooms_rented_out": int(ss.get("set_rm", 1))}}
+    d = ss.get("set_down", "usual")
+    if d != "usual":
+        aov["financing"] = {"fha_down_pct": float(d) / 100, "owner_conv_down_pct": float(d) / 100}
+    return {"overrides": {k: v for k, v in ov.items() if v is not None}, "income_annual": int(ss.get("set_income") or 0) or None,
+            "building_policy": bp, "use_rentcast": bool(ss.get("set_rc")) and rentcast.available(), "assumption_overrides": aov}
+
+
+def run_home(addr, where):
+    ss = st.session_state
+    opts = home_opts(addr)
+    key = json.dumps([addr.strip().lower(), opts], sort_keys=True, default=str)
+    cache = ss.setdefault("prop_cache", {})
+    if key in cache:
+        r = cache[key]
+    else:
+        with where, st.spinner(L("Checking the numbers for you... about 20 to 60 seconds ✨", "Revisando los números por usted... unos 20 a 60 segundos ✨")):
+            try:
+                r = analyze_property(addr.strip(), opts)
+            except Exception as e:  # never show a stack trace to the user
+                r = {"ok": False, "error": f"{e.__class__.__name__}"}
+        if r.get("ok"):
+            cache[key] = r
+            rec = ss.setdefault("recent", [])
+            if addr.strip() in rec:
+                rec.remove(addr.strip())
+            rec.insert(0, addr.strip())
+            del rec[5:]
+    ss.prop, ss.prop_key = r, key
+
+
+def _addr_changed():
+    ss = st.session_state
+    ss.addr_sugg = []
+    q = (ss.get("addr") or "").strip()
+    if len(q) < 8:
+        return
+    try:
+        from bellazu.geo import suggest, UNIT_RE
+        sug = suggest(q, 4)
+    except Exception:
+        return
+    unit = " ".join(m.group(0).strip(" ,") for m in UNIT_RE.finditer(q))
+    norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
+    out = []
+    for s_ in sug:
+        if unit:                      # keep the typed apartment number on the suggestion
+            parts = s_.split(", ", 1)
+            s_ = f"{parts[0]} {unit}" + (f", {parts[1]}" if len(parts) > 1 else "")
+        if norm(s_) != norm(q) and s_ not in out:
+            out.append(s_)
+    ss.addr_sugg = out[:3]
+
+
+def _pick(key):
+    v = st.session_state.get(key)
+    if v:
+        st.session_state.addr = v
+        st.session_state.addr_sugg = []
+    st.session_state[key] = None
+
+
 def use_example():
     ex = example() or {}
     ss = st.session_state
     ss.addr = ex.get("address", "")
-    for k, w in (("price", "price"), ("hoa", "hoa"), ("taxes", "taxes"), ("beds", "beds")):
+    fo = facts_for(ss.addr)
+    for k in ("price", "hoa", "taxes", "beds"):
         if ex.get(k) is not None:
-            ss[w] = int(ex[k])
-    if ex.get("type") in ("condo", "co-op", "single-family", "multi-family"):
-        ss.own = ex["type"]
+            fo[k] = int(ex[k])
+    if ex.get("type") in UI_TYPES or ex.get("type") == "multi-family":
+        fo["type"] = {"multi-family": "2-family"}.get(ex["type"], ex["type"])
     if ex.get("includes"):
-        ss.inc = [x for x in ex["includes"] if x in INC_LBL]
+        fo["inc"] = includes_ui(ex["includes"])
     if ex.get("board_multiple"):
-        ss.mult = float(ex["board_multiple"])
-    if ex.get("link"):
-        ss.link = ex["link"]
+        fo["board"] = float(ex["board_multiple"])
     ss.auto_go = True
+
+
+# ------------------------------------------------------------------ Check a home: fill a missing fact / fix facts
+def _set_fact(addr, k, wkey):
+    v = st.session_state.get(wkey)
+    if v is not None:
+        facts_for(addr)[k] = v
+
+
+def missing_fact(r):
+    f = r.get("facts") or {}
+    own = (f.get("ownership") or "").lower()
+    if not f.get("price"):
+        return "price"
+    if not own:
+        return "type"
+    if f.get("beds") in (None, ""):
+        return "beds"
+    if f.get("hoa_monthly") in (None, "") and own in ("condo", "co-op", "townhouse"):
+        return "hoa"
+    return None
+
+
+def ask_missing(r):
+    """ONE small friendly prompt for the most important fact we couldn't find."""
+    addr = st.session_state.get("prop_addr", r["address"])
+    k = missing_fact(r)
+    if not k:
+        return
+    sid = safe_name(addr)[:30]
+    msg = {"price": L("We couldn't find the price. Add it and we'll redo the math ✨", "No encontramos el precio. Agréguelo y volvemos a calcular ✨"),
+           "type": L("What kind of home is it? Tap one 👇", "¿Qué tipo de vivienda es? Toque una 👇"),
+           "beds": L("How many bedrooms? Tap one 👇", "¿Cuántas habitaciones? Toque una 👇"),
+           "hoa": L("We couldn't find the monthly building fee. Add it for a truer cost ✨", "No encontramos la cuota mensual del edificio. Agréguela para un costo más real ✨")}[k]
+    html(f"<div class='bz-ask'>🔎 {H.escape(msg)}</div>")
+    if k == "type":
+        st.pills(msg, list(UI_TYPES), key=f"ask_type_{sid}", format_func=lambda x: P(UI_TYPES[x]), label_visibility="collapsed",
+                 on_change=_set_fact, args=(addr, "type", f"ask_type_{sid}"))
+    elif k == "beds":
+        st.pills(msg, BEDS, key=f"ask_beds_{sid}", format_func=beds_fmt, label_visibility="collapsed",
+                 on_change=_set_fact, args=(addr, "beds", f"ask_beds_{sid}"))
+    else:
+        with st.form(f"ask_{k}_{sid}", border=False):
+            c1, c2 = st.columns([3, 2], vertical_alignment="bottom")
+            if k == "price":
+                v = c1.number_input(L("Price ($)", "Precio ($)"), min_value=0, max_value=20_000_000, step=5000, value=None, placeholder="250000")
+            else:
+                v = c1.number_input(L("Monthly fee ($)", "Cuota mensual ($)"), min_value=0, max_value=50_000, step=25, value=None, placeholder="600")
+            ok = c2.form_submit_button(L("Update ✨", "Actualizar ✨"), type="primary", width="stretch")
+        if ok and v is not None:
+            facts_for(addr)["price" if k == "price" else "hoa"] = int(v)
+            st.rerun()
+
+
+def fix_facts(r):
+    addr = st.session_state.get("prop_addr", r["address"])
+    f = r.get("facts") or {}
+    fo = facts_for(addr)
+    sid = safe_name(addr)[:30]
+    own = (f.get("ownership") or "").lower()
+    cur_type = fo.get("type") or {"multi-family": "2-family"}.get(own, own if own in UI_TYPES else None)
+    b = fo.get("board")
+    with st.popover(L("✏️ Not right? Fix the home facts", "✏️ ¿Algo mal? Corregir datos de la casa"), width="stretch"):
+        with st.form(f"fix_{sid}", border=False):
+            price = st.number_input(L("Price ($)", "Precio ($)"), min_value=0, max_value=20_000_000, step=5000, value=int(f.get("price") or 0))
+            typ = st.pills(L("Type of home", "Tipo de vivienda"), list(UI_TYPES), default=cur_type, format_func=lambda x: P(UI_TYPES[x]))
+            beds = st.pills(L("Bedrooms", "Habitaciones"), BEDS, default=min(int(f["beds"]), 4) if f.get("beds") not in (None, "") else None, format_func=beds_fmt)
+            bv = f.get("baths")
+            baths = st.pills(L("Bathrooms", "Baños"), BATHS, default=min(round(float(bv) * 2) / 2, 3.0) if bv else None, format_func=baths_fmt)
+            hoa = st.number_input(L("Monthly building fee / HOA ($, 0 if none)", "Cuota mensual del edificio / HOA ($, 0 si no hay)"), min_value=0, max_value=50_000, step=25,
+                                  value=int(f.get("hoa_monthly") or 0))
+            inc = st.pills(L("The fee includes", "La cuota incluye"), list(UI_INC), selection_mode="multi", default=fo.get("inc") if fo.get("inc") is not None else includes_ui(f.get("hoa_includes")),
+                           format_func=lambda x: P(UI_INC[x]))
+            taxes = st.number_input(L("Property taxes per year ($, 0 if unknown)", "Impuestos por año ($, 0 si no sabe)"), min_value=0, max_value=200_000, step=100,
+                                    value=int(fo.get("taxes") or f.get("taxes_annual") or 0))
+            board = st.pills(L("Co-op/condo board income rule", "Regla de ingreso de la junta"), BOARD, format_func=board_fmt,
+                             default=(b if b in BOARD else ("other" if b else "none")))
+            other = st.number_input(L("If other: income must be this many times the housing cost", "Si es otra: el ingreso debe ser estas veces el costo"),
+                                    min_value=0.0, max_value=10.0, step=0.5, value=float(b) if isinstance(b, float) and b not in BOARD else 0.0)
+            ok = st.form_submit_button(L("Redo the math ✨", "Volver a calcular ✨"), type="primary", width="stretch")
+        if ok:
+            if price:
+                fo["price"] = int(price)
+            if typ:
+                fo["type"] = typ
+            if beds is not None:
+                fo["beds"] = int(beds)
+            if baths is not None:
+                fo["baths"] = float(baths)
+            if hoa or f.get("hoa_monthly") or fo.get("hoa") is not None:
+                fo["hoa"] = int(hoa)
+            fo["inc"] = list(inc or [])
+            if taxes:
+                fo["taxes"] = int(taxes)
+            fo["board"] = (float(other) if board == "other" and other else (board if isinstance(board, float) else None))
+            st.rerun()
+
+
+def addr_search(term):
+    """Live suggestions for the address box (Photon / OpenStreetMap, cached). The typed text is always the last option."""
+    t = (term or "").strip()
+    if len(t) < 5:
+        return []
+    try:
+        from bellazu.geo import suggest
+        sug = suggest(t, 5)
+    except Exception:
+        sug = []
+    return [(f"📍 {s_}", s_) for s_ in sug] + [(L(f"✏️ Use exactly: {t}", f"✏️ Usar tal cual: {t}"), t)]
+
+
+SB_STYLE = {"searchbox": {"control": {"minHeight": "54px", "borderRadius": "100px", "fontSize": "16px", "paddingLeft": "8px",
+                                     "backgroundColor": "#141414", "borderColor": "#3A3A3A", "color": "#FFFFFF"},
+                          "input": {"fontSize": "16px", "color": "#FFFFFF"}, "singleValue": {"color": "#FFFFFF", "fontSize": "16px"},
+                          "placeholder": {"fontSize": "15px", "color": "#8C8C8C"},
+                          "menuList": {"backgroundColor": "#1B1B1B", "maxHeight": "340px"},
+                          "option": {"color": "#FFFFFF", "backgroundColor": "#1B1B1B", "highlightColor": "#F4A7BB", "padding": "14px 16px",
+                                     "fontSize": "16px", "minHeight": "52px"}},
+            "dropdown": {"rotate": True, "width": 26, "height": 26, "fill": "#A9A9A9"},
+            "clear": {"width": 22, "height": 22, "icon": "cross", "clearable": "always", "stroke": "#A9A9A9"},
+            "wrapper": {"backgroundColor": "transparent"}}
+
+
+def _go_recent(x):
+    st.session_state.go_addr = x
+
+
+@st.fragment
+def address_block():
+    """Address box with live suggestions (big tappable rows) + one big button. Typing reruns only this block."""
+    ss = st.session_state
+    val = None
+    if ss.get("plain_addr"):
+        st.text_input(L("Home address", "Dirección de la casa"), key="addr_plain", placeholder=L("123 Main St Apt 4, Fort Lee", "123 Main St Apt 4, Fort Lee"))
+        val = ss.get("addr_plain")
+    else:
+        st.markdown(f"<div class='bz-lbl'>{L('Home address', 'Dirección de la casa')}</div>", unsafe_allow_html=True)
+        try:
+            from streamlit_searchbox import st_searchbox
+            val = st_searchbox(addr_search, key="addr_sb", placeholder=L("Start typing: 123 Main St, Fort Lee", "Empiece a escribir: 123 Main St, Fort Lee"),
+                               debounce=350, default_use_searchterm=True, edit_after_submit="option", rerun_scope="fragment",
+                               style_overrides=SB_STYLE)
+            if not val:
+                val = ((ss.get("addr_sb") or {}).get("search") or "").strip() or None
+        except Exception:          # component unavailable: plain box
+            ss.plain_addr = True
+            st.rerun(scope="fragment")
+    if st.button(L("Check this home", "Revisar esta casa"), type="primary", key="go_prop", width="stretch"):
+        if val and str(val).strip():
+            ss.go_addr = str(val).strip()
+            st.rerun()
+        else:
+            st.warning(L("Type an address first, and we'll take it from there 💕", "Primero escriba una dirección y nos encargamos del resto 💕"))
+    if not ss.get("plain_addr"):
+        st.button(L("Keyboard trouble? Type it the simple way", "¿Problemas? Escríbala de forma sencilla"), key="plain_btn", type="tertiary",
+                  on_click=lambda: ss.update(plain_addr=True))
 
 
 # ------------------------------------------------------------------ Check a home: page
 def home_page():
-    for k, v in (("price", 0), ("hoa", 0), ("taxes", 0), ("beds", 0), ("mult", 0.0), ("income", 0), ("down", 0.0), ("use_rc", rentcast.available())):
-        st.session_state.setdefault(k, v)
+    ss = st.session_state
     res_box = st.container()
-    r = st.session_state.get("prop")
-    if r and r.get("ok"):
+    r = ss.get("prop")
+    have = bool(r and r.get("ok"))
+    if have:
         st.divider()
-        st.markdown(f"**{L('Want to check another home? 🏡', '¿Quiere revisar otra casa? 🏡')}**")
+        st.markdown(f"<div class='bz-lbl'>{L('Check another home', 'Revisar otra casa')}</div>", unsafe_allow_html=True)
     else:
-        html(f"<div class='bz-hello'>{L('Let us check this home together 🏡', 'Revisemos esta casa juntas 🏡')}</div>".replace("Let us", "Let's"))
+        header_hero()
+    address_block()
+    rec = ss.get("recent", [])[:3]
+    if rec:
+        st.markdown(f"<div class='bz-lbl'>{L('Recent', 'Recientes')}</div>", unsafe_allow_html=True)
+        for i, x in enumerate(rec):
+            st.button(f"↺  {x}", key=f"rec_{i}", on_click=_go_recent, args=(x,), width="stretch")
+    row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center")
+    with row:
+        settings_popover()
+        if example() and not have:
+            st.button(L("Try an example", "Probar un ejemplo"), key="ex_btn", on_click=use_example, type="tertiary")
+    if not have:
         how_it_works()
-    addr = st.text_input(L("Home address", "Dirección de la casa"), placeholder=L("e.g. 123 Main St Apt 4, Fort Lee, NJ 07024", "ej. 123 Main St Apt 4, Fort Lee, NJ 07024"), key="addr")
-    with st.expander(L("Add details (optional)", "Agregar detalles (opcional)")):
-        st.caption(L("Anything you type here is used instead of what we find online. Leave 0 if you don't know.",
-                     "Lo que escriba aquí se usa en lugar de lo que encontremos en internet. Deje 0 si no sabe."))
-        link = st.text_input(L("Listing link (Zillow, Redfin...)", "Link del anuncio (Zillow, Redfin...)"), key="link")
-        price = st.number_input(L("Price ($)", "Precio ($)"), min_value=0, max_value=20_000_000, step=5000, key="price")
-        hoa = st.number_input(L("Monthly building fee, HOA or maintenance ($)", "Cuota mensual del edificio, HOA o mantenimiento ($)"), min_value=0, max_value=50_000, step=25, key="hoa")
-        taxes = st.number_input(L("Property taxes per year ($)", "Impuestos por año ($)"), min_value=0, max_value=200_000, step=100, key="taxes")
-        beds = st.number_input(L("Bedrooms", "Habitaciones"), min_value=0, max_value=10, step=1, key="beds")
-        types = ["", "condo", "co-op", "single-family", "multi-family"]
-        own = st.selectbox(L("Type of home", "Tipo de vivienda"), types, key="own",
-                           format_func=lambda k: L("I don't know", "No sé") if not k else P(TYPE_LBL[k]))
-        inc = st.multiselect(L("The building fee includes", "La cuota del edificio incluye"), list(INC_LBL), key="inc", format_func=lambda k: P(INC_LBL[k]))
-        mult = st.number_input(L("Co-op/condo board income rule (e.g. 4 means income must be 4 times housing costs; 0 if none)",
-                                 "Regla de ingreso de la junta (ej. 4 = el ingreso debe ser 4 veces el costo de vivienda; 0 si no hay)"), min_value=0.0, max_value=10.0, step=0.5, key="mult")
-        income = st.number_input(L("Your yearly income before taxes ($). Not saved.", "Su ingreso anual antes de impuestos ($). No se guarda."), min_value=0, max_value=5_000_000, step=1000, key="income")
-        down = st.number_input(L("Down payment (% of price). 0 = usual minimum.", "Pago inicial (% del precio). 0 = el mínimo usual."), min_value=0.0, max_value=100.0, step=0.5, key="down")
-        use_rc = st.checkbox(L("Use RentCast for a better rent estimate (uses 1 to 3 of the monthly lookups; repeats are free)",
-                               "Usar RentCast para un mejor estimado de renta (usa 1 a 3 consultas del mes; repetir es gratis)"),
-                             disabled=not rentcast.available(), key="use_rc")
-    go = st.button(L("Check this home 🏡", "Revisar esta casa 🏡"), type="primary", key="go_prop", width="stretch")
-    if example() and not (r and r.get("ok")):
-        st.button(L("✨ Try an example home", "✨ Probar con una casa de ejemplo"), key="ex_btn", width="stretch", on_click=use_example)
-    go = go or st.session_state.pop("auto_go", False)
-
-    if go:
-        a = addr.strip() or (addr_from_link(link.strip()) if link.strip() else "")
-        if not a:
-            with res_box:
-                st.warning(L("Type an address first, and we'll take it from there 💕", "Primero escriba una dirección y nos encargamos del resto 💕"))
-        else:
-            ov = {"price": price or None, "hoa_monthly": hoa or None, "taxes_annual": taxes or None, "beds": int(beds) or None,
-                  "ownership": own or None, "hoa_includes": inc or None}
-            bp = {"en": "Board income rule entered by the user.", "es": "Regla de ingreso de la junta ingresada por el usuario.",
-                  "source": "user input", "income_multiple": float(mult)} if mult else None
-            opts = {"listing_url": [link.strip()] if link.strip() else None, "overrides": ov, "income_annual": income or None,
-                    "building_policy": bp, "use_rentcast": bool(use_rc)}
-            if down:
-                opts["assumption_overrides"] = {"financing": {"fha_down_pct": down / 100, "owner_conv_down_pct": down / 100}}
-            key = json.dumps([a.lower(), opts], sort_keys=True, default=str)
-            cache = st.session_state.setdefault("prop_cache", {})
-            if key in cache:
-                r = cache[key]
-            else:
-                with res_box, st.spinner(L("Checking the numbers for you... this takes about 20 to 60 seconds ✨", "Revisando los números por usted... toma unos 20 a 60 segundos ✨")):
-                    try:
-                        r = analyze_property(a, opts)
-                    except Exception as e:  # never show a stack trace to the user
-                        r = {"ok": False, "error": f"{e.__class__.__name__}"}
-                if r.get("ok"):
-                    cache[key] = r
-            st.session_state.prop = r
-            st.rerun()
+        marquee()
+    go_addr = ss.pop("go_addr", None)
+    if ss.pop("auto_go", False):
+        go_addr = ss.get("addr")
+    if go_addr:
+        ss.prop_addr = go_addr
+        run_home(go_addr, res_box)
+        st.rerun()
+    elif ss.get("prop_addr") and have and json.dumps([ss.prop_addr.strip().lower(), home_opts(ss.prop_addr)], sort_keys=True, default=str) != ss.get("prop_key"):
+        run_home(ss.prop_addr, res_box)          # a fact or a setting changed: redo the math (repeat lookups come from the cache)
+        st.rerun()
     with res_box:
         if r and not r.get("ok"):
-            st.warning(L("Hmm, we couldn't find that address. Try adding the town and ZIP code.", "No encontramos esa dirección. Intente agregar el pueblo y el código postal.")
-                       + f" ({r.get('error')})")
+            not_found(r)
         elif r:
             show_property(r)
 
 
-# ------------------------------------------------------------------ Town scan
+def not_found(r):
+    """Friendly, never a dead end: say what happened, offer tappable matches, and show which map services were tried."""
+    typed = st.session_state.get("prop_addr", "")
+    st.info(L(f"Hmm, we couldn't place “{typed}” on the map 💕 Try one of these, or add the town (like '12 Main St, Fort Lee').",
+              f"Mmm, no pudimos ubicar “{typed}” en el mapa 💕 Pruebe una de estas o agregue el pueblo (por ejemplo '12 Main St, Fort Lee')."), icon="🌷")
+    try:
+        from bellazu.geo import suggest
+        sug = [x for x in suggest(typed, 4) if x.lower() != typed.lower()]
+    except Exception:
+        sug = []
+    for i, x in enumerate(sug):
+        st.button(f"📍 {x}", key=f"nf_{i}", on_click=_go_recent, args=(x,), width="stretch")
+    tried = [s_ for s_ in r.get("sources_status") or [] if str(s_.get("source", "")).startswith("geocode")]
+    if tried:
+        nm = {"geocode:nominatim": "OpenStreetMap", "geocode:photon": "Photon", "geocode:census": "US Census"}
+        st.caption(L("Map services tried: ", "Servicios de mapa consultados: ") + ", ".join(
+            f"{nm.get(s_['source'], s_['source'])} ({L('no match', 'sin resultado') if s_.get('ok') or s_.get('http') == 200 else s_.get('http') or L('no answer', 'sin respuesta')})" for s_ in tried[:6]))
+
+
 def show_town(a):
     v = S.verdict_town(a)
     verdict_box(v)
@@ -649,50 +1039,92 @@ def town_details(a):
         st.caption(f"Excel: {e.__class__.__name__}")
 
 
+POPULAR_TOWNS = ["Jersey City", "Hoboken", "Fort Lee", "Union City", "West New York", "North Bergen", "Weehawken", "Bayonne",
+                 "Edgewater", "Newark", "Hackensack", "Cliffside Park"]
+
+
+def _chip_town():
+    v = st.session_state.get("town_chip")
+    if v:
+        st.session_state.town_pick = v
+        st.session_state.town_text = ""
+        st.session_state.auto_scan = True
+
+
+def _pick_town(t):
+    st.session_state.town_pick = t
+    st.session_state.town_text = t
+    st.session_state.auto_scan = True
+
+
+def town_problem(a):
+    t = a.get("town") or a.get("town_input") or ""
+    sug = a.get("town_suggestions") or []
+    if a.get("error_kind") == "no_listings":
+        msg = L(f"We couldn't reach the rental sites for {t} right now 💕 Please try again in a few minutes, or try a town nearby.",
+                f"No pudimos consultar los sitios de alquiler de {t} ahora mismo 💕 Intente de nuevo en unos minutos o pruebe un pueblo cercano.")
+    else:
+        msg = L(f"Hmm, we don't know “{t}” yet 💕 Pick a town from the list" + (", or did you mean one of these?" if sug else "."),
+                f"Mmm, aún no conocemos “{t}” 💕 Elija un pueblo de la lista" + (", ¿o quiso decir uno de estos?" if sug else "."))
+    st.info(msg, icon="🌷")
+    if sug:
+        row = st.container(horizontal=True)
+        for i, s_ in enumerate(sug[:4]):
+            row.button(s_, key=f"sug_{i}_{s_}", on_click=_pick_town, args=(s_,))
+
+
 def town_page():
+    ss = st.session_state
     res_box = st.container()
-    a = st.session_state.get("arb")
+    a = ss.get("arb")
     if a and a.get("ok"):
         st.divider()
         st.markdown(f"**{L('Want to look at another town? 🔑', '¿Quiere ver otro pueblo? 🔑')}**")
     else:
-        html(f"<div class='bz-hello'>{L('Find rentals you could rent out 🔑', 'Encuentre alquileres que podría subarrendar 🔑')}</div>"
-             f"<div class='bz-sub'>{L('Type a town and we will show you the rules first, then the best options.', 'Escriba un pueblo y le mostramos primero las reglas, y luego las mejores opciones.')}</div>")
-    town = st.text_input(L("Town", "Pueblo"), placeholder=L("e.g. Jersey City", "ej. Jersey City"), key="town")
-    with st.expander(L("More options", "Más opciones")):
-        state = st.selectbox(L("State", "Estado"), ["nj", "ny"], format_func=str.upper, key="state")
-        use_rc2 = st.checkbox(L("Use RentCast rental listings (1 lookup per town; repeats within 3 days are free)",
-                                "Usar anuncios de RentCast (1 consulta por pueblo; repetir en 3 días es gratis)"),
-                              value=rentcast.available(), disabled=not rentcast.available(), key="use_rc2")
-    go = st.button(L("Find rentals 🔑", "Buscar alquileres 🔑"), type="primary", key="go_scan", width="stretch")
+        html(f"<div class='bz-eyebrow'>{L('Rent it out, the legal way', 'Subarrendar, de forma legal')}</div>"
+             f"<div class='bz-h1'>{L('Find rentals <em>that pay.</em>', 'Alquileres <em>que dejan ganancia.</em>')}</div>"
+             f"<div class='bz-lede'>{L('Pick a town. We show you the rules first, then the best furnished 30+ day options.', 'Elija un pueblo. Le mostramos primero las reglas y luego las mejores opciones amuebladas de 30+ días.')}</div>")
+    st.markdown(f"<div class='bz-lbl'>{L('Tap a town', 'Toque un pueblo')}</div>", unsafe_allow_html=True)
+    st.pills(L("Popular towns", "Pueblos populares"), POPULAR_TOWNS, key="town_chip", on_change=_chip_town, label_visibility="collapsed")
+    st.text_input(L("Or type any town", "O escriba cualquier pueblo"), key="town_text", placeholder=L("e.g. Cliffside Park", "ej. Cliffside Park"))
+    go = st.button(L("Find rentals", "Buscar alquileres"), type="primary", key="go_scan", width="stretch")
     if go:
-        t = town.strip()
-        if not t:
+        ss.town_pick = (ss.get("town_text") or "").strip() or ss.get("town_chip") or ""
+    settings_popover()
+    go = go or ss.pop("auto_scan", False)
+    if go:
+        raw = (ss.get("town_pick") or "").strip()
+        if not raw:
             with res_box:
-                st.warning(L("Type a town first.", "Primero escriba un pueblo."))
+                st.warning(L("Pick a town first 💕", "Primero elija un pueblo 💕"))
         else:
-            key = json.dumps([t.lower(), state, bool(use_rc2)])
-            cache = st.session_state.setdefault("arb_cache", {})
+            tn = towns.normalize(raw)
+            use_rc = bool(ss.get("set_rc")) and rentcast.available()
+            key = json.dumps([(tn["name"] or raw).lower(), tn["state"], use_rc])
+            cache = ss.setdefault("arb_cache", {})
             if key in cache:
                 a = cache[key]
             else:
                 with res_box, st.spinner(L("Looking at rentals for you... about 20 to 60 seconds ✨", "Buscando alquileres por usted... unos 20 a 60 segundos ✨")):
                     try:
-                        a = scan_arbitrage(t, {"state": state, "use_rentcast": bool(use_rc2)})
+                        a = scan_arbitrage(raw, {"use_rentcast": use_rc})
                     except Exception as e:
-                        a = {"ok": False, "error": f"{e.__class__.__name__}"}
+                        a = {"ok": False, "error": f"{e.__class__.__name__}", "town_input": raw, "town_suggestions": tn["suggestions"]}
                 if a.get("ok"):
                     cache[key] = a
-            st.session_state.arb = a
+            ss.arb = a
             st.rerun()
     with res_box:
         if a and not a.get("ok"):
-            st.warning(L("We couldn't check that town. Check the spelling.", "No pudimos revisar ese pueblo. Revise cómo lo escribió.") + f" ({a.get('error')})")
+            town_problem(a)
         elif a:
+            if a.get("town_match") in ("alias", "fuzzy") and a.get("town_input"):
+                st.caption(L(f"Showing {a['town']} (you typed “{a['town_input']}”).", f"Mostrando {a['town']} (usted escribió “{a['town_input']}”)."))
             show_town(a)
 
 
 # ------------------------------------------------------------------ page
+settings_defaults()
 if mode == "town":
     town_page()
 else:
@@ -719,12 +1151,15 @@ with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
                   ("Inside Airbnb", "https://insideairbnb.com/get-the-data/", "jersey-city"),
                   ("Census Reporter", "https://api.censusreporter.org/1.0/data/show/latest?table_ids=B25031&geo_ids=86000US07024", "B25031"),
                   ("FRED", "https://fred.stlouisfed.org/graph/fredgraph.csv?id=MORTGAGE30US", "MORTGAGE30US"),
-                  ("OpenStreetMap", "https://nominatim.openstreetmap.org/search?q=Fort+Lee,+NJ&format=json&limit=1", "lat")]
+                  ("Freddie Mac PMMS", "https://www.freddiemac.com/pmms/docs/PMMS_history.csv", "pmms30"),
+                  ("HUD (website)", "https://www.huduser.gov/portal/datasets/fmr/smallarea/index.html", "Small Area"),
+                  ("OpenStreetMap", "https://nominatim.openstreetmap.org/search?q=Fort+Lee,+NJ&format=json&limit=1", "lat"),
+                  ("Photon (address suggestions)", "https://photon.komoot.io/api/?q=Fort+Lee+NJ&limit=1", "coordinates")]
         rows = []
         for name, url, needle in checks:
             try:
-                ua = "BellaZu/0.1 (personal real-estate research; low volume)" if "nominatim" in url else UA_BROWSER
-                rr = requests.get(url, headers={"User-Agent": ua, "Accept-Language": "en-US,en;q=0.9"}, timeout=30)
+                ua = "BellaZu/0.1 (personal real-estate research; low volume)" if ("nominatim" in url or "photon" in url) else UA_BROWSER
+                rr = requests.get(url, headers={"User-Agent": ua, "Accept-Language": "en-US,en;q=0.9"}, timeout=20)
                 rows.append({"source": name, "works": "yes" if rr.status_code == 200 and needle.encode() in rr.content else "no", "http": rr.status_code})
             except Exception as e:
                 rows.append({"source": name, "works": "no", "http": e.__class__.__name__})

@@ -98,19 +98,34 @@ def _photon(q):
 
 
 def suggest(q, limit=5):
-    """Address suggestions for a phone-typed address (one Photon request per distinct text, cached). [(label)]"""
-    q = _strip_unit(q)
-    if len(q) < 6:
+    """Address suggestions for phone-typed text (one Photon request per distinct text, cached). Returns labels.
+    If OpenStreetMap only knows the street, the typed house number is kept; a typed apartment number is kept too."""
+    raw = (q or "").strip()
+    base = _strip_unit(raw)
+    if len(base) < 5:
         return []
+    num = re.match(r"\s*(\d+[A-Za-z]?)\b", base)
+    unit = " ".join(m.group(0).strip(" ,") for m in UNIT_RE.finditer(raw))
     out = []
-    for f in _photon_raw(q, limit):
-        p = f.get("properties") or {}
-        if p.get("type") not in ("house", "street", "building", None) and not p.get("housenumber"):
+    for f in _photon_raw(base, limit + 2):
+        p = dict(f.get("properties") or {})
+        if p.get("type") not in ("house", "street", "building") and not p.get("housenumber"):
+            continue
+        street = (p.get("street") or (p.get("name") if p.get("type") in ("street", "house") else "") or "").lower()
+        if num and street:
+            if not any(w in base.lower() for w in re.findall(r"[a-z]{3,}", street)[:2]):
+                continue             # a different street than the one typed
+            if not p.get("housenumber"):
+                p["housenumber"] = num.group(1)
+        elif num:
             continue
         lab = _photon_label(p)
+        if unit and lab:
+            parts = lab.split(", ", 1)
+            lab = f"{parts[0]} {unit}" + (f", {parts[1]}" if len(parts) > 1 else "")
         if lab and lab not in out:
             out.append(lab)
-    return out
+    return out[:limit]
 
 
 def _census(q):
