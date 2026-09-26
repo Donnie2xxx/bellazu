@@ -1,4 +1,5 @@
 """Polite HTTP GET/POST with on-disk cache + per-source status log."""
+import urllib.parse
 import hashlib, json, os, time, pathlib, threading
 import requests
 
@@ -94,6 +95,8 @@ def fetch(url, source, ttl_hours=24, method="GET", data=None, headers=None, bina
             r = s.request(method, url, data=data, headers=h, timeout=timeout, allow_redirects=True)
             if r.status_code not in (403, 429, 202, 500, 502, 503) or attempt == retries:
                 break
+            if r.status_code in (403, 429) and urllib.parse.urlsplit(r.url).hostname != host:
+                break          # redirected to the site's robot/rate-limit page (e.g. ratelimited.rent.com): waiting won't help
         except Exception as e:  # network error
             if attempt == retries:
                 record(source, url, False, None, f"network error: {e.__class__.__name__}", ms=round((time.time() - t0) * 1000))
