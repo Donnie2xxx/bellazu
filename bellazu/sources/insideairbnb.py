@@ -28,7 +28,19 @@ KEEP = ["id", "listing_url", "name", "latitude", "longitude", "neighbourhood_cle
         "last_scraped", "price_quote_checkin_date", "price_quote_checkout_date", "host_listings_count"]
 
 
+_IDX = {"t": 0, "v": None}
+
+
 def dataset_index():
+    """Which snapshots exist (worked out at most once an hour per process)."""
+    if _IDX["v"] is not None and time.time() - _IDX["t"] < 3600:
+        return dict(_IDX["v"])
+    idx = _dataset_index()
+    _IDX.update(t=time.time(), v=dict(idx))
+    return idx
+
+
+def _dataset_index():
     html = fetch(INDEX_URL, "insideairbnb:index", ttl_hours=24 * 7)
     idx = {}
     if not html:   # offline / blocked: fall back to snapshots already on disk (bundled with the web app)
@@ -46,7 +58,20 @@ def dataset_index():
     return idx
 
 
+_MEM = {}          # snapshot DataFrames kept in memory once loaded (every caller concatenates = copies, never edits them)
+
+
 def load(state, city, date):
+    k = (state, city, date)
+    if k in _MEM:
+        return _MEM[k]
+    df = _load(state, city, date)
+    if df is not None:
+        _MEM[k] = df
+    return df
+
+
+def _load(state, city, date):
     pk = cache_file(f"insideairbnb/{state}_{city}_{date}.pkl")
     if pk.exists():
         return pickle.loads(pk.read_bytes())

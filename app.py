@@ -40,12 +40,10 @@ def _fresh_engine():
     stamp = tuple(sorted((str(p), p.stat().st_mtime_ns) for p in root.rglob("*.py")))
     old = getattr(sys, "_bz_stamp", None)
     stale = (old is None and "bellazu" in sys.modules) or (old is not None and old != stamp)
-    if stale:
-        for name in sorted([m for m in list(sys.modules) if m == "bellazu" or m.startswith("bellazu.")], key=lambda n: -n.count(".")):
-            try:
-                importlib.reload(sys.modules[name])
-            except Exception:
-                pass
+    if stale:           # drop every bellazu module so the imports below load all of them fresh (a reload in place can leave
+        for name in [m for m in list(sys.modules) if m == "bellazu" or m.startswith("bellazu.")]:   # one module holding another's old functions)
+            sys.modules.pop(name, None)
+        importlib.invalidate_caches()
     sys._bz_stamp = stamp
 
 
@@ -108,6 +106,7 @@ def _tm_show():
 
 
 _tm_start()
+st.session_state["_full"] = False          # set by a tap inside a fragment that needs the whole page redrawn (see feed_block)
 
 
 def timed(name):
@@ -166,6 +165,8 @@ def _locked_saves_key(pc_hash, _pc):
 
 def _setup_saves():
     pc = secret("APP_PASSCODE") or st.session_state.get("_gate_pc", "")
+    if os.environ.get("BZ_NO_CLOUD"):          # local tests: keep saved homes in the browser only (never touch the real online copy)
+        return
     if pc:
         import hashlib
         saves.set_key(_locked_saves_key(hashlib.sha256(pc.strip().lower().encode()).hexdigest(), pc))
@@ -480,6 +481,7 @@ def _sv_secret():
 def _sv_touch(push=True):
     """The list changed: write it to this browser (next render) and to the online copy (background)."""
     ss = st.session_state
+    ss._full = True                         # the header count and this browser's copy are drawn outside any fragment
     ss.sv_ver = int(ss.get("sv_ver", 0)) + 1
     if push and ss.get("sv_loaded"):
         saves.cloud_put(_sv_secret(), sv())
@@ -528,11 +530,11 @@ def _sv_process():
     ss.sv = saves.merge(stored, sv()) if stored else saves.normalize(sv())
     ss.sv_loaded = True
     if saves.cloud_available():
-        saves.cloud_put(_sv_secret(), ss.sv)      # fetch + merge + push only if something is new
-        saves.cloud_wait(8)
-        m = saves.cloud_merged()
+        saves.cloud_put(_sv_secret(), ss.sv)      # fetch + merge + push only if something is new, in the background
+        m = saves.cloud_merged()                  # whatever already came back; the rest arrives via _sv_poll (no waiting here)
         if m:
             ss.sv = saves.merge(ss.sv, m)
+        ss.sv_polling = time.time()
     _lang_from_prefs(ss.sv)
     if not saves.same(ss.sv, stored or saves.empty()):
         ss.sv_ver = int(ss.get("sv_ver", 0)) + 1  # write the merged list back to this browser
@@ -659,6 +661,33 @@ def xlsx_bytes(r, kind):
     with tempfile.TemporaryDirectory() as d:
         files = write_property(r, d, st.session_state.get("prop_cv"), lang="es" if ES() else "en") if kind == "property" else write_arbitrage(r, d)
         return pathlib.Path(files["xlsx"]).read_bytes(), pathlib.Path(files["xlsx"]).name
+
+
+def _xlsx_or_note(make):
+    """Build an Excel file only when the download is tapped. If it fails, a one-sheet file says so (server log has the detail)."""
+    try:
+        return make()
+    except Exception as e:
+        import io, traceback
+        traceback.print_exc()
+        import pandas as pd
+        b = io.BytesIO()
+        pd.DataFrame({"BellaZu": [f"The Excel file couldn't be made this time ({e.__class__.__name__}). / No se pudo crear el archivo de Excel esta vez."]}).to_excel(b, index=False)
+        return b.getvalue()
+
+
+def _prop_xlsx(r, cv, lg):
+    with tempfile.TemporaryDirectory() as d:
+        return pathlib.Path(write_property(r, d, cv, lang=lg)["xlsx"]).read_bytes()
+
+
+def _town_xlsx(a, cv, lg):
+    with tempfile.TemporaryDirectory() as d:
+        return pathlib.Path(write_town(a, cv, d, lang=lg)).read_bytes()
+
+
+def _fslug(s):
+    return re.sub(r"[^A-Za-z0-9]+", "_", s or "").strip("_")[:60]
 
 
 def safe_name(s):
@@ -929,12 +958,11 @@ def property_details(r, f, sc, o, rent, rent_src, own):
     ok_src = sorted({_src_name(s["source"]) for s in r.get("sources_status", []) if s.get("ok")})
     bad_src = sorted({_src_name(s["source"]) for s in r.get("sources_status", []) if not s.get("ok")} - set(ok_src))
     st.caption(L("Data from: ", "Datos de: ") + ", ".join(ok_src) + ((L(". Could not reach: ", ". No se pudo consultar: ") + ", ".join(bad_src)) if bad_src else "") + ".")
-    try:
-        xb, xn = xlsx_bytes(r, "property")
-        st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), xb, xn, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_prop", width="stretch", on_click="ignore")
-    except Exception as e:
-        import traceback; traceback.print_exc()          # server log only
-        st.caption(L(f"The Excel file couldn't be made this time ({e.__class__.__name__}).", f"No se pudo crear el archivo de Excel esta vez ({e.__class__.__name__})."))
+    lg_, cv_ = ("es" if ES() else "en"), st.session_state.get("prop_cv")          # the file is made only when tapped
+    xn = (f"BellaZu_Reporte_Casa_{_fslug(r['address'])}_{str(r.get('generated') or '')[:10]}.xlsx" if lg_ == "es"
+          else f"BellaZu_Property_Report_{_fslug(r['address'])}_{str(r.get('generated') or '')[:10]}.xlsx")
+    st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), lambda r=r, cv_=cv_, lg_=lg_: _xlsx_or_note(lambda: _prop_xlsx(r, cv_, lg_)), xn,
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_prop", width="stretch", on_click="ignore")
     st.caption(L("Estimates from public data, not financial, legal or lending advice. Confirm with your lender, agent and the town.",
                  "Estimados con datos públicos; no es asesoría financiera, legal ni hipotecaria. Confirme con su prestamista, agente y el municipio."))
 
@@ -1117,7 +1145,7 @@ def run_home(addr, where):
         with where, st.spinner(L("Checking the numbers for you... about 20 to 60 seconds ✨", "Revisando los números por usted... unos 20 a 60 segundos ✨")):
             try:
                 with rentcast.budget(ss.get("rc_budget")) as b:
-                    r = analyze_property(addr.strip(), opts)
+                    r = prop_check(addr.strip(), opts, ss.get("rc_budget"))
                 if b is not None:
                     ss.rc_budget = b[0]
             except Exception as e:  # never show a stack trace to the user
@@ -1354,6 +1382,48 @@ def _net_timed(f, name):
 
 
 town_snapshot = _net_timed(town_snapshot, "town_snapshot")
+
+
+class _NoCache(Exception):
+    """Carries a result that must not be kept in the shared cache (a failed lookup)."""
+    def __init__(self, r):
+        super().__init__("not cached")
+        self.r = r
+
+
+@st.cache_data(ttl=6 * 3600, max_entries=150, show_spinner=False)
+def _town_snap_shared(name):
+    """Town snapshot shared by every visitor of this server for 6 hours (free public data, never RentCast). Failures aren't kept."""
+    r = town_snapshot(name, {"use_rentcast": False})
+    if not r.get("ok"):
+        raise _NoCache(r)
+    return r
+
+
+def town_snap(name):
+    try:
+        return _town_snap_shared(name)
+    except _NoCache as e:
+        return e.r
+
+
+@st.cache_data(ttl=6 * 3600, max_entries=300, show_spinner=False)
+def _prop_shared(addr_key, opts_key, rc_live, _addr, _opts):
+    """A home check shared for 6 hours by address + every option that changes the numbers (+ whether RentCast lookups were allowed)."""
+    r = analyze_property(_addr, _opts)
+    if not r.get("ok"):
+        raise _NoCache(r)
+    return r
+
+
+def prop_check(addr, opts, rc_budget):
+    rc_live = bool(opts.get("use_rentcast")) and (rc_budget is None or rc_budget > 0)
+    try:
+        return _prop_shared(addr.strip().lower(), json.dumps(opts, sort_keys=True, default=str), rc_live, addr, opts)
+    except _NoCache as e:
+        return e.r
+
+
 from bellazu.sources import hud as _hud_m, insideairbnb as _iab_m, craigslist as _cl_m, rentcom as _rcom_m, redfin as _rf_m   # noqa: E402
 if not getattr(_hud_m, "_bz_timed", False):          # finer ?debug_timing=1 detail inside the town/home lookups (module attributes, once per process)
     _hud_m._load = timed("  hud_load")(_hud_m._load)
@@ -1964,7 +2034,7 @@ def show_property(r):
         cv = None
     ss.prop_cv = cv
     fix_facts(r)
-    st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), property_html(r, "es" if ES() else "en", cv=cv).encode(),
+    st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), lambda r=r, lg_=("es" if ES() else "en"), cv=cv: property_html(r, lg_, cv=cv).encode(),
                        L(f"BellaZu_Report_{safe_name(r['address'])}.html", f"BellaZu_Reporte_{safe_name(r['address'])}.html"), "text/html", key="dl_prop", type="primary", width="stretch", on_click="ignore")
     with st.expander(L("See details", "Ver detalles")):
         property_details(r, f, sc, o, rent, rent_src, own)
@@ -1981,10 +2051,16 @@ def run_town(name, where):
         ss.town = cache[key]
         return
     with where, st.spinner(L("Looking at the town for you... about 20 to 40 seconds ✨", "Revisando el pueblo por usted... unos 20 a 40 segundos ✨")):
-        try:
-            a = town_snapshot(name, {"use_rentcast": False})
-        except Exception as e:
-            a = {"ok": False, "error": e.__class__.__name__, "town_input": name, "town_suggestions": tn["suggestions"]}
+        fj = _feed_jobs([tn["name"]], "for_sale") if tn.get("name") and tn.get("match") in ("exact", "alias", "fuzzy") else []
+        res = _parallel([("snap", lambda: town_snap(name))] + fj)       # the homes list loads at the same time
+        a = res.get("snap")
+        if not isinstance(a, dict):
+            a = {"ok": False, "error": a.__class__.__name__, "town_input": name, "town_suggestions": tn["suggestions"]}
+        for k, r in res.items():
+            if k != "snap":
+                r = r if isinstance(r, dict) else {"ok": False, "error": r.__class__.__name__, "rows": []}
+                if not r.get("ok"):          # a failed search isn't asked again on every tap (it would spend a search each time)
+                    ss.setdefault("_feed_pre", {})[(k[1], k[2])] = r
     if a.get("ok"):
         cache[key] = a
     ss.town = a
@@ -1996,30 +2072,15 @@ def safety_note(town):
         html(f"<div class='bz-warn{' hi' if lvl == 'exclude' else ''}'>{'⚠️' if lvl == 'exclude' else 'ℹ️'} {H.escape(P(c))}</div>")
 
 
-@timed('town_view')
-def show_town_view(a):
+@st.fragment
+@timed("town_price")
+def _town_price_block(a, sid, first):
+    """Price / size / what-you-rent-out chips and the monthly numbers. A price tap redraws only this part (a fragment).
+    If a tap changes something the rest of the page shows (size, what you rent out, the Airbnb answer), the whole page redraws."""
     ss = st.session_state
-    first = ss.get("hmode", "first") == "first"
+    if ss.get("_full"):
+        st.rerun(scope="app")
     t = a["town"]
-    sid = "t_" + safe_name(t)[:24]
-    if a.get("town_match") in ("alias", "fuzzy") and a.get("town_input"):
-        st.caption(L(f"Showing {t} (you typed “{a['town_input']}”).", f"Mostrando {t} (usted escribió “{a['town_input']}”)."))
-    html(f"<div class='bz-hello'>{H.escape(t)}</div>")
-    drive_badge(a.get("drive"))
-    safety_note(t)
-    rules_card(a.get("str_rules") or {}, t)
-    lim, cty = FHA.loan_limit(t, 1)
-    lim2, _ = FHA.loan_limit(t, 2)
-    cn = (cty or "").title()
-    if lim:
-        fsub = L(f"Up to {money(lim)} (1 unit) or {money(lim2)} (2 units), HUD 2026 limits for {cn} County. ", f"Hasta {money(lim)} (1 unidad) o {money(lim2)} (2 unidades), límites HUD 2026 del condado de {cn}. ")
-    else:
-        fsub = ""
-    fsub += L("Condos need an FHA-approved building; co-ops need a normal loan. Your lender has the final say.",
-              "Los condos necesitan un edificio aprobado por FHA; las co-ops, un préstamo normal. Su banco tiene la última palabra.")
-    ftop = L("✅ FHA (3.5% down) works here for houses and 2-4 family homes you live in", "✅ FHA (3.5% inicial) sirve aquí para casas y de 2 a 4 familias donde usted viva")
-    html(f"<div class='bz-fha ok'><b>{ftop}</b><div class='s'>{H.escape(fsub)}</div></div>")
-    fha_explainer("t_" + sid)
     st.markdown(f"<div class='bz-lbl'>{L('Tap a price you are looking at', 'Toque un precio que esté mirando')}</div>", unsafe_allow_html=True)
     price = st.pills(L("Price", "Precio"), C.PRICE_CHIPS + ["other"], key=f"tp_{sid}", label_visibility="collapsed",
                      format_func=lambda p: L("Other", "Otro") if p == "other" else kmoney(p))
@@ -2053,6 +2114,45 @@ def show_town_view(a):
         ref = (base["units"].get(ub) or {}).get("ltr") if size == "2fam" else (base["units"].get(int(size)) or {}).get("ltr") if size in ("1", "2", "3") else None
         cash_card(sid, out, (ref or {}).get("typ"))
         cv = report_cv(out, a.get("drive"), first, [(f"Price you picked: {money(price)} · size: {size}", f"Precio elegido: {money(price)} · tamaño: {size}")])
+    hold = ss.setdefault(f"_tph_{sid}", {})
+    hold["cv"] = cv                              # the report buttons read the latest numbers from here when tapped
+    ro_ = (out or {}).get("rent_out")
+    sig = (size, ro_, ss.get(f"ub_{sid}_mf"), bool(out), (out or {}).get("airbnb_allowed"))
+    prev = hold.get("sig")
+    hold.update(size=size, out=out, sig=sig)
+    if prev is not None and prev != sig and not hold.pop("full_run", False):
+        st.rerun(scope="app")
+    hold.pop("full_run", None)
+
+
+@timed('town_view')
+def show_town_view(a):
+    ss = st.session_state
+    first = ss.get("hmode", "first") == "first"
+    t = a["town"]
+    sid = "t_" + safe_name(t)[:24]
+    if a.get("town_match") in ("alias", "fuzzy") and a.get("town_input"):
+        st.caption(L(f"Showing {t} (you typed “{a['town_input']}”).", f"Mostrando {t} (usted escribió “{a['town_input']}”)."))
+    html(f"<div class='bz-hello'>{H.escape(t)}</div>")
+    drive_badge(a.get("drive"))
+    safety_note(t)
+    rules_card(a.get("str_rules") or {}, t)
+    lim, cty = FHA.loan_limit(t, 1)
+    lim2, _ = FHA.loan_limit(t, 2)
+    cn = (cty or "").title()
+    if lim:
+        fsub = L(f"Up to {money(lim)} (1 unit) or {money(lim2)} (2 units), HUD 2026 limits for {cn} County. ", f"Hasta {money(lim)} (1 unidad) o {money(lim2)} (2 unidades), límites HUD 2026 del condado de {cn}. ")
+    else:
+        fsub = ""
+    fsub += L("Condos need an FHA-approved building; co-ops need a normal loan. Your lender has the final say.",
+              "Los condos necesitan un edificio aprobado por FHA; las co-ops, un préstamo normal. Su banco tiene la última palabra.")
+    ftop = L("✅ FHA (3.5% down) works here for houses and 2-4 family homes you live in", "✅ FHA (3.5% inicial) sirve aquí para casas y de 2 a 4 familias donde usted viva")
+    html(f"<div class='bz-fha ok'><b>{ftop}</b><div class='s'>{H.escape(fsub)}</div></div>")
+    fha_explainer("t_" + sid)
+    ss.setdefault(f"_tph_{sid}", {})["full_run"] = True
+    _town_price_block(a, sid, first)
+    hold = ss.get(f"_tph_{sid}") or {}
+    size, out, cv = hold.get("size"), hold.get("out"), hold.get("cv")
     _town_comps(a, sid, size, out)
     homes_block(t, a.get("drive"), sid)
     # Airbnb market card
@@ -2085,16 +2185,13 @@ def show_town_view(a):
         lists = {"rent": u.get("ltr_comps") or [], "mtr": (u.get("mtr") or {}).get("comps") or [], "str": (u.get("str") or {}).get("comps") or []}
     ok_air = (out or {}).get("airbnb_allowed", C.airbnb_ok(a.get("str_rules") or {}, "multi-family" if size == "2fam" else "single-family", "unit" if size == "2fam" else "room"))
     places_block(lists, a.get("str_rules") or {}, t, mk.get("datasets") and [f"nj/{x}" for x in mk["datasets"]] or [], ok_air, C.days30(a.get("str_rules") or {}))
-    st.download_button(L("⬇️ Download the town report", "⬇️ Descargar el reporte del pueblo"), town_html(a, cv, "es" if ES() else "en").encode(),
+    lg_ = "es" if ES() else "en"                      # both files are made only when tapped
+    hold_ = ss.get(f"_tph_{sid}") or {}
+    st.download_button(L("⬇️ Download the town report", "⬇️ Descargar el reporte del pueblo"), lambda a=a, h=hold_, lg_=lg_: town_html(a, h.get("cv"), lg_).encode(),
                        L(f"BellaZu_Town_{safe_name(t)}.html", f"BellaZu_Pueblo_{safe_name(t)}.html"), "text/html", key="dl_town", type="primary", width="stretch", on_click="ignore")
-    try:
-        with tempfile.TemporaryDirectory() as d_:
-            fx = write_town(a, cv, d_, lang="es" if ES() else "en")
-            st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), pathlib.Path(fx).read_bytes(), pathlib.Path(fx).name,
-                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_town", width="stretch", on_click="ignore")
-    except Exception as e:
-        import traceback; traceback.print_exc()          # server log only
-        st.caption(L(f"The Excel file couldn't be made this time ({e.__class__.__name__}).", f"No se pudo crear el archivo de Excel esta vez ({e.__class__.__name__})."))
+    xn = (f"BellaZu_Pueblo_{_fslug(a['town'])}_{str(a.get('generated') or '')[:10]}.xlsx" if lg_ == "es" else f"BellaZu_Town_{_fslug(a['town'])}_{str(a.get('generated') or '')[:10]}.xlsx")
+    st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), lambda a=a, h=hold_, lg_=lg_: _xlsx_or_note(lambda: _town_xlsx(a, h.get("cv"), lg_)), xn,
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_town", width="stretch", on_click="ignore")
 
 
 def town_problem(a):
@@ -2136,6 +2233,7 @@ def _open_listing(row):
     if v and v[0] == "towns":
         ss.from_towns = tuple(v[1])          # a "back to your towns" button on the home page
     ss.go = ("listing", row)
+    ss._full = True
 
 
 # Inline photo carousel on each feed card. The list call only carries the cover photo (checked: v3/list gives primary_photo + photo_count,
@@ -2302,23 +2400,64 @@ def _dedupe(rows):
     return out
 
 
-@timed('feed_fetch')
-def feeds_for(ts, status):
-    """One list call per uncached town, one town after another; cached towns cost nothing. Shows progress when something has to load."""
-    need = [t for t in ts if not listings.cached(t, status)]
-    bar = st.progress(0.0, text=L("Finding homes... ✨", "Buscando casas... ✨")) if need and len(ts) > 1 else None
+POOL = 3          # towns looked up at the same time (small: polite to the free sources, and RapidAPI's per-second limit)
+
+
+def _parallel(jobs, on_done=None):
+    """Run [(key, fn)] a few at a time in threads (Streamlit's run context attached so caches work). Returns {key: result or exception}."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+    ctx = get_script_run_ctx()
+
+    def wrap(fn):
+        def w():
+            if ctx is not None:
+                add_script_run_ctx(threading.current_thread(), ctx)
+            return fn()
+        return w
     out = {}
-    for i, t in enumerate(ts):
-        if bar:
-            bar.progress(i / len(ts), text=L(f"Finding homes in {t} ({i + 1} of {len(ts)})... ✨", f"Buscando casas en {t} ({i + 1} de {len(ts)})... ✨"))
-        if len(ts) == 1 and need:
-            with st.spinner(L("Finding homes... ✨", "Buscando casas... ✨")):
-                out[t] = feed(t, status)
-        else:
-            out[t] = feed(t, status)
-    if bar:
-        bar.empty()
+    if not jobs:
+        return out
+    with ThreadPoolExecutor(max_workers=min(POOL, len(jobs))) as ex:
+        futs = {ex.submit(wrap(fn)): k for k, fn in jobs}
+        for n, f in enumerate(as_completed(futs), 1):
+            k = futs[f]
+            try:
+                out[k] = f.result()
+            except Exception as e:
+                out[k] = e
+            if on_done:
+                on_done(n, len(jobs), k)
     return out
+
+
+def _feed_jobs(ts, status):
+    """Jobs for the towns whose list isn't cached yet, never more than the searches left this month (the 450 cap)."""
+    if not listings.available():
+        return []
+    need = [t for t in ts if not listings.cached(t, status)]
+    left = max(int(listings.usage().get("left") or 0), 0)
+    return [(("feed", t, status), (lambda t=t: feed(t, status))) for t in need[:max(left, 1)]]
+
+
+@timed('feed_fetch')
+def feeds_for(ts, status, pre=None):
+    """One list call per uncached town (up to 3 at once); cached towns cost nothing. Shows progress when something has to load.
+    pre = results already fetched in this run ({town: result}), so a failed town is never asked twice."""
+    pre = dict(pre or {})
+    jobs = [j for j in _feed_jobs(ts, status) if j[0][1] not in pre]
+    if jobs:
+        if len(ts) > 1:
+            bar = st.progress(0.0, text=L("Finding homes... ✨", "Buscando casas... ✨"))
+            res = _parallel(jobs, lambda n, m, k: bar.progress(n / m, text=L(f"Finding homes in {k[1]} ({n} of {m})... ✨", f"Buscando casas en {k[1]} ({n} de {m})... ✨")))
+            bar.empty()
+        else:
+            with st.spinner(L("Finding homes... ✨", "Buscando casas... ✨")):
+                res = _parallel(jobs)
+        for (_, t, _), r in res.items():
+            pre[t] = r if isinstance(r, dict) else {"ok": False, "error": r.__class__.__name__, "rows": []}
+    return {t: (pre[t] if t in pre else feed(t, status)) for t in ts}
 
 
 def _cap_msg():
@@ -2331,18 +2470,23 @@ def homes_block(t, drive, sid):
     feed_block([t], {t: drive}, sid)
 
 
+@st.fragment
 @timed('feed')
 def feed_block(ts, drives, sid):
     """Listings feed for one town or several (combined, deduped, town label on each card). Filters and sort apply across all of them."""
     ss = st.session_state
+    if ss.get("_full"):                       # a tap in here changed something outside the feed (opened a home, saved one): redraw the page
+        st.rerun(scope="app")
     if not listings.available():
         return
     multi = len(ts) > 1
     st.markdown(f"#### {L('🏡 Homes in ' + ts[0], '🏡 Casas en ' + ts[0]) if not multi else L(f'🏡 Homes in your {len(ts)} towns', f'🏡 Casas en sus {len(ts)} pueblos')}")
     status = st.segmented_control(L("For sale or rent", "En venta o alquiler"), ["for_sale", "for_rent"], key=f"hst_{sid}", default="for_sale", required=True, label_visibility="collapsed", width="stretch",
+                                  on_change=lambda: st.session_state.update(_full=True),
                                   format_func=lambda s_: L("For sale", "En venta") if s_ == "for_sale" else L("For rent", "En alquiler"))
     rent = status == "for_rent"
-    res = feeds_for(ts, status)
+    fp = ss.get("_feed_pre") or {}
+    res = feeds_for(ts, status, {t: fp[(t, status)] for t in ts if (t, status) in fp})
     ok = {t: r for t, r in res.items() if r.get("ok")}
     bad = [t for t, r in res.items() if not r.get("ok")]
     if not ok:
@@ -2624,7 +2768,7 @@ def _snap(t):
     if key in cache:
         return cache[key]
     try:
-        a = town_snapshot(t, {"use_rentcast": False})
+        a = town_snap(t)
     except Exception as e:
         a = {"ok": False, "error": e.__class__.__name__}
     if a.get("ok"):
@@ -2644,23 +2788,13 @@ def _safety_short(t):
     return f"{ic} " + L(f"Violent crime {r:.1f}× the NJ average", f"Crimen violento {r:.1f}× el promedio de NJ")
 
 
-@timed('towns_view')
-def show_towns_view(ts):
-    """Several towns side by side: a compact card per town, then one combined listings feed."""
+@st.fragment
+@timed("towns_summary")
+def _towns_summary(ts, snaps, sale, first):
+    """Price / size chips + one card per town. A chip tap redraws only this part (a fragment), not the whole page."""
     ss = st.session_state
-    first = ss.get("hmode", "first") == "first"
-    html(f"<div class='bz-hello'>{L(f'{len(ts)} towns side by side', f'{len(ts)} pueblos lado a lado')}</div>")
-    tsel_bar("v")
-    need = [t for t in ts if t.lower() not in ss.get("town_cache", {})]
-    snaps = {}
-    bar = st.progress(0.0, text=L("Getting the towns ready... ✨", "Preparando los pueblos... ✨")) if need else None
-    for i, t in enumerate(ts):
-        if bar and t in need:
-            bar.progress(i / len(ts), text=L(f"Looking at {t} ({i + 1} of {len(ts)})... ✨", f"Revisando {t} ({i + 1} de {len(ts)})... ✨"))
-        snaps[t] = _snap(t)
-    if bar:
-        bar.empty()
-    sale = feeds_for(ts, "for_sale") if listings.available() else {}
+    if ss.get("_full"):
+        st.rerun(scope="app")
     st.markdown(f"<div class='bz-lbl'>{L('Tap a price to compare the monthly cost', 'Toque un precio para comparar el costo mensual')}</div>", unsafe_allow_html=True)
     price = st.pills(L("Price", "Precio"), C.PRICE_CHIPS, key="mt_price", label_visibility="collapsed", format_func=kmoney)
     size = st.segmented_control(L("Size", "Tamaño"), C.TOWN_SIZES, key="mt_size", default="2fam" if first else "2", required=True, width="stretch",
@@ -2712,6 +2846,30 @@ def show_towns_view(ts):
         for t, _, _c in cards:
             st.button(L(f"{t} →", f"{t} →"), key=f"mto_{_slug(t)}", on_click=_open_one_town, args=(t,))
     st.caption(L("Tap a town to open its full view.", "Toque un pueblo para abrir su vista completa."))
+
+
+@timed('towns_view')
+def show_towns_view(ts):
+    """Several towns side by side: a compact card per town, then one combined listings feed."""
+    ss = st.session_state
+    first = ss.get("hmode", "first") == "first"
+    html(f"<div class='bz-hello'>{L(f'{len(ts)} towns side by side', f'{len(ts)} pueblos lado a lado')}</div>")
+    tsel_bar("v")
+    need = [t for t in ts if t.lower() not in ss.get("town_cache", {})]
+    jobs = [(("snap", t), (lambda t=t: town_snap(t))) for t in need] + _feed_jobs(ts, "for_sale")
+    pre = {}
+    if jobs:                     # every town that still needs a lookup or a listings search runs at the same time (3 at once)
+        bar = st.progress(0.0, text=L("Getting the towns ready... ✨", "Preparando los pueblos... ✨"))
+        res = _parallel(jobs, lambda n, m, k: bar.progress(n / m, text=L(f"Looking at {k[1]} ({n} of {m})... ✨", f"Revisando {k[1]} ({n} de {m})... ✨")))
+        bar.empty()
+        for k, r in res.items():
+            if k[0] == "feed":
+                pre[k[1]] = r if isinstance(r, dict) else {"ok": False, "error": r.__class__.__name__, "rows": []}
+            elif isinstance(r, dict) and r.get("ok"):
+                ss.setdefault("town_cache", {})[(towns.normalize(k[1])["name"] or k[1]).lower()] = r
+    snaps = {t: _snap(t) for t in ts}
+    sale = feeds_for(ts, "for_sale", pre) if listings.available() else {}
+    _towns_summary(list(ts), snaps, sale, first)
     feed_block(list(ts), {t: (snaps.get(t) or {}).get("drive") for t in ts}, "mt")
 
 
@@ -2719,6 +2877,7 @@ def _open_one_town(t):
     ss = st.session_state
     ss.from_towns = tuple(tsel())
     ss.go = ("town", t, "keep")
+    ss._full = True
 
 
 def back_to_towns():
@@ -2879,12 +3038,17 @@ def town_picker():
     town_chips(md_ or "first")
 
 
+@st.cache_data(ttl=6 * 3600, max_entries=64, show_spinner=False)
+def _rank_shared(hm, price, rate):
+    return C.town_rank(hm, price, rate)
+
+
 @timed('ranking')
 def town_ranking(hm):
     ss = st.session_state
     st.markdown(f"#### {L('🏆 Best towns for your first home' if hm == 'first' else '🏆 Towns by the numbers', '🏆 Mejores pueblos para su primera casa' if hm == 'first' else '🏆 Pueblos según los números')}")
     price = st.segmented_control(L("Price you're looking at", "Precio que está mirando"), C.PRICE_CHIPS, key="rank_price", default=C.PRICE_CHIPS[1], required=True, format_func=kmoney)
-    rk = C.town_rank(hm, int(price), fha_rate())
+    rk = _rank_shared(hm, int(price), fha_rate())
     st.caption(L(f"What you'd pay a month on a {kmoney(price)} 2-family, renting the other unit at HUD's fair rent for the town (2 bd). "
                  + ("Ranked by drive time plus monthly cost." if hm == "first" else "Ranked by monthly cost; drive shown, not counted.") + " Tap a town.",
                  f"Lo que pagaría al mes en una casa de 2 familias de {kmoney(price)}, alquilando la otra unidad a la renta justa de HUD del pueblo (2 hab). "
@@ -3208,10 +3372,25 @@ def saved_card(x):
 
 
 def _sv_wait_cloud():
+    """Don't block the page on the online copy: show the list now, and _sv_poll redraws it when the background check lands."""
+    _sv_pull_merged(apply_lang=False)
     if saves.cloud_busy():
-        with st.spinner(L("Checking your online copy... ✨", "Revisando su copia en línea... ✨")):
-            saves.cloud_wait(6)
-        _sv_pull_merged(apply_lang=False)
+        st.session_state.sv_polling = time.time()
+
+
+@st.fragment(run_every=1.5)
+def _sv_poll():
+    """While the online copy is syncing in the background: check every 1.5 s, redraw the page once when it brings something new."""
+    ss = st.session_state
+    t = ss.get("sv_polling")
+    if not t:
+        return
+    if saves.cloud_busy() and time.time() - t < 30:
+        return
+    ss.sv_polling = None
+    m = saves.cloud_merged()
+    if m and not saves.same(saves.merge(sv(), m), sv()):
+        st.rerun(scope="app")
 
 
 def _sv_status_line():
@@ -3237,7 +3416,7 @@ def backup_block():
     st.caption(L("If this browser's data gets cleared, a backup file brings everything back. It also opens on its own as a readable list.",
                  "Si se borran los datos de este navegador, un archivo de respaldo lo recupera todo. También se abre solo como una lista para leer."))
     if sv()["items"]:
-        st.download_button(L("⬇️ Download my list (backup file)", "⬇️ Descargar mi lista (archivo de respaldo)"), saves.export_html(sv(), "es" if ES() else "en").encode(),
+        st.download_button(L("⬇️ Download my list (backup file)", "⬇️ Descargar mi lista (archivo de respaldo)"), (lambda x=json.loads(json.dumps(sv())), lg_=("es" if ES() else "en"): saves.export_html(x, lg_).encode()),
                            L(f"BellaZu_saved_homes_{_today()}.html", f"BellaZu_casas_guardadas_{_today()}.html"), "text/html", key="sv_dl", width="stretch", on_click="ignore", type="primary")
     st.markdown(f"<style>:root{{--bz-up:'{L('Choose the file', 'Elegir el archivo')}'}}</style>", unsafe_allow_html=True)   # Streamlit's own button text is English-only
     up = st.file_uploader(L("Restore from a backup file", "Recuperar desde un archivo de respaldo"), type=["html", "htm", "json"], key=f"sv_up_{ss.get('sv_upn', 0)}")
@@ -3444,4 +3623,6 @@ with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
         st.rerun()
 
 storage_bridge()
+if st.session_state.get("sv_polling"):
+    _sv_poll()
 _tm_show()

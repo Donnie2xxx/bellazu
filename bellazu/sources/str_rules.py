@@ -2,12 +2,24 @@ import json, pathlib
 P = pathlib.Path(__file__).resolve().parent.parent.parent / "data" / "str_rules.json"
 
 
+_MEM = {}
+
+
+def _rules():
+    k = P.stat().st_mtime_ns
+    if k not in _MEM:                  # parse once per process (per file version)
+        _MEM.clear()
+        _MEM[k] = json.loads(P.read_text())
+    return _MEM[k]
+
+
 def rules_for(town):
-    d = json.loads(P.read_text())
+    import copy
+    d = _rules()
     t = (town or "").lower().replace("township", "").replace("town of", "").replace("city of", "").strip()
     alias = {"new york city": "new york", "manhattan": "new york", "brooklyn": "new york", "queens": "new york", "bronx": "new york"}
     t = alias.get(t, t)
-    r = d.get(t)
+    r = copy.deepcopy(d.get(t))
     if not r:
         return {"status": "unknown", "tenant_str": "unknown", "owner_str": "unknown",
                 "summary_en": f"No curated STR rule for '{town}'. Check the municipal code (ecode360.com search) and call the zoning office.",

@@ -12,8 +12,17 @@ def load_env():
                 os.environ.setdefault(k.strip(), v.strip())
 
 
+_ASM = {}
+
+
 def load_assumptions(path=None, overrides=None):
-    a = yaml.safe_load(open(path or ROOT / "assumptions.yaml"))
+    import copy
+    f = pathlib.Path(path or ROOT / "assumptions.yaml")
+    k = (str(f), f.stat().st_mtime_ns)
+    if k not in _ASM:                      # parse the YAML once per process (per file version); hand out copies
+        with open(f) as fh:
+            _ASM[k] = yaml.safe_load(fh)
+    a = copy.deepcopy(_ASM[k])
     for sect, vals in (overrides or {}).items():
         a.setdefault(sect, {}).update(vals)
     return a

@@ -18,11 +18,20 @@ ABBR = [(r"\bft\.?\s*", "fort "), (r"\bw\.?\s+", "west "), (r"\bn\.?\s+", "north
         (r"\bborough of\b", ""), (r"\bcity of\b", ""), (r"\btown of\b", "")]
 
 
+_SUP = {}
+
+
 def supported():
     """[(display name, state)] sorted, NJ towns first, then New York City."""
+    k = _RULES.stat().st_mtime_ns
+    if k in _SUP:
+        return list(_SUP[k])
     d = json.loads(_RULES.read_text())
     nj = {k.title() for k in d if not k.startswith("_") and k != "new york"} | set(EXTRA_NJ)
-    return [(t, "nj") for t in sorted(nj)] + [(NYC, "ny")]
+    out = [(t, "nj") for t in sorted(nj)] + [(NYC, "ny")]
+    _SUP.clear()
+    _SUP[k] = out
+    return list(out)
 
 
 def names():
