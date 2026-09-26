@@ -177,8 +177,10 @@ def plain_warnings(r):
             t = r.get("town") or "this town"
             out.append((f"Airbnb price data comes from a nearby city, not {t}, so treat Airbnb numbers as rough.",
                         f"Los datos de Airbnb vienen de una ciudad cercana, no de {t}; tómelos como aproximados."))
-        else:
-            out.append((plain(w), plain(w)))
+        elif rc.get("note_en") and w == rc.get("note_en"):
+            out.append((plain(w), plain(rc.get("note_es") or "Los estimados de renta no coinciden; consulte a un agente local.")))
+        else:            # anything new from the engine: never show English on the Spanish side
+            out.append((plain(w), "Hay un aviso técnico sobre esta casa. Revise los datos con el agente o el prestamista antes de decidir."))
     return out
 
 

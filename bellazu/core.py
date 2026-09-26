@@ -181,6 +181,19 @@ def mtr_rate(raw_monthly, ltr_rent, A, n=None):
     return disc, f"Inside Airbnb 28+ night listings{'' if n is None else f' (n={n})'}: listed nightly x 30.4 less {t.get('monthly_discount_on_listed_nightly', 0.2):.0%} monthly discount"
 
 
+def mtr_basis_es(raw_monthly, ltr_rent, A, n=None):
+    """Spanish wording of mtr_rate()'s explanation (same numbers)."""
+    t = A["mtr"]
+    if not raw_monthly:
+        return "sin anuncios de 28+ noches"
+    disc = raw_monthly * (1 - t.get("monthly_discount_on_listed_nightly", 0.2))
+    if ltr_rent:
+        cap = ltr_rent * t.get("max_premium_over_ltr", 1.5)
+        if disc > cap:
+            return f"limitada a {t.get('max_premium_over_ltr', 1.5)} veces la renta a largo plazo (${cap:,.0f}); los anuncios de 28+ noches de Inside Airbnb daban ${disc:,.0f}/mes tras el descuento"
+    return f"anuncios de 28+ noches de Inside Airbnb{'' if n is None else f' (n={n})'}: precio por noche x 30.4 menos {t.get('monthly_discount_on_listed_nightly', 0.2):.0%} de descuento mensual"
+
+
 
 STR_COLS = ["name", "neighbourhood_cleansed", "bedrooms", "price_num", "estimated_occupancy_l365d", "estimated_revenue_l365d", "number_of_reviews_ltm",
             "minimum_nights", "dist_km", "license", "listing_url", "picture_url", "dataset"]
@@ -373,7 +386,7 @@ def analyze_property(address, options=None):
             scen.append({"key": "mtr", "label_en": "Mid-term furnished rental (30+ nights) on investment loan",
                          "label_es": "Alquiler amueblado de mediano plazo (30+ noches) con préstamo de inversión",
                          "legal": True, "caveat_en": f"Monthly rate: {mbasis}. Occupancy {A['mtr']['occupancy']:.0%} is an ASSUMPTION.",
-                         "caveat_es": f"Tarifa mensual: {mbasis}. La ocupación de {A['mtr']['occupancy']:.0%} es un SUPUESTO.", "mtr_rate": round(mrate),
+                         "caveat_es": f"Tarifa mensual: {mtr_basis_es(mtr.get('monthly_equiv_median') if mtr.get('ok') else None, rent_mid, A)}. La ocupación de {A['mtr']['occupancy']:.0%} es un SUPUESTO.", "mtr_rate": round(mrate),
                          "revenue_monthly": gross, "costs": costs4, "total_cost": round(t4), "net_monthly": round(gross - t4)})
 
     bp = o.get("building_policy") or {}

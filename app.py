@@ -56,6 +56,7 @@ from bellazu import towns                                     # noqa: E402
 from bellazu.simple import money                              # noqa: E402
 from bellazu import keylock                                   # noqa: E402
 from bellazu import listings                                  # noqa: E402
+from bellazu import saves                                     # noqa: E402
 
 st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
 
@@ -94,6 +95,22 @@ def _setup_listings():
 
 
 _setup_listings()
+
+
+@st.cache_resource(show_spinner=False)
+def _locked_saves_key(pc_hash, _pc):
+    """Decrypt data/saves.lock (deploy key that can only write the private saved-homes backup repo). Never shown."""
+    return keylock.unlock(ROOT / "data" / "saves.lock", _pc) if (ROOT / "data" / "saves.lock").exists() else None
+
+
+def _setup_saves():
+    pc = secret("APP_PASSCODE") or st.session_state.get("_gate_pc", "")
+    if pc:
+        import hashlib
+        saves.set_key(_locked_saves_key(hashlib.sha256(pc.strip().lower().encode()).hexdigest(), pc))
+
+
+_setup_saves()
 if "rc_budget" not in st.session_state:     # optional test aid: ?rc_budget=N caps live RentCast lookups in this session (only lowers use)
     try:
         _b = st.query_params.get("rc_budget")
@@ -145,7 +162,7 @@ hr {border-color:var(--line) !important}
 [data-testid="stButtonGroup"] button[kind$="Active"] *, [data-testid="stButtonGroup"] button[data-selected="true"] *, [data-testid="stButtonGroup"] button[aria-checked="true"] *,
 [data-testid="stButtonGroup"] button[aria-pressed="true"] * {color:var(--ink) !important}
 .st-key-mode [data-testid="stButtonGroup"] button {min-height:3.3rem; font-size:.86rem}
-.st-key-lang [data-testid="stButtonGroup"] button {min-height:2.2rem; padding:0 .8rem; font-size:.75rem}
+.st-key-lang [data-testid="stButtonGroup"] button {min-height:2.9rem !important; padding:0 1rem; font-size:.8rem; letter-spacing:.03em; text-transform:none}
 /* expanders + popovers */
 [data-testid="stExpander"] details {border:none; border-top:1px solid var(--line); border-bottom:1px solid var(--line); border-radius:0; background:transparent}
 [data-testid="stExpander"] summary {padding-left:0}
@@ -244,11 +261,52 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-home .br {font-size:.66rem; color:var(--mute); margin-top:.2rem}
 .bz-gal {display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:6px; border-radius:20px; margin:.3rem 0 .2rem; -webkit-overflow-scrolling:touch}
 .bz-gal img {flex:0 0 100%; width:100%; aspect-ratio:3/2; object-fit:cover; scroll-snap-align:center; border-radius:20px}
+/* saved homes */
+.st-key-bz_store, [data-testid="stElementContainer"]:has(> .st-key-bz_store) {display:none !important}
+.st-key-savedbtn button {min-height:2.7rem !important; padding:0 .85rem; font-size:.78rem; letter-spacing:.05em; border-color:var(--rose); color:var(--rose)}
+.st-key-savedbtn button:hover {background:var(--rose); color:var(--ink)}
+[class*="st-key-svon_"] button, [class*="st-key-svon_"] button:hover {background:var(--rose) !important; border-color:var(--rose) !important; color:var(--ink) !important; font-weight:700}
+[class*="st-key-svoff_"] button {border-color:var(--rose); color:var(--rose)}
+.bz-sv {display:flex; gap:.8rem; align-items:flex-start}
+.bz-sv img, .bz-sv .noimg {width:104px; height:78px; object-fit:cover; border-radius:14px; flex:none; background:#222; display:flex; align-items:center; justify-content:center; font-size:1.6rem}
+.bz-sv .t {font-weight:600; color:var(--paper); line-height:1.3; font-size:.95rem; overflow-wrap:anywhere}
+.bz-sv .p {font-family:var(--disp); font-size:1.7rem; line-height:1.05; color:var(--paper); margin-top:.15rem}
+.bz-sv .m {font-size:.8rem; color:#CFCFCF; margin-top:.1rem; line-height:1.35} .bz-sv .d {font-size:.72rem; color:var(--mute); margin-top:.2rem}
+.bz-sv-nums {margin:.55rem 0 .2rem} .bz-sv-nums .bz-col .n {font-size:1.6rem} .bz-sv-nums .bz-col .h {min-height:0}
+.bz-sv-b {font-size:.8rem; color:#DADADA; margin:.15rem 0; line-height:1.35}
+[data-baseweb="textarea"] {border-radius:18px !important; background:var(--ink) !important}
+[data-baseweb="textarea"] textarea {background:var(--ink) !important; color:var(--paper) !important; font-size:16px !important}
+[data-baseweb="textarea"] textarea::placeholder {color:#8C8C8C !important}
+[data-testid="stFileUploaderDropzone"] {background:var(--ink2) !important; border:1px dashed var(--rose) !important; border-radius:22px !important; color:var(--paper) !important}
+[data-testid="stFileUploaderDropzone"] button {background:transparent !important; color:var(--paper) !important; border:1px solid var(--paper) !important; border-radius:100px !important}
+[data-testid="stFileUploaderDropzone"] button *, [data-testid="stFileUploaderDropzoneInstructions"] * {color:var(--paper) !important}
+[data-testid="stFileUploaderDropzoneInstructions"] small {color:var(--mute) !important}
+[data-testid="stFileUploaderDropzoneInstructions"] {display:none !important}
+[data-testid="InputInstructions"] {display:none !important}   /* Streamlit's English "Press Enter to apply" hint */
+[data-testid="stFileUploaderDropzone"] button [data-testid="stMarkdownContainer"] p {font-size:0 !important}
+[data-testid="stFileUploaderDropzone"] button [data-testid="stMarkdownContainer"] p::after {content:var(--bz-up); font-size:.85rem}
+[data-testid="stFileUploaderFile"] * {color:var(--paper) !important}
+.stLinkButton a {border-radius:100px !important; border:1px solid var(--paper) !important; background:transparent !important; color:var(--paper) !important; min-height:2.8rem;
+  text-transform:uppercase; letter-spacing:.06em; font-size:.8rem !important; font-weight:500}
+.stLinkButton a * {color:var(--paper) !important}
+[class*="st-key-svcard_"] {border:1px solid var(--line2) !important; border-radius:22px !important; background:var(--ink2); padding:.9rem .9rem .5rem !important}
 .bz-foot {text-transform:uppercase; letter-spacing:.08em; font-size:.66rem; color:#7D7D7D; text-align:center; margin-top:1.4rem}
 </style>""", unsafe_allow_html=True)
 
 
-# ------------------------------------------------------------------ language helpers
+# ------------------------------------------------------------------ language (one at a time) + helpers
+if "sv_sid" not in st.session_state:
+    st.session_state.sv_sid = os.urandom(6).hex()
+    _ql = str(st.query_params.get("lang") or "").strip().lower()
+    if _ql in ("es", "en"):
+        st.session_state.lang = _ql.upper()
+        st.session_state.lang_src = "url"
+        st.session_state.lang_t = int(time.time() * 1000)
+        st.session_state.setdefault("sv", {"v": 1, "sync": None, "items": {}, "removed": {}})["prefs"] = {"lang": _ql.upper(), "t": st.session_state.lang_t}
+    st.session_state.setdefault("lang", "EN")
+
+
+
 def ES():
     return st.session_state.get("lang", "EN") == "ES"
 
@@ -269,10 +327,14 @@ def md(s):
     st.markdown(s.replace("$", "\\$"))
 
 
-def header():
+def header(authed=False):
     top = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key="topbar")
     top.markdown("<div class='bz-word'>Bella<i>Zu</i></div>", unsafe_allow_html=True)
-    top.segmented_control("Language / Idioma", ["EN", "ES"], key="lang", default="EN", required=True, label_visibility="collapsed")
+    top.segmented_control(L("Language", "Idioma"), ["EN", "ES"], key="lang", required=True, label_visibility="collapsed",
+                          format_func=lambda k: "English" if k == "EN" else "Español", on_change=_lang_changed)
+    if authed:
+        n = len(sv()["items"])
+        st.button(f"♥ {L('My saved homes', 'Mis casas guardadas')} · {n}", key="savedbtn", on_click=_go_saved, width="stretch")
     html("<div style='border-bottom:1px solid #2E2E2E; margin:-.3rem 0 1.1rem'></div>")
 
 
@@ -283,28 +345,169 @@ def header_hero():
 
 
 def marquee():
-    words = [L("Check a home", "Revise una casa"), L("Find rentals", "Busque alquileres"), L("Plain answers", "Respuestas claras"), L("English + Español", "Español + English")]
+    words = [L("Check a home", "Revise una casa"), L("Find rentals", "Busque alquileres"), L("Plain answers", "Respuestas claras"), L("Free to use", "Gratis")]
     seq = "".join(f"<span class='{'f' if i % 2 == 0 else 'o'}'>{H.escape(w)}</span><span class='st'>✺</span>" for i, w in enumerate(words))
     html(f"<div class='bz-marquee' aria-hidden='true'><div class='track'>{seq}{seq}</div></div>")
+
+
+# ------------------------------------------------------------------ saved homes: state (the UI is further down)
+def sv():
+    return st.session_state.setdefault("sv", saves.empty())
+
+
+def _go_saved():
+    st.session_state.page = "saved"
+
+
+def _sv_secret():
+    return secret("APP_PASSCODE") or st.session_state.get("_gate_pc", "")
+
+
+def _sv_touch(push=True):
+    """The list changed: write it to this browser (next render) and to the online copy (background)."""
+    ss = st.session_state
+    ss.sv_ver = int(ss.get("sv_ver", 0)) + 1
+    if push and ss.get("sv_loaded"):
+        saves.cloud_put(_sv_secret(), sv())
+
+
+def _lang_from_prefs(d, force=False):
+    """Apply a saved language choice (unless the URL chose one for this visit)."""
+    ss = st.session_state
+    pr = (d or {}).get("prefs") or {}
+    if ss.get("lang_src") == "url" and not force:
+        return
+    if pr.get("lang") in ("EN", "ES") and int(pr.get("t", 0)) > int(ss.get("lang_t", 0)):
+        ss.lang, ss.lang_t = pr["lang"], int(pr["t"])
+
+
+def _sv_on_loaded():
+    """localStorage answered (first render of each session, even on the passcode screen)."""
+    ss = st.session_state
+    v = (ss.get("bz_store") or {}).get("loaded") or {}
+    if v.get("sid") != ss.get("sv_sid") or ss.get("sv_raw") is not None:
+        return
+    ss.sv_raw = v.get("raw") or ""
+    ss.sv_storage_ok = not v.get("err")
+    try:
+        stored = saves.normalize(json.loads(ss.sv_raw)) if ss.sv_raw else None
+    except Exception:
+        stored = None
+    if stored and (stored.get("prefs") or {}).get("lang"):
+        _lang_from_prefs(stored)
+    elif not ss.get("lang_t") and ss.get("lang_src") != "url" and str(v.get("nav") or "").lower().startswith("es"):
+        ss.lang = "ES"                                   # first visit on a Spanish phone
+    ss.sv_lang_ready = True
+    if ss.get("authed"):
+        _sv_process()
+
+
+def _sv_process():
+    """Merge browser + online copy so neither ever drops a home (runs once per session, after the passcode)."""
+    ss = st.session_state
+    try:
+        stored = saves.normalize(json.loads(ss.sv_raw)) if ss.get("sv_raw") else None
+    except Exception:
+        stored = None
+    ss.sv = saves.merge(stored, sv()) if stored else saves.normalize(sv())
+    ss.sv_loaded = True
+    if saves.cloud_available():
+        saves.cloud_put(_sv_secret(), ss.sv)      # fetch + merge + push only if something is new
+        saves.cloud_wait(8)
+        m = saves.cloud_merged()
+        if m:
+            ss.sv = saves.merge(ss.sv, m)
+    _lang_from_prefs(ss.sv)
+    if not saves.same(ss.sv, stored or saves.empty()):
+        ss.sv_ver = int(ss.get("sv_ver", 0)) + 1  # write the merged list back to this browser
+
+
+def _lang_changed():
+    """The user flipped English / Español: remember it here and online (with a time so the newest choice wins)."""
+    ss = st.session_state
+    ss.lang_t = saves.now_ms()
+    ss.lang_src = "user"
+    sv()["prefs"] = {"lang": ss.get("lang", "EN"), "t": ss.lang_t}
+    _sv_touch()
+
+
+def _sv_pull_merged(apply_lang=True):
+    """Pick up what a background sync brought back from the online copy (e.g. homes saved on another device)."""
+    ss = st.session_state
+    if not ss.get("sv_loaded"):
+        return
+    m = saves.cloud_merged()
+    if m and not saves.same(saves.merge(sv(), m), sv()):
+        ss.sv = saves.merge(sv(), m)
+        if apply_lang:                      # only before the language toggle is drawn in this run
+            _lang_from_prefs(ss.sv)
+        _sv_touch(push=False)
+
+
+
+STORE_JS = """
+export default function ({ data, setStateValue }) {
+  const w = window, K = "bellazu_saves_v1";
+  const sid = (data && data.sid) || "";
+  if (w.__bzSid !== sid) {
+    w.__bzSid = sid; w.__bzVer = 0;
+    let raw = null, err = null;
+    try { raw = w.localStorage.getItem(K); } catch (e) { err = String(e); }
+    setStateValue("loaded", { raw: raw, err: err, sid: sid, nav: (navigator.language || "") });
+  }
+  if (data && typeof data.write === "string" && data.ver > (w.__bzVer || 0)) {
+    try { w.localStorage.setItem(K, data.write); w.__bzVer = data.ver; setStateValue("ack", data.ver); }
+    catch (e) { setStateValue("ack", -data.ver); }
+  }
+}
+"""
+_STORE = st.components.v2.component("bz_store", js=STORE_JS)
+
+
+def _sv_on_ack():
+    ss = st.session_state
+    a = (ss.get("bz_store") or {}).get("ack")
+    if isinstance(a, (int, float)):
+        if a > 0:
+            ss.sv_ack = max(int(ss.get("sv_ack", 0)), int(a))
+        else:
+            ss.sv_storage_ok = False
+
+
+
+
+def storage_bridge(gate_page=False):
+    """Browser storage (localStorage): read once per session, write whenever the list or the language changed. Hidden."""
+    ss = st.session_state
+    ver = int(ss.get("sv_ver", 0))
+    data = {"sid": ss.sv_sid, "ver": ver}
+    if ss.get("sv_loaded") and ver > int(ss.get("sv_ack", 0)):
+        data["write"] = json.dumps(saves.normalize(sv()), separators=(",", ":"), ensure_ascii=False)
+    if gate_page:
+        _STORE(key="bz_store", data=data, default={"loaded": None, "ack": None}, on_loaded_change=_sv_on_loaded, on_ack_change=_sv_on_ack)
+        return
+    with store_slot:
+        _STORE(key="bz_store", data=data, default={"loaded": None, "ack": None}, on_loaded_change=_sv_on_loaded, on_ack_change=_sv_on_ack)
 
 
 # ------------------------------------------------------------------ passcode gate
 def gate():
     header()
-    st.markdown("<div class='bz-eyebrow'>Private beta · Beta privada</div>"
-                "<div class='bz-h1'>Welcome to <em>BellaZu</em></div>"
-                "<div class='bz-lede'>Bienvenida a BellaZu 💕<br>Type your passcode to come in. · Escriba su código para entrar.</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='bz-eyebrow'>{L('Private beta', 'Beta privada')}</div>"
+                f"<div class='bz-h1'>{L('Welcome to <em>BellaZu</em>', 'Bienvenida a <em>BellaZu</em>')}</div>"
+                f"<div class='bz-lede'>{L('Type your passcode to come in 💕', 'Escriba su código para entrar 💕')}</div>", unsafe_allow_html=True)
+    storage_bridge(gate_page=True)
     pc = secret("APP_PASSCODE").lower()
     if not pc:
-        st.error("This app is not set up yet (missing APP_PASSCODE). / La app aún no está configurada (falta APP_PASSCODE).")
+        st.error(L("This app is not set up yet (missing APP_PASSCODE).", "La app aún no está configurada (falta APP_PASSCODE)."))
         st.stop()
     n = st.session_state.get("fails", 0)
     if n >= 15:
-        st.error("Too many tries. Reload the page later. / Demasiados intentos. Recargue la página más tarde.")
+        st.error(L("Too many tries. Reload the page later.", "Demasiados intentos. Recargue la página más tarde."))
         st.stop()
     with st.form("gate"):
-        typed = st.text_input("Passcode / Código", type="password")
-        ok = st.form_submit_button("Enter / Entrar", type="primary", width="stretch")
+        typed = st.text_input(L("Passcode", "Código"), type="password", key="gate_pc_in")
+        ok = st.form_submit_button(L("Enter", "Entrar"), type="primary", width="stretch")
     if ok:
         if hmac.compare_digest(typed.strip().lower().encode(), pc.encode()):
             st.session_state.authed = True
@@ -314,20 +517,28 @@ def gate():
         else:
             st.session_state.fails = n + 1
             time.sleep(min(1 + n, 5))       # slow down guessing
-            st.error("Hmm, that passcode didn't work. Try again 💕 / Ese código no funcionó. Intente otra vez 💕")
+            st.error(L("Hmm, that passcode didn't work. Try again 💕", "Ese código no funcionó. Intente otra vez 💕"))
     st.stop()
 
 
 if not st.session_state.get("authed"):
     gate()
 
-header()
+ss_ = st.session_state
+if ss_.get("sv_raw") is not None and not ss_.get("sv_loaded"):
+    _sv_process()
+if not ss_.get("sv_prefetch") and saves.cloud_available():      # start reading the online copy while the page draws
+    ss_.sv_prefetch = True
+    saves.cloud_put(_sv_secret(), saves.empty())
+_sv_pull_merged()
+header(authed=True)
+store_slot = st.container()     # the browser-storage bridge is drawn here at the very end of the run (after every change)
 
 
 # ------------------------------------------------------------------ shared bits
 def xlsx_bytes(r, kind):
     with tempfile.TemporaryDirectory() as d:
-        files = write_property(r, d, st.session_state.get("prop_cv")) if kind == "property" else write_arbitrage(r, d)
+        files = write_property(r, d, st.session_state.get("prop_cv"), lang="es" if ES() else "en") if kind == "property" else write_arbitrage(r, d)
         return pathlib.Path(files["xlsx"]).read_bytes(), pathlib.Path(files["xlsx"]).name
 
 
@@ -595,8 +806,8 @@ def property_details(r, f, sc, o, rent, rent_src, own):
                "Veredicto: Mejor no si el ingreso que puso no alcanza la regla de la junta o la vivienda se lleva más del 45%, o si aun con compañeros cuesta más que la renta de la casa. "
                "Buen negocio si vivir allí cuesta lo mismo o menos que esa renta. Si no, Tal vez.")]
     md("\n".join(f"- {x}" for x in items))
-    ok_src = sorted({s["source"].split(":")[0] for s in r.get("sources_status", []) if s.get("ok")})
-    bad_src = sorted({s["source"].split(":")[0] for s in r.get("sources_status", []) if not s.get("ok")} - set(ok_src))
+    ok_src = sorted({_src_name(s["source"]) for s in r.get("sources_status", []) if s.get("ok")})
+    bad_src = sorted({_src_name(s["source"]) for s in r.get("sources_status", []) if not s.get("ok")} - set(ok_src))
     st.caption(L("Data from: ", "Datos de: ") + ", ".join(ok_src) + ((L(". Could not reach: ", ". No se pudo consultar: ") + ", ".join(bad_src)) if bad_src else "") + ".")
     try:
         xb, xn = xlsx_bytes(r, "property")
@@ -607,8 +818,19 @@ def property_details(r, f, sc, o, rent, rent_src, own):
                  "Estimados con datos públicos; no es asesoría financiera, legal ni hipotecaria. Confirme con su prestamista, agente y el municipio."))
 
 
+SRC_NAMES = {"census": ("U.S. Census", "Censo de EE.UU."), "fred": ("Freddie Mac rates", "tasas de Freddie Mac"), "geocode": ("map lookup", "búsqueda en el mapa"),
+             "insideairbnb": ("Inside Airbnb", "Inside Airbnb"), "listing_page": ("listing page", "página del anuncio"), "hud": ("HUD", "HUD"),
+             "craigslist": ("Craigslist", "Craigslist"), "rent.com": ("Rent.com", "Rent.com"), "redfin": ("Redfin", "Redfin"), "rentcast": ("RentCast", "RentCast"),
+             "zillow": ("Zillow", "Zillow"), "nominatim": ("map lookup", "búsqueda en el mapa")}
+
+
+def _src_name(raw):
+    k = re.split(r"[:\s/]", str(raw).strip().lower(), maxsplit=1)[0]
+    return P(SRC_NAMES[k]) if k in SRC_NAMES else str(raw).split(":")[0]
+
+
 GLOSSARY = [
-    (("Down payment", "Pago inicial (down payment)"), ("The part of the price you pay yourself. The bank lends you the rest.", "La parte del precio que usted paga. El banco le presta el resto.")),
+    (("Down payment", "Pago inicial (enganche)"), ("The part of the price you pay yourself. The bank lends you the rest.", "La parte del precio que usted paga. El banco le presta el resto.")),
     (("HOA / building fee", "HOA / cuota del edificio"), ("A monthly fee for the building: cleaning, repairs, doorman, and sometimes taxes and utilities.", "Una cuota mensual del edificio: limpieza, arreglos, portero y a veces impuestos y servicios.")),
     (("Co-op", "Co-op (cooperativa)"), ("You buy shares in the building instead of the apartment itself. A board must approve you and often limits renting out.", "Usted compra acciones del edificio en vez del apartamento. Una junta debe aprobarle y a menudo limita alquilar.")),
     (("FHA loan", "Préstamo FHA"), ("A government-backed loan for first-time buyers. You can put down as little as 3.5%, plus a small insurance fee.", "Un préstamo respaldado por el gobierno para primeros compradores. Puede dar desde 3.5% inicial, más un pequeño seguro.")),
@@ -1035,7 +1257,7 @@ def sel_for(sid, base):
     opts = ["room", "unit", "none"] if multi else ["room", "none"]
     nm = {"room": L("A room", "Un cuarto"), "unit": L("The other unit", "La otra unidad"), "none": L("Nothing", "Nada")}
     st.markdown(f"<div class='bz-lbl'>{L('What would you rent out?', '¿Qué alquilaría?')}</div>", unsafe_allow_html=True)
-    ro = st.segmented_control("rent out", opts, key=f"ro_{sid}_{pt}", default=d["rent_out"] if d["rent_out"] in opts else "none", required=True,
+    ro = st.segmented_control(L("Rent out", "Alquilar"), opts, key=f"ro_{sid}_{pt}", default=d["rent_out"] if d["rent_out"] in opts else "none", required=True,
                               label_visibility="collapsed", width="stretch", format_func=lambda k: nm[k])
     sel = dict(d, rent_out=ro)
     if ro == "unit":
@@ -1223,6 +1445,11 @@ def show_property(r):
     ex = r.get("extra") or {}
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
+    p_addr = ss.get("prop_addr", r["address"])
+    lid = ((ss.get("gallery") or {}).get(p_addr.strip().lower()) or {}).get("id")
+    sv_iid = find_home(p_addr, lid) or (saves.item_id("listing", lid) if lid else saves.item_id("address", p_addr))
+    ss["_sv_stash_prop"] = (r, None, first, p_addr)
+    heart(sv_iid, f"p_{_sv_key(sv_iid)}", _from_stash, ("prop",), wide=True)
     safety_note(r.get("town"))
     drive_badge(ex.get("drive"))
     base = C.base_from_property(r)
@@ -1273,12 +1500,22 @@ def show_property(r):
         places_block(lists_for_property(r, sel), r.get("str_rules") or {}, r.get("town"), (r.get("str") or {}).get("datasets") or [], ok_air, out.get("days30", 30))
         season_block(C.seasonality((r.get("str") or {}).get("datasets")), r.get("town"))
         cv = report_cv(out, ex.get("drive"), first)
+        ss["_sv_stash_prop"] = (r, out, first, p_addr)
+        old = sv()["items"].get(sv_iid)
+        if old and old.get("nums_src") == "town":      # saved from a feed card: swap the quick town estimate for the full check
+            e = entry_from_property(sv_iid, r, out, first, p_addr)
+            e.update({k: old[k] for k in ("saved", "saved_ms", "status", "note") if k in old})
+            e["photos"] = e.get("photos") or old.get("photos") or []
+            e["photo"] = e.get("photo") or old.get("photo")
+            e["url"] = e.get("url") or old.get("url")
+            sv()["items"][sv_iid] = e
+            _sv_touch()
     else:
         cv = None
     ss.prop_cv = cv
     fix_facts(r)
     st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), property_html(r, "es" if ES() else "en", cv=cv).encode(),
-                       f"BellaZu_Report_{safe_name(r['address'])}.html", "text/html", key="dl_prop", type="primary", width="stretch", on_click="ignore")
+                       L(f"BellaZu_Report_{safe_name(r['address'])}.html", f"BellaZu_Reporte_{safe_name(r['address'])}.html"), "text/html", key="dl_prop", type="primary", width="stretch", on_click="ignore")
     with st.expander(L("See details", "Ver detalles")):
         property_details(r, f, sc, o, rent, rent_src, own)
 
@@ -1320,7 +1557,7 @@ def show_town_view(a):
     safety_note(t)
     rules_card(a.get("str_rules") or {}, t)
     st.markdown(f"<div class='bz-lbl'>{L('Tap a price you are looking at', 'Toque un precio que esté mirando')}</div>", unsafe_allow_html=True)
-    price = st.pills("price", C.PRICE_CHIPS + ["other"], key=f"tp_{sid}", label_visibility="collapsed",
+    price = st.pills(L("Price", "Precio"), C.PRICE_CHIPS + ["other"], key=f"tp_{sid}", label_visibility="collapsed",
                      format_func=lambda p: L("Other", "Otro") if p == "other" else kmoney(p))
     if price == "other":
         price = st.number_input(L("Price ($)", "Precio ($)"), min_value=50_000, max_value=3_000_000, step=10_000, value=int(ss.get(f"tpo_{sid}") or 350_000), key=f"tpo_{sid}")
@@ -1335,6 +1572,9 @@ def show_town_view(a):
         sel = sel_for(sid, base)
         out = C.compare(base, sel)
         compare_strip(out, first)
+        ss["_sv_stash_town"] = (a, int(price), size, out, first)
+        t_iid = saves.item_id("town", f"{t}|{int(price)}|{size}")
+        heart(t_iid, f"t_{_sv_key(t_iid)}", _from_stash, ("town",), wide=True)
         skew_note(base, sel)
         ln = base["loan"]
         tx = (L(f"Taxes use {t}'s typical rate, {base['tax_rate']:.2%} of the price (NJ Treasury 2025 average bill ÷ average sale price)", f"Los impuestos usan la tasa típica de {t}, {base['tax_rate']:.2%} del precio (Tesoro de NJ 2025: factura promedio ÷ precio promedio)")
@@ -1381,10 +1621,10 @@ def show_town_view(a):
     ok_air = (out or {}).get("airbnb_allowed", C.airbnb_ok(a.get("str_rules") or {}, "multi-family" if size == "2fam" else "single-family", "unit" if size == "2fam" else "room"))
     places_block(lists, a.get("str_rules") or {}, t, mk.get("datasets") and [f"nj/{x}" for x in mk["datasets"]] or [], ok_air, C.days30(a.get("str_rules") or {}))
     st.download_button(L("⬇️ Download the town report", "⬇️ Descargar el reporte del pueblo"), town_html(a, cv, "es" if ES() else "en").encode(),
-                       f"BellaZu_Town_{safe_name(t)}.html", "text/html", key="dl_town", type="primary", width="stretch", on_click="ignore")
+                       L(f"BellaZu_Town_{safe_name(t)}.html", f"BellaZu_Pueblo_{safe_name(t)}.html"), "text/html", key="dl_town", type="primary", width="stretch", on_click="ignore")
     try:
         with tempfile.TemporaryDirectory() as d_:
-            fx = write_town(a, cv, d_)
+            fx = write_town(a, cv, d_, lang="es" if ES() else "en")
             st.download_button(L("⬇️ Spreadsheet (Excel)", "⬇️ Hoja de cálculo (Excel)"), pathlib.Path(fx).read_bytes(), pathlib.Path(fx).name,
                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dlx_town", width="stretch", on_click="ignore")
     except Exception as e:
@@ -1449,7 +1689,7 @@ def homes_block(t, drive, sid):
     if not listings.available():
         return
     st.markdown(f"#### {L('🏡 Homes in ' + t, '🏡 Casas en ' + t)}")
-    status = st.segmented_control("status", ["for_sale", "for_rent"], key=f"hst_{sid}", default="for_sale", required=True, label_visibility="collapsed", width="stretch",
+    status = st.segmented_control(L("For sale or rent", "En venta o alquiler"), ["for_sale", "for_rent"], key=f"hst_{sid}", default="for_sale", required=True, label_visibility="collapsed", width="stretch",
                                   format_func=lambda s_: L("For sale", "En venta") if s_ == "for_sale" else L("For rent", "En alquiler"))
     rent = status == "for_rent"
     with st.spinner(L("Finding homes... ✨", "Buscando casas... ✨")):
@@ -1463,7 +1703,7 @@ def homes_block(t, drive, sid):
             st.caption(L("Home listings aren't loading right now. Try again later.", "Los anuncios de casas no cargan ahora. Intente más tarde."))
         return
     st.markdown(f"<div class='bz-lbl'>{L('Price up to', 'Precio hasta')}</div>", unsafe_allow_html=True)
-    mx = st.segmented_control("max", FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=None if rent else 500_000, required=True, label_visibility="collapsed", width="stretch",
+    mx = st.segmented_control(L("Top price", "Precio máximo"), FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=None if rent else 500_000, required=True, label_visibility="collapsed", width="stretch",
                               format_func=lambda v: L("Any", "Todo") if v is None else (money(v) if rent else kmoney(v)))
     c1, c2 = st.columns([2, 3])
     with c1:
@@ -1477,12 +1717,15 @@ def homes_block(t, drive, sid):
                  f"{len(rows)} de los {len(res['rows'])} anuncios más nuevos coinciden (actualizado {res.get('fetched', '')[-5:]})."))
     for i, h in enumerate(rows[:shown]):
         _home_card(h, drive, rent)
-        if rent:
-            if h.get("url"):
-                st.link_button(L("See photos on realtor.com ↗", "Ver fotos en realtor.com ↗"), h["url"], width="stretch")
-        else:
-            st.button(L("📷 Photos + my monthly numbers", "📷 Fotos + mis números del mes"), key=f"ho_{sid}_{i}_{h['id']}", width="stretch", type="primary",
-                      on_click=_open_listing, args=(h,))
+        iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
+        with st.container(horizontal=True, vertical_alignment="center", key=f"hrow_{sid}_{i}"):
+            heart(iid, f"h_{sid}_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (h, rent))
+            if rent:
+                if h.get("url"):
+                    st.link_button(L("Photos on realtor.com ↗", "Fotos en realtor.com ↗"), h["url"], width="stretch")
+            else:
+                st.button(L("📷 Photos + my numbers", "📷 Fotos + mis números"), key=f"ho_{sid}_{i}_{h['id']}", width="stretch", type="primary",
+                          on_click=_open_listing, args=(h,))
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
@@ -1500,22 +1743,11 @@ def run_listing(h, where):
         d = listings.detail(h["id"]) if h.get("id") else {"ok": False}
     addr = h["address"]
     fo = facts_for(addr)
-    fo["price"] = int(h["price"]) if h.get("price") else fo.get("price")
-    hoa = d.get("hoa_monthly") if d.get("ok") else h.get("hoa_monthly")
-    if hoa is not None:
-        fo["hoa"] = int(hoa)
-    elif h.get("kind") in ("2fam", "house"):
-        fo["hoa"] = 0
-    if d.get("ok") and d.get("taxes_annual"):
-        fo["taxes"] = int(d["taxes_annual"])
-    if h.get("kind") in LISTING_TYPE:
-        fo["type"] = "co-op" if h.get("type") == "coop" else LISTING_TYPE[h["kind"]]
-    if h.get("beds") is not None:
-        fo["beds"] = int(h["beds"])
-    if h.get("baths"):
-        fo["baths"] = float(h["baths"])
+    fo.update(_listing_facts(h, d))
+    hoa = fo.get("hoa")
     ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": (d.get("photos") if d.get("ok") else None) or h.get("photos") or [], "url": h.get("url"),
-                                                          "broker": h.get("broker"), "price": h.get("price"), "hoa": hoa, "count": h.get("photo_count")}
+                                                          "broker": h.get("broker"), "price": h.get("price"), "hoa": hoa, "count": h.get("photo_count"),
+                                                          "id": str(h.get("id") or "")}
     ss.view = ("addr", addr)
     ss.prop_addr = addr
     run_home(addr, where)
@@ -1616,7 +1848,7 @@ def town_chips(hm):
     if hm == "first":
         rows = sorted(rows, key=lambda t: (C.town_info(t) or {}).get("drive_offpeak_min", 99))
     st.markdown(f"<div class='bz-lbl'>{L('Towns near the city (closest drive first)', 'Pueblos cerca de la ciudad (más cerca primero)') if hm == 'first' else L('Towns to compare', 'Pueblos para comparar')}</div>", unsafe_allow_html=True)
-    st.pills("towns", rows, key="tchip", on_change=_chip_town, label_visibility="collapsed")
+    st.pills(L("Towns", "Pueblos"), rows, key="tchip", on_change=_chip_town, label_visibility="collapsed")
 
 
 def town_ranking(hm):
@@ -1644,10 +1876,396 @@ def towns_rules(t):
     return _sr.rules_for(t)
 
 
+# ------------------------------------------------------------------ saved homes (favorites): hearts, the list, backup, sync
+from datetime import datetime                                     # noqa: E402
+from zoneinfo import ZoneInfo                                     # noqa: E402
+
+ET = ZoneInfo("America/New_York")
+STATUS_OPTS = ["interested", "toured", "offer", "no"]
+STATUS_LBL = {"interested": ("💗 Interested", "💗 Me interesa"), "toured": ("👀 Toured", "👀 La visité"),
+              "offer": ("📝 Offer", "📝 Oferta"), "no": ("✖️ Not for me", "✖️ No es para mí")}
+MON_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+MON_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+FEED_TYPE_LBL = {"condo": ("Condo", "Condo"), "2fam": ("2-family+", "2+ familias"), "house": ("House", "Casa"), "other": ("Home", "Vivienda")}
+
+
+def _today():
+    return datetime.now(ET).strftime("%Y-%m-%d")
+
+
+def _date_txt(iso):
+    try:
+        y, m, d = (int(x) for x in str(iso)[:10].split("-"))
+        return f"{d} {MON_ES[m - 1]} {y}" if ES() else f"{MON_EN[m - 1]} {d}, {y}"
+    except Exception:
+        return str(iso or "")
+
+
+def _norm_addr(a):
+    return re.sub(r"[^a-z0-9]", "", str(a or "").lower())
+
+
+def find_home(addr=None, lid=None):
+    """The saved entry for this listing id or address, if any (so the feed card and the opened listing share one heart)."""
+    for k, x in sv()["items"].items():
+        if x.get("kind") != "home":
+            continue
+        if lid and str(x.get("listing_id") or "") == str(lid):
+            return k
+        if addr and _norm_addr(x.get("addr")) == _norm_addr(addr):
+            return k
+    return None
+
+
+def _thumb(u):
+    return re.sub(r"od-w1024_h768\.jpg$", "rd-w480_h360.jpg", u) if isinstance(u, str) else None
+
+
+def _facts_line(beds, baths, sqft, type_lbl, hoa, rent=False):
+    en, es = [], []
+    if beds is not None:
+        en.append(f"{beds} bd"), es.append(f"{beds} hab")
+    if baths:
+        en.append(f"{float(baths):g} ba"), es.append(f"{float(baths):g} baño{'' if float(baths) == 1 else 's'}")
+    if sqft:
+        en.append(f"{int(sqft):,} ft²"), es.append(f"{int(sqft):,} ft²")
+    if type_lbl:
+        en.append(type_lbl[0]), es.append(type_lbl[1])
+    if hoa and not rent:
+        en.append(f"fee {money(hoa)}/mo"), es.append(f"cuota {money(hoa)}/mes")
+    return " · ".join(en), " · ".join(es)
+
+
+def _cols_snap(out, first):
+    return [{k: (list(c[k]) if isinstance(c[k], tuple) else c[k]) for k in ("key", "title", "pay_lbl", "pay", "sub", "badge", "star")} for c in C.labels(out, first)]
+
+
+def _new_entry(iid, kind, title):
+    t = saves.now_ms()
+    return {"id": iid, "kind": kind, "title": title, "saved": _today(), "saved_ms": t, "updated": t, "status": "interested", "note": ""}
+
+
+def _caution(town):
+    lvl, c = C.town_caution(town)
+    return list(c) if c else None
+
+
+def _listing_facts(h, d=None):
+    """Facts from a feed listing (plus its detail call, if we have it), in the shape facts_for() keeps."""
+    fo = {}
+    if h.get("price"):
+        fo["price"] = int(h["price"])
+    hoa = d.get("hoa_monthly") if d and d.get("ok") else h.get("hoa_monthly")
+    if hoa is not None:
+        fo["hoa"] = int(hoa)
+    elif h.get("kind") in ("2fam", "house"):
+        fo["hoa"] = 0
+    if d and d.get("ok") and d.get("taxes_annual"):
+        fo["taxes"] = int(d["taxes_annual"])
+    if h.get("kind") in LISTING_TYPE:
+        fo["type"] = "co-op" if h.get("type") == "coop" else LISTING_TYPE[h["kind"]]
+    if h.get("beds") is not None:
+        fo["beds"] = int(h["beds"])
+    if h.get("baths"):
+        fo["baths"] = float(h["baths"])
+    return fo
+
+
+def entry_from_feed(iid, h, rent):
+    """Snapshot of a feed card. For-sale homes get quick numbers from the town's averages (no API call); opening the home later upgrades them."""
+    ss = st.session_state
+    a = ss.get("town") or {}
+    first = ss.get("hmode", "first") == "first"
+    tl = list(FEED_TYPE_LBL.get(h.get("kind"), FEED_TYPE_LBL["other"]))
+    fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, h.get("hoa_monthly"), rent)
+    e = _new_entry(iid, "home", h["address"])
+    photos = [p_ for p_ in (h.get("photos") or []) if p_]
+    e.update(addr=h["address"], town=h.get("town") or a.get("town"), price=h.get("price"), rent=bool(rent), beds=h.get("beds"), baths=h.get("baths"),
+             sqft=h.get("sqft"), hoa=h.get("hoa_monthly"), type_lbl=tl, facts_line_en=fl[0], facts_line_es=fl[1], photo=h.get("photo") or _thumb(photos[0] if photos else None),
+             photos=photos[:8], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"), facts_over=_listing_facts(h),
+             safety=_caution(h.get("town") or a.get("town")))
+    if not rent and h.get("price") and a.get("ok"):
+        try:
+            size = "2fam" if h.get("kind") == "2fam" else str(min(max(int(h.get("beds") or 2), 1), 3))
+            d = ss.get("set_down", "usual")
+            base = C.base_from_town(a, int(h["price"]), size, None if d == "usual" else float(d) / 100)
+            hoa = float(h.get("hoa_monthly") or 0)
+            base["total_cost"] += hoa
+            base["piti"] = (base.get("piti") or 0) + hoa
+            out = C.compare(base, C.default_sel(base))
+            e.update(cols=_cols_snap(out, first), legal=list(C.airbnb_badge(out.get("airbnb_allowed"), out.get("days30", 30))), nums_src="town")
+        except Exception:
+            pass
+    return e
+
+
+def entry_from_property(iid, r, out, first, addr):
+    g = (st.session_state.get("gallery") or {}).get((addr or "").strip().lower()) or {}
+    f = r.get("facts") or {}
+    own = (f.get("ownership") or "").lower()
+    fo = dict(facts_for(addr))
+    tl = list(UI_TYPES[fo["type"]]) if fo.get("type") in UI_TYPES else (list(TYPE_LBL[own]) if own in TYPE_LBL else None)
+    fl = _facts_line(f.get("beds"), f.get("baths"), f.get("sqft"), tl, f.get("hoa_monthly"))
+    photos = [p_ for p_ in (g.get("photos") or []) if p_]
+    e = _new_entry(iid, "home", r.get("address") or addr)
+    e.update(addr=addr, town=r.get("town"), price=f.get("price"), rent=False, beds=f.get("beds"), baths=f.get("baths"), sqft=f.get("sqft"),
+             hoa=f.get("hoa_monthly"), taxes=f.get("taxes_annual"), type_lbl=tl, facts_line_en=fl[0], facts_line_es=fl[1],
+             photo=_thumb(photos[0]) if photos else None, photos=photos[:8], url=g.get("url"), listing_id=str(g.get("id") or ""), broker=g.get("broker"),
+             facts_over=fo, safety=_caution(r.get("town")))
+    if out:
+        e.update(cols=_cols_snap(out, first), legal=list(C.airbnb_badge(out.get("airbnb_allowed"), out.get("days30", 30))), nums_src="full")
+    return e
+
+
+def entry_from_town(iid, a, price, size, out, first):
+    t = a["town"]
+    size_lbl = ("2-family", "2 familias") if size == "2fam" else (f"{size} bd", f"{size} hab")
+    e = _new_entry(iid, "town", f"{t} · {kmoney(price)} · {size_lbl[0]}")
+    e.update(town=t, price=price, size=size, rent=False, type_lbl=list(size_lbl), facts_line_en=f"Town estimate · {size_lbl[0]}",
+             facts_line_es=f"Estimado del pueblo · {size_lbl[1]}", photo=None, photos=[], url=None, safety=_caution(t))
+    if out:
+        e.update(cols=_cols_snap(out, first), legal=list(C.airbnb_badge(out.get("airbnb_allowed"), out.get("days30", 30))), nums_src="town")
+    return e
+
+
+def _from_stash(iid, which):
+    a = st.session_state.get(f"_sv_stash_{which}")
+    if not a:
+        return None
+    return entry_from_property(iid, *a) if which == "prop" else entry_from_town(iid, *a)
+
+
+def _sv_toggle(iid, builder, *args):
+    ss = st.session_state
+    items = sv()["items"]
+    if iid in items:
+        ss.sv_undo = items.pop(iid)
+        sv()["removed"][iid] = saves.now_ms()
+        st.toast(L("Removed from your saved homes", "Quitada de sus casas guardadas"), icon="💔")
+    else:
+        try:
+            e = builder(iid, *args)
+        except Exception:
+            e = None
+        if not e:
+            st.toast(L("Sorry, that didn't save. Try again.", "Perdón, no se guardó. Intente otra vez."), icon="⚠️")
+            return
+        items[iid] = e
+        sv()["removed"].pop(iid, None)
+        st.toast(L("Saved! Find it under ♥ Saved at the top.", "¡Guardada! La encuentra en ♥ Guardadas arriba."), icon="💗")
+    _sv_touch()
+
+
+def heart(iid, key, builder, args, wide=False):
+    on = iid in sv()["items"]
+    st.button(L("♥ Saved", "♥ Guardada") if on else L("♡ Save", "♡ Guardar"), key=f"{'svon' if on else 'svoff'}_{key}", on_click=_sv_toggle,
+              args=(iid, builder, *args), width="stretch" if wide else "content")
+
+
+def _sv_key(iid):
+    return re.sub(r"[^A-Za-z0-9]", "_", iid)[:48]
+
+
+def _sv_set(iid, field, wkey):
+    x = sv()["items"].get(iid)
+    v = st.session_state.get(wkey)
+    if x is None or v is None:
+        return
+    x[field] = v if field != "note" else str(v)[:1000]
+    x["updated"] = saves.now_ms()
+    _sv_touch()
+
+
+def _sv_remove(iid):
+    items = sv()["items"]
+    if iid in items:
+        st.session_state.sv_undo = items.pop(iid)
+        sv()["removed"][iid] = saves.now_ms()
+        _sv_touch()
+
+
+def _sv_undo():
+    ss = st.session_state
+    x = ss.pop("sv_undo", None)
+    if x:
+        x["updated"] = saves.now_ms()
+        sv()["items"][x["id"]] = x
+        sv()["removed"].pop(x["id"], None)
+        _sv_touch()
+
+
+def _sv_open(iid):
+    """Reopen the full analysis from the snapshot (no listing re-fetch)."""
+    ss = st.session_state
+    x = sv()["items"].get(iid)
+    if not x:
+        return
+    ss.page = "main"
+    if x.get("kind") == "town":
+        sid = "t_" + safe_name(x["town"])[:24]
+        if x.get("price") in C.PRICE_CHIPS:
+            ss[f"tp_{sid}"] = x["price"]
+        elif x.get("price"):
+            ss[f"tp_{sid}"], ss[f"tpo_{sid}"] = "other", int(x["price"])
+        if x.get("size") in C.TOWN_SIZES:
+            ss[f"ts_{sid}"] = x["size"]
+        ss.go = ("town", x["town"])
+        return
+    addr = x.get("addr") or x.get("title")
+    if x.get("facts_over"):
+        facts_for(addr).update({k: v for k, v in x["facts_over"].items() if v is not None})
+    if x.get("photos") or x.get("url"):
+        ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": x.get("photos") or [], "url": x.get("url"), "broker": x.get("broker"),
+                                                              "price": x.get("price"), "hoa": x.get("hoa"), "id": x.get("listing_id")}
+    ss.go = ("addr", addr)
+
+
+def _cmp_html(cols, extra_cls=""):
+    cells = ""
+    for c in cols or []:
+        earn = (c.get("pay_lbl") or [""])[0] == "You earn"
+        cells += (f"<div class='bz-col{' star' if c.get('star') else ''}'><div class='h'>{H.escape(P(c['title']))}</div><div class='l'>{H.escape(P(c['pay_lbl']))}</div>"
+                  f"<div class='n{' earn' if earn else ''}'>{H.escape(str(c.get('pay') or '—'))}</div><div class='s'>{H.escape(P(c['sub']))}</div></div>")
+    return f"<div class='bz-cmp {extra_cls}'>{cells}</div>" if cells else ""
+
+
+def saved_card(x):
+    k = _sv_key(x["id"])
+    with st.container(key=f"svcard_{k}"):
+        pic = x.get("photo") if str(x.get("photo") or "").startswith("https://") else None
+        img = f"<img src='{H.escape(pic)}' loading='lazy' alt=''>" if pic else f"<div class='noimg'>{'🏙️' if x.get('kind') == 'town' else '🏡'}</div>"
+        price = (money(x["price"]) + (L("/mo", "/mes") if x.get("rent") else "")) if x.get("price") else ""
+        fl = x.get("facts_line_es" if ES() else "facts_line_en") or ""
+        src = {"full": L("full check", "revisión completa"), "town": L("quick estimate from town averages", "estimado rápido con promedios del pueblo")}.get(x.get("nums_src"), "")
+        title = x.get("addr") or x.get("title") or ""
+        html(f"<div class='bz-sv'>{img}<div style='min-width:0'><div class='t'>{H.escape(title)}</div><div class='p'>{H.escape(price)}</div>"
+             f"<div class='m'>{H.escape(fl)}</div><div class='d'>♥ {L('Saved', 'Guardada')} {H.escape(_date_txt(x.get('saved')))}"
+             + (f" · {H.escape(src)}" if src and x.get("cols") else "") + "</div></div></div>")
+        if x.get("cols"):
+            html(f"<div class='bz-lbl' style='margin-top:.7rem'>{L('Each month, when saved', 'Cada mes, al guardarla')}</div>" + _cmp_html(x["cols"], "bz-sv-nums"))
+        if x.get("legal"):
+            html(f"<div class='bz-sv-b'>{H.escape(P(x['legal']))}</div>")
+        if x.get("safety"):
+            html(f"<div class='bz-sv-b'>ℹ️ {H.escape(P(x['safety']))}</div>")
+        st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
+                 format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
+        st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
+                     placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
+                     on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
+        if not x.get("rent"):
+            st.button(L("📊 Open my numbers again", "📊 Abrir mis números otra vez"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="primary", width="stretch")
+        row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center")
+        with row:
+            if str(x.get("url") or "").startswith("http"):
+                st.link_button(L("See listing ↗", "Ver anuncio ↗"), x["url"])
+            st.button(L("🗑 Remove", "🗑 Quitar"), key=f"svrm_{k}", on_click=_sv_remove, args=(x["id"],), type="tertiary")
+
+
+def _sv_wait_cloud():
+    if saves.cloud_busy():
+        with st.spinner(L("Checking your online copy... ✨", "Revisando su copia en línea... ✨")):
+            saves.cloud_wait(6)
+        _sv_pull_merged(apply_lang=False)
+
+
+def _sv_status_line():
+    if not saves.cloud_available():
+        return L("⚠️ The online copy is off right now, so the list is only in this browser. Download a backup file to be safe.",
+                 "⚠️ La copia en línea está apagada ahora; la lista solo está en este navegador. Descargue un archivo de respaldo por seguridad.")
+    s_ = saves.cloud_status()
+    if saves.cloud_busy():
+        return L("Kept on this device · ⏳ saving the online copy...", "Guardada en este dispositivo · ⏳ guardando la copia en línea...")
+    if s_ and s_.get("ok"):
+        t = datetime.fromtimestamp(s_["t"], ET).strftime("%-I:%M %p")
+        return L(f"✓ Saved online (encrypted), updated {t} ET. The same list shows on any phone or computer where you enter the passcode.",
+                 f"✓ Guardada en línea (cifrada), actualizada {t} ET. La misma lista aparece en cualquier teléfono o computadora donde escriba el código de entrada.")
+    if s_ and not s_.get("ok"):
+        return L("Kept on this device. ⚠️ The online copy couldn't be reached just now; we'll try again on your next change.",
+                 "Guardada en este dispositivo. ⚠️ No pudimos llegar a la copia en línea; lo intentaremos en su próximo cambio.")
+    return L("✓ Saved online (encrypted) and on this device.", "✓ Guardada en línea (cifrada) y en este dispositivo.")
+
+
+def backup_block():
+    ss = st.session_state
+    st.markdown(f"#### 💾 {L('Back up my list', 'Respaldar mi lista')}")
+    st.caption(L("If this browser's data gets cleared, a backup file brings everything back. It also opens on its own as a readable list.",
+                 "Si se borran los datos de este navegador, un archivo de respaldo lo recupera todo. También se abre solo como una lista para leer."))
+    if sv()["items"]:
+        st.download_button(L("⬇️ Download my list (backup file)", "⬇️ Descargar mi lista (archivo de respaldo)"), saves.export_html(sv(), "es" if ES() else "en").encode(),
+                           L(f"BellaZu_saved_homes_{_today()}.html", f"BellaZu_casas_guardadas_{_today()}.html"), "text/html", key="sv_dl", width="stretch", on_click="ignore", type="primary")
+    st.markdown(f"<style>:root{{--bz-up:'{L('Choose the file', 'Elegir el archivo')}'}}</style>", unsafe_allow_html=True)   # Streamlit's own button text is English-only
+    up = st.file_uploader(L("Restore from a backup file", "Recuperar desde un archivo de respaldo"), type=["html", "htm", "json"], key=f"sv_up_{ss.get('sv_upn', 0)}")
+    if up is not None:
+        d = saves.parse_import(up.getvalue())
+        if d is None:
+            st.warning(L("That file isn't a BellaZu backup. Pick the file named BellaZu_saved_homes_….", "Ese archivo no es un respaldo de BellaZu. Elija el archivo llamado BellaZu_casas_guardadas_…."))
+        else:
+            cur = sv()
+            before = len(cur["items"])
+            for x in d["items"].values():          # a restore brings homes back even if they were removed here later
+                if x["id"] not in cur["items"]:
+                    x["updated"] = max(int(x.get("updated", 0)), int(cur["removed"].get(x["id"], 0)) + 1)
+            ss.sv = saves.merge(cur, dict(d, removed={}, sync=None))
+            _sv_touch()
+            n = len(ss.sv["items"]) - before
+            ss.sv_msg = ("ok", L(f"Restored ✓ {n} home{'s' if n != 1 else ''} added, {len(ss.sv['items'])} in your list.",
+                                 f"Recuperada ✓ {n} casa{'s' if n != 1 else ''} agregada{'s' if n != 1 else ''}, {len(ss.sv['items'])} en su lista."))
+            ss.sv_msg_t = time.time()
+            ss.sv_upn = int(ss.get("sv_upn", 0)) + 1
+            st.rerun()
+
+
+def saved_page():
+    ss = st.session_state
+    st.button(L("← Back to search", "← Volver a buscar"), key="sv_back", type="tertiary", on_click=lambda: ss.update(page="main"))
+    html(f"<div class='bz-hello'>{L('My saved homes', 'Mis casas guardadas')}</div>")
+    m = ss.get("sv_msg")
+    if m and time.time() - ss.get("sv_msg_t", 0) < 12:
+        (st.success if m[0] == "ok" else st.warning)(m[1])
+    if not ss.get("sv_loaded"):
+        ss.sv_wait = int(ss.get("sv_wait", 0)) + 1
+        if ss.sv_wait > 3:
+            st.warning(L("This browser isn't keeping your list (private mode or storage turned off). Download a backup file to keep it.",
+                         "Este navegador no está guardando su lista (modo privado o almacenamiento apagado). Descargue un archivo de respaldo para conservarla."))
+        else:
+            st.caption(L("Loading your list from this device...", "Cargando su lista de este dispositivo..."))
+    elif ss.get("sv_storage_ok") is False:
+        st.warning(L("This browser isn't keeping your list (private mode or storage turned off). Download a backup file to keep it.",
+                     "Este navegador no está guardando su lista (modo privado o almacenamiento apagado). Descargue un archivo de respaldo para conservarla."))
+    _sv_wait_cloud()
+    items = list(sv()["items"].values())
+    st.caption(_sv_status_line())
+    if ss.get("sv_undo"):
+        st.button(L(f"↩ Undo remove: {ss.sv_undo.get('addr') or ss.sv_undo.get('title')}", f"↩ Deshacer: {ss.sv_undo.get('addr') or ss.sv_undo.get('title')}"),
+                  key="sv_undo_btn", on_click=_sv_undo, type="tertiary")
+    if not items:
+        html(f"<div class='bz-ask'>♡ {L('Nothing saved yet. Tap ♡ Save on any home, address or town and it shows up here with its photo, price and monthly numbers.', 'Aún no hay nada guardado. Toque ♡ Guardar en cualquier casa, dirección o pueblo y aparecerá aquí con su foto, precio y números del mes.')}</div>")
+    else:
+        sort = st.segmented_control(L("Sort", "Ordenar"), ["new", "low", "high"], key="sv_sort", default="new", required=True, width="stretch",
+                                    format_func=lambda k: {"new": L("Newest", "Más nuevas"), "low": L("Price ↑", "Precio ↑"), "high": L("Price ↓", "Precio ↓")}[k])
+        cnt = {s_: sum(1 for x in items if (x.get("status") or "interested") == s_) for s_ in STATUS_OPTS}
+        filt = st.pills(L("Show", "Mostrar"), ["all"] + [s_ for s_ in STATUS_OPTS if cnt[s_]], key="sv_filt", default="all", required=True,
+                        format_func=lambda s_: f"{L('All', 'Todas')} ({len(items)})" if s_ == "all" else f"{P(STATUS_LBL[s_])} ({cnt[s_]})")
+        if filt and filt != "all":
+            items = [x for x in items if (x.get("status") or "interested") == filt]
+        if sort == "new":
+            items.sort(key=lambda x: -int(x.get("saved_ms") or 0))
+        else:
+            items.sort(key=lambda x: (x.get("price") is None, (x.get("price") or 0) * (1 if sort == "low" else -1)))
+        for x in items:
+            saved_card(x)
+        st.caption(L("Numbers are a snapshot from the day you saved. Prices and rules can change; open the home again for today's numbers.",
+                     "Los números son una foto del día en que guardó. Los precios y las reglas pueden cambiar; abra la casa otra vez para ver los números de hoy."))
+    backup_block()
+
+
+
+
+
 # ------------------------------------------------------------------ the one page
 def main_page():
     ss = st.session_state
-    hm = st.segmented_control("mode", ["first", "next"], key="hmode", default="first", required=True, label_visibility="collapsed", width="stretch",
+    hm = st.segmented_control(L("Mode", "Modo"), ["first", "next"], key="hmode", default="first", required=True, label_visibility="collapsed", width="stretch",
                               format_func=lambda k: L("🏙️ My first home, near the city", "🏙️ Mi primera casa, cerca de la ciudad") if k == "first"
                               else L("🧭 Next homes, anywhere", "🧭 Próximas casas, donde sea"))
     view = ss.get("view")
@@ -1707,17 +2325,20 @@ def main_page():
 
 # ------------------------------------------------------------------ page
 settings_defaults()
-main_page()
+if st.session_state.get("page") == "saved":
+    saved_page()
+else:
+    main_page()
 
 st.write("")
 with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
     md(L("BellaZu helps first-time buyers in North Jersey compare buying, renting out and Airbnb or 30+ day stays for a home or a town, using free public data "
          "(Inside Airbnb, HUD, Census, Freddie Mac, OpenStreetMap and OSRM for drive times, Craigslist, Rent.com, Redfin and, if set up, RentCast).\n\n"
-         "**Privacy:** what you type stays in this browser session. Nothing is saved to an account.\n\n"
+         "**Privacy:** what you type stays in this browser session. Saved homes are kept in this browser and in an encrypted online copy that opens only with the passcode. Nothing is saved to an account.\n\n"
          "**Important:** these are estimates, not financial, legal or lending advice.",
          "BellaZu ayuda a primeros compradores en el norte de NJ a comparar comprar, alquilar y Airbnb o estadías de 30+ días para una casa o un pueblo, con datos públicos gratuitos "
          "(Inside Airbnb, HUD, Censo, Freddie Mac, OpenStreetMap, Craigslist, Rent.com, Redfin y, si está configurado, RentCast).\n\n"
-         "**Privacidad:** lo que escribe se queda en esta sesión del navegador. No se guarda en ninguna cuenta.\n\n"
+         "**Privacidad:** lo que escribe se queda en esta sesión del navegador. Las casas guardadas se quedan en este navegador y en una copia en línea cifrada que solo se abre con el código de entrada. No se guarda en ninguna cuenta.\n\n"
          "**Importante:** son estimados, no asesoría financiera, legal ni hipotecaria."))
     st.caption(rc_usage_line())
     if st.button(L("Check which data sources work from this server", "Revisar qué fuentes funcionan desde este servidor"), key="probe"):
@@ -1749,3 +2370,5 @@ with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
             if k != "lang":
                 del st.session_state[k]
         st.rerun()
+
+storage_bridge()
