@@ -3,16 +3,66 @@ import json, re, html as H, datetime as dt, pathlib
 import pandas as pd
 from .i18n import t, COST
 
-CSS = """body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:960px;margin:0 auto;padding:12px;color:#222;font-size:14px}
-h1{color:#8a1c4a;margin:.2em 0;font-size:1.5em}h2{color:#8a1c4a;border-bottom:2px solid #f0d0dc;margin-top:1.1em;font-size:1.12em}
-table{border-collapse:collapse;width:100%;margin:.4em 0;font-size:.9em}td,th{border:1px solid #e4e4e4;padding:4px 6px;text-align:left;vertical-align:top}
-th{background:#faf0f4}.num{text-align:right}.neg{color:#b00020;font-weight:600}.pos{color:#11772d;font-weight:600}
-.box{background:#fff7e6;border-left:4px solid #f0a020;padding:6px 10px;margin:.5em 0}.bad{background:#fdecee;border-left-color:#b00020}.ok{background:#eaf7ee;border-left-color:#11772d}
-.small{font-size:.8em;color:#666}.toggle{position:sticky;top:0;background:#fff;padding:6px 0;z-index:9}.toggle button{margin-right:4px;padding:5px 12px;border:1px solid #8a1c4a;background:#fff;color:#8a1c4a;border-radius:14px}
-body.only-en .es{display:none}body.only-es .en{display:none}body.both div.es{display:block;color:#555;font-style:italic;margin-top:2px}body.both span.es{display:inline}
-body.both span.es:before{content:" / "}a{color:#8a1c4a;word-break:break-all}
-@media(max-width:600px){table{font-size:.78em}td,th{padding:3px}}"""
+CSS = """@import url('https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter:wght@300;400;500;600;700&family=Instrument+Serif&display=swap');
+:root{--ink:#141414;--mute:#6F6F6F;--line:#E6E0E2;--rose:#D8567C;--rose2:#FBE7ED;--paper:#FFFFFF;--good:#1E7A4B;--bad:#B3264F}
+body{font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:860px;margin:0 auto;padding:18px 18px 40px;color:var(--ink);font-size:15px;line-height:1.55;background:var(--paper)}
+.brand{font-family:'Instrument Serif',Georgia,serif;font-size:30px;line-height:1;padding:6px 0 12px;border-bottom:1px solid var(--ink);margin-bottom:18px}.brand i{font-style:normal;color:var(--rose)}
+h1{font-family:'League Gothic',Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:46px;line-height:.95;letter-spacing:.01em;margin:.1em 0 .25em}
+h2{font-family:'League Gothic',Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:28px;line-height:1;letter-spacing:.01em;margin:1.4em 0 .5em;padding-top:.7em;border-top:1px solid var(--line)}
+ul{padding-left:1.1em}li{margin:.35em 0}
+table{border-collapse:collapse;width:100%;margin:.5em 0 .8em;font-size:.9em}td,th{border-bottom:1px solid var(--line);padding:8px 8px;text-align:left;vertical-align:top}
+th{font-size:.72em;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:500;border-bottom:1px solid var(--ink)}.num{text-align:right;font-variant-numeric:tabular-nums}
+.neg{color:var(--bad);font-weight:600}.pos{color:var(--good);font-weight:600}
+.box{background:var(--rose2);border:1px solid #F3C6D3;border-radius:18px;padding:12px 16px;margin:.8em 0}.bad{background:#FDEEF2;border-color:#F0B8C8}.ok{background:#EAF6EF;border-color:#BFE3CD}
+.small{font-size:.8em;color:var(--mute)}
+.toggle{position:sticky;top:0;background:var(--paper);padding:8px 0;z-index:9;display:flex;gap:6px}.toggle button{padding:8px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:100px;
+ text-transform:uppercase;letter-spacing:.06em;font-size:.72em;font-family:inherit;cursor:pointer}.toggle button:hover{background:var(--ink);color:var(--paper)}
+body.only-en .es{display:none}body.only-es .en{display:none}body.both div.es{display:block;color:var(--mute);margin-top:2px}body.both span.es{display:inline}
+body.both span.es:before{content:" / "}a{color:var(--rose);word-break:break-word}
+@media(max-width:600px){body{padding:14px}h1{font-size:38px}table{font-size:.8em}td,th{padding:6px 4px}}
+@media print{.toggle{display:none}body{max-width:none}}"""
 JS = "<script>function L(m){document.body.className=m;try{localStorage.bz=m}catch(e){}};try{if(localStorage.bz)L(localStorage.bz)}catch(e){}</script>"
+
+
+PLAIN = [("≈ ", "about "), ("≈", "about "), ("~$", "about $"), (" ~", " about "), ("ASSUMPTIONS", "Estimates"), ("ASSUMPTION", "Estimate"),
+         ("SUPUESTOS", "Estimados"), ("SUPUESTO", "Estimado"), ("PROXY", "Rough guide"), (" — ", ": "), (" -> ", " to "), ("→", "to"),
+         ("⚠️", ""), ("NOT ", "not "), ("Arbitrage Scan", "Rental Finder"), ("Análisis de Arbitraje", "Buscador de Alquileres"),
+         ("(edit assumptions.yaml)", ""), ("(editar assumptions.yaml)", ""), ("edit assumptions.yaml", "our standard estimates"),
+         ("Principal & interest", "Mortgage payment (loan + interest)"), ("MIP/PMI", "required with a small down payment"),
+         ("Furniture (amortized)", "Furniture (spread over 3 years)"), ("Muebles (amortizados)", "Muebles (repartidos en 3 años)"),
+         ("NET per month", "Left over each month"), ("NETO por mes", "Queda cada mes"), ("STR insurance", "Short-stay insurance"),
+         ("Short-term rental comps (Inside Airbnb)", "Nearby Airbnb listings (Inside Airbnb)"), ("Room-rent comps", "Room rents nearby"),
+         ("Comparables de alquiler a corto plazo", "Anuncios de Airbnb cercanos"), ("Comparables de renta por cuarto", "Rentas de cuartos cercanas"),
+         ("Long-term rent estimate", "What a tenant would pay"), ("Reference rents", "Reference rents"), ("Referencias", "Rentas de referencia"),
+         ("STR profit/mo", "Airbnb profit/mo"), ("STR rev/yr", "Airbnb income/yr"), ("STR profit", "Airbnb profit"), ("30+night", "30+ night"),
+         ("Rentals ranked by estimated STR profit", "Rentals ranked by estimated profit"), ("ganancia STR estimada", "ganancia estimada"),
+         ("comps", "similar listings"), ("Comps", "Similar listings"), ("LTR", "long-term rent"), (" STR ", " Airbnb-style "), ("(STR)", "(Airbnb-style)"),
+         ("Median rent", "Typical rent"), ("median", "typical"), ("mediana", "típica"), ("range (25th-75th pct)", "usual range"), ("rango (percentil 25-75)", "rango usual"),
+         ("Ownership type", "Type of home"), ("Tipo de propiedad", "Tipo de vivienda"), ("Cash to close (est.)", "Cash to close (estimate)"),
+         ("Efectivo para cerrar (est.)", "Dinero para cerrar (estimado)"), ("unknown / desconocido", "not found / no encontrado")]
+
+
+def _plain_text(t):
+    for a, b in PLAIN:
+        t = t.replace(a, b)
+    return re.sub(r"[ \t]{2,}", " ", t)
+
+
+def plainify(doc):
+    """Plain-language pass over the visible text of a report (never touches tags, attributes, URLs or numbers)."""
+    head, sep, body = doc.partition("<body")
+    es_fix = lambda t: t.replace("≈ ", "aprox. ").replace("≈", "aprox. ").replace("~$", "aprox. $").replace(" ~", " aprox. ")
+    body = re.sub(r'(<(\w+) class="es">)(.*?)(</\2>)', lambda m: m.group(1) + re.sub(r">([^<]+)<", lambda n: ">" + es_fix(n.group(1)) + "<", ">" + m.group(3) + "<")[1:-1] + m.group(4), body, flags=re.S)
+    body = re.sub(r">([^<]+)<", lambda m: ">" + _plain_text(m.group(1)) + "<", body)
+    head = re.sub(r"<title>(.*?)</title>", lambda m: "<title>" + _plain_text(m.group(1)) + "</title>", head, flags=re.S)
+    return head + sep + body
+
+
+def _open(title, lang):
+    cls = {"en": "only-en", "es": "only-es"}.get(lang, "both")
+    return (f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><base target='_blank'>"
+            f"<title>{title}</title><style>{CSS}</style></head><body class='{cls}'><div class='brand'>Bella<i>Zu</i></div>"
+            "<div class='toggle'><button onclick=\"L('only-en')\">English</button><button onclick=\"L('only-es')\">Español</button><button onclick=\"L('both')\">EN + ES</button></div>")
 
 
 def money(v, dec=0):
@@ -138,10 +188,9 @@ def _rc_status_text(s):
             "not_found": "RentCast had no estimate for this address", None: "not requested"}.get(s, f"RentCast unavailable ({s})")
 
 
-def property_html(r):
+def property_html(r, lang="both"):
     f, fs = r["facts"], r["fact_sources"]
-    parts = [f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><base target='_blank'><title>BellaZu Property Report — {H.escape(r['address'])}</title><style>{CSS}</style></head><body class='both'>",
-             "<div class='toggle'><button onclick=\"L('only-en')\">English</button><button onclick=\"L('only-es')\">Español</button><button onclick=\"L('both')\">EN + ES</button></div>",
+    parts = [_open(f"BellaZu Home Report: {H.escape(r['address'])}", lang),
              f"<h1>{bk('prop_title')}</h1><div><b>{H.escape(r['address'])}</b></div><div class='small'>{bk('generated')}: {r['generated']} ET · BellaZu v0.1</div>",
              f"<h2>{bk('bottom_line')}</h2><ul>" + "".join(f"<li>{bi(H.escape(a), H.escape(b), 'div')}</li>" for a, b in property_bullets(r)) + "</ul>"]
     if r["warnings"]:
@@ -234,7 +283,7 @@ def property_html(r):
     parts.append(_assump_html(r))
     parts.append(_sources_html(r))
     parts.append(f"<p class='small'>{bk('disclaimer')}</p>{JS}</body></html>")
-    return "\n".join(parts)
+    return plainify("\n".join(parts))
 
 
 def _assump_html(r):
@@ -313,9 +362,8 @@ def arb_bullets(r):
 ARB_COLS = ["rank", "source", "title", "beds", "rent", "adr_median", "occ_sf_model", "str_revenue_annual", "str_profit_monthly", "mtr_profit_monthly", "legality_flag", "check_flag", "url"]
 
 
-def arb_html(r, top=25):
-    parts = [f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><base target='_blank'><title>BellaZu Arbitrage Scan — {H.escape(r['town'])}</title><style>{CSS}</style></head><body class='both'>",
-             "<div class='toggle'><button onclick=\"L('only-en')\">English</button><button onclick=\"L('only-es')\">Español</button><button onclick=\"L('both')\">EN + ES</button></div>",
+def arb_html(r, top=25, lang="both"):
+    parts = [_open(f"BellaZu Rental Finder: {H.escape(r['town'])}", lang),
              f"<h1>{bk('arb_title')}: {H.escape(r['town'])}, {r['state'].upper()}</h1><div class='small'>{bk('generated')}: {r['generated']} ET · BellaZu v0.1</div>",
              f"<h2>{bk('bottom_line')}</h2><ul>" + "".join(f"<li>{bi(H.escape(a), H.escape(b), 'div')}</li>" for a, b in arb_bullets(r)) + "</ul>"]
     sr = r["str_rules"]
@@ -336,7 +384,7 @@ def arb_html(r, top=25):
     parts.append(_assump_html(r))
     parts.append(_sources_html(r))
     parts.append(f"<p class='small'>{bk('disclaimer')}</p>{JS}</body></html>")
-    return "\n".join(parts)
+    return plainify("\n".join(parts))
 
 
 def arb_md(r, lang, top=15):
@@ -359,6 +407,30 @@ def _flat_assumptions(A):
     return pd.DataFrame(rows)
 
 
+def _style_xlsx(path):
+    """Report look for the spreadsheet: ink header row with rose text, frozen header, readable widths, plain wording (values unchanged)."""
+    from openpyxl import load_workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    wb = load_workbook(path)
+    head_fill, head_font = PatternFill("solid", fgColor="141414"), Font(bold=True, color="FFD3DE", name="Calibri")
+    for ws in wb.worksheets:
+        ws.sheet_properties.tabColor = "D8567C"
+        ws.freeze_panes = "A2"
+        for row in ws.iter_rows():
+            for c in row:
+                if isinstance(c.value, str):
+                    c.value = _plain_text(c.value)
+        for c in ws[1]:
+            c.fill, c.font = head_fill, head_font
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+            if isinstance(c.value, str):
+                c.value = c.value.replace("_", " ").capitalize()
+        for col in ws.columns:
+            w = max((len(str(c.value)) for c in col[:200] if c.value is not None), default=8)
+            ws.column_dimensions[col[0].column_letter].width = min(max(10, w + 2), 60)
+    wb.save(path)
+
+
 def write_property(r, outdir):
     outdir = pathlib.Path(outdir); outdir.mkdir(parents=True, exist_ok=True)
     base = outdir / f"BellaZu_Property_Report_{slug(r['address'])}_{r['generated'][:10]}"
@@ -379,18 +451,19 @@ def write_property(r, outdir):
     with pd.ExcelWriter(p, engine="openpyxl") as w:
         facts = pd.DataFrame([{"field": k, "value": (", ".join(v) if isinstance(v, list) else v), "source": r["fact_sources"].get(k, "")} for k, v in r["facts"].items() if k != "description"])
         facts.to_excel(w, sheet_name="Facts", index=False)
-        sc.to_excel(w, sheet_name="Scenarios", index=False)
-        pd.DataFrame(r["ltr"]["comps"]).to_excel(w, sheet_name="LTR comps", index=False)
-        pd.DataFrame([{k: v for k, v in (r.get("rent_compare") or {}).items()}]).to_excel(w, sheet_name="Rent compare", index=False)
-        pd.DataFrame((r.get("rentcast") or {}).get("avm_comps") or []).to_excel(w, sheet_name="RentCast comps", index=False)
-        pd.DataFrame(r["rooms"].get("comps", [])).to_excel(w, sheet_name="Room comps", index=False)
-        pd.DataFrame(r["str"].get("comps", [])).to_excel(w, sheet_name="STR comps (IAB)", index=False)
-        pd.DataFrame(r["mtr"].get("comps", [])).to_excel(w, sheet_name="30+ night comps", index=False)
+        sc.to_excel(w, sheet_name="Monthly numbers", index=False)
+        pd.DataFrame(r["ltr"]["comps"]).to_excel(w, sheet_name="Rentals nearby", index=False)
+        pd.DataFrame([{k: v for k, v in (r.get("rent_compare") or {}).items()}]).to_excel(w, sheet_name="Rent estimates", index=False)
+        pd.DataFrame((r.get("rentcast") or {}).get("avm_comps") or []).to_excel(w, sheet_name="RentCast examples", index=False)
+        pd.DataFrame(r["rooms"].get("comps", [])).to_excel(w, sheet_name="Rooms nearby", index=False)
+        pd.DataFrame(r["str"].get("comps", [])).to_excel(w, sheet_name="Airbnb nearby", index=False)
+        pd.DataFrame(r["mtr"].get("comps", [])).to_excel(w, sheet_name="30+ night nearby", index=False)
         bm = r["benchmarks"]
-        pd.DataFrame([{"benchmark": k, **(v if isinstance(v, dict) else {})} for k, v in bm.items() if v]).to_excel(w, sheet_name="Benchmarks", index=False)
-        pd.DataFrame([{"field": k, "value": str(v)} for k, v in r["str_rules"].items()]).to_excel(w, sheet_name="STR rules", index=False)
-        pd.DataFrame(r["sources_status"]).to_excel(w, sheet_name="Sources", index=False)
-        _flat_assumptions(r["assumptions"]).to_excel(w, sheet_name="Assumptions", index=False)
+        pd.DataFrame([{"benchmark": k, **(v if isinstance(v, dict) else {})} for k, v in bm.items() if v]).to_excel(w, sheet_name="Reference rents", index=False)
+        pd.DataFrame([{"field": k, "value": str(v)} for k, v in r["str_rules"].items()]).to_excel(w, sheet_name="Airbnb rules", index=False)
+        pd.DataFrame(r["sources_status"]).to_excel(w, sheet_name="Data sources", index=False)
+        _flat_assumptions(r["assumptions"]).to_excel(w, sheet_name="Our estimates", index=False)
+    _style_xlsx(p)
     files["xlsx"] = str(p)
     return files
 
@@ -406,11 +479,12 @@ def write_arbitrage(r, outdir):
     (p := base.with_suffix(".csv")); df.to_csv(p, index=False); files["csv"] = str(p)
     p = base.with_suffix(".xlsx")
     with pd.ExcelWriter(p, engine="openpyxl") as w:
-        df.to_excel(w, sheet_name="Ranked listings", index=False)
+        df.to_excel(w, sheet_name="Rentals ranked", index=False)
         pd.DataFrame(r["summary"]["by_beds"]).to_excel(w, sheet_name="By bedrooms", index=False)
-        pd.DataFrame([{"field": k, "value": str(v)} for k, v in r["str_rules"].items()]).to_excel(w, sheet_name="STR rules", index=False)
+        pd.DataFrame([{"field": k, "value": str(v)} for k, v in r["str_rules"].items()]).to_excel(w, sheet_name="Airbnb rules", index=False)
         pd.DataFrame(r["sources_used"]).to_excel(w, sheet_name="Sources used", index=False)
-        pd.DataFrame(r["sources_status"]).to_excel(w, sheet_name="Fetch log", index=False)
-        _flat_assumptions(r["assumptions"]).to_excel(w, sheet_name="Assumptions", index=False)
+        pd.DataFrame(r["sources_status"]).to_excel(w, sheet_name="Data log", index=False)
+        _flat_assumptions(r["assumptions"]).to_excel(w, sheet_name="Our estimates", index=False)
+    _style_xlsx(p)
     files["xlsx"] = str(p)
     return files

@@ -43,7 +43,8 @@ st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter:wght@300;400;500;600;700&family=Instrument+Serif&display=swap');
 :root {--ink:#141414; --ink2:#1B1B1B; --line:#2E2E2E; --line2:#3A3A3A; --paper:#FFFFFF; --mute:#A9A9A9; --rose:#F4A7BB; --rose2:#FFD3DE;
        --good:#8FE3B5; --maybe:#FFCF7A; --skip:#FF9DB5; --disp:'League Gothic', 'Oswald', Impact, sans-serif; --body:'Inter', system-ui, sans-serif}
-html, body, .stApp, [class*="st-"], .stMarkdown, button, input, textarea, select, p, li, label {font-family:var(--body)}
+html, body, .stApp, .stMarkdown, button, input, textarea, select, p, li, label {font-family:var(--body)}
+[data-testid="stIconMaterial"], .material-symbols-rounded {font-family:'Material Symbols Rounded' !important}
 #MainMenu, footer, header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {display:none !important}
 .stApp {background:var(--ink); color:var(--paper)}
 .block-container {padding-top:.4rem; padding-bottom:4rem; max-width:640px}
@@ -54,15 +55,15 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--disp) !important; t
 [data-testid="stCaptionContainer"], .stCaption {color:var(--mute) !important}
 hr {border-color:var(--line) !important}
 /* buttons: outlined pill (secondary), solid white pill (primary), uppercase micro-type */
-.stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopover"] > div > button {
+.stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopoverButton"] {
   min-height:3.3rem; border-radius:100px; border:1px solid var(--paper); background:transparent; color:var(--paper);
   text-transform:uppercase; letter-spacing:.06em; font-weight:500; font-size:.92rem; transition:color .35s cubic-bezier(.39,.575,.565,1), background-color .3s}
-.stButton button:hover, .stDownloadButton button:hover, [data-testid="stPopover"] > div > button:hover {background:var(--paper); color:var(--ink); border-color:var(--paper)}
+.stButton button:hover, .stDownloadButton button:hover, [data-testid="stPopoverButton"]:hover {background:var(--paper); color:var(--ink); border-color:var(--paper)}
 .stButton button[kind="primary"], .stDownloadButton button[kind="primary"], .stFormSubmitButton button[kind="primary"] {
   background:var(--paper); color:var(--ink); border:1px solid var(--paper); font-weight:700; min-height:3.6rem}
 .stButton button[kind="primary"]:hover, .stDownloadButton button[kind="primary"]:hover, .stFormSubmitButton button[kind="primary"]:hover {background:var(--rose); border-color:var(--rose); color:var(--ink)}
 .stButton button[kind="tertiary"] {border:none; min-height:2.2rem; color:var(--rose); text-decoration:underline; text-underline-offset:4px; background:transparent}
-.stButton button p, .stDownloadButton button p, .stFormSubmitButton button p, [data-testid="stPopover"] button p {font-weight:inherit}
+.stButton button p, .stDownloadButton button p, .stFormSubmitButton button p, [data-testid="stPopoverButton"] p {font-weight:inherit}
 /* inputs: outlined pills, centered uppercase placeholder like a newsletter field */
 [data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="select"] > div, [data-baseweb="textarea"] {background:transparent !important; border-radius:100px !important; border:1px solid var(--line2) !important}
 [data-baseweb="input"]:focus-within, [data-baseweb="select"] > div:focus-within {border-color:var(--paper) !important}
@@ -74,8 +75,10 @@ hr {border-color:var(--line) !important}
 /* pills + segmented controls */
 [data-testid="stButtonGroup"] button {border-radius:100px !important; min-height:2.7rem; padding:0 1.05rem; border:1px solid var(--line2) !important; background:transparent !important;
   color:var(--paper) !important; text-transform:uppercase; letter-spacing:.05em; font-size:.8rem; font-weight:500}
-[data-testid="stButtonGroup"] button[kind$="Active"] {background:var(--paper) !important; color:var(--ink) !important; border-color:var(--paper) !important}
-[data-testid="stButtonGroup"] button[kind$="Active"] p {color:var(--ink) !important}
+[data-testid="stButtonGroup"] button[kind$="Active"], [data-testid="stButtonGroup"] button[data-selected="true"], [data-testid="stButtonGroup"] button[aria-checked="true"],
+[data-testid="stButtonGroup"] button[aria-pressed="true"] {background:var(--paper) !important; color:var(--ink) !important; border-color:var(--paper) !important}
+[data-testid="stButtonGroup"] button[kind$="Active"] *, [data-testid="stButtonGroup"] button[data-selected="true"] *, [data-testid="stButtonGroup"] button[aria-checked="true"] *,
+[data-testid="stButtonGroup"] button[aria-pressed="true"] * {color:var(--ink) !important}
 .st-key-mode [data-testid="stButtonGroup"] button {min-height:3.3rem; font-size:.86rem}
 .st-key-lang [data-testid="stButtonGroup"] button {min-height:2.2rem; padding:0 .8rem; font-size:.75rem}
 /* expanders + popovers */
@@ -324,7 +327,7 @@ def show_property(r):
     html(f"<div class='bz-line'>{icon} {H.escape(es if ES() else en)}</div>")
     ask_missing(r)
     fix_facts(r)
-    st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), property_html(r).encode(),
+    st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), property_html(r, "es" if ES() else "en").encode(),
                        f"BellaZu_Report_{safe_name(r['address'])}.html", "text/html", key="dl_prop", type="primary", width="stretch", on_click="ignore")
     with st.expander(L("See details", "Ver detalles")):
         property_details(r, f, sc, o, rent, rent_src, own)
@@ -397,8 +400,8 @@ def property_details(r, f, sc, o, rent, rent_src, own):
         ro = r.get("rooms") or {}
         basis = L(f"typical room rent nearby, from {ro.get('n')} Craigslist posts", f"renta típica de un cuarto cerca, de {ro.get('n')} anuncios de Craigslist") if ro.get("ok") \
             else L("an estimate based on the rent for the whole home", "un estimado según la renta de toda la casa")
-        md(L(f"Renting {o['rooms_rented']} rooms at about {money(o['room_rent_each'])} each ({basis}) brings in {money(o['income']['roommate_rent'])}/mo, so your share is {money(o['own_net_housing_cost'])}/mo.",
-             f"Alquilar {o['rooms_rented']} cuartos a unos {money(o['room_rent_each'])} cada uno ({basis}) trae {money(o['income']['roommate_rent'])}/mes, así que su parte es {money(o['own_net_housing_cost'])}/mes."))
+        md(L(f"Renting {o['rooms_rented']} room{'s' if o['rooms_rented'] != 1 else ''} at about {money(o['room_rent_each'])} each ({basis}) brings in {money(o['income']['roommate_rent'])}/mo, so your share is {money(o['own_net_housing_cost'])}/mo.",
+             f"Alquilar {o['rooms_rented']} cuarto{'s' if o['rooms_rented'] != 1 else ''} a unos {money(o['room_rent_each'])} cada uno ({basis}) trae {money(o['income']['roommate_rent'])}/mes, así que su parte es {money(o['own_net_housing_cost'])}/mes."))
         st.caption(L("Co-op boards often limit roommates. Check the building rules first." if "co-op" in own else "Check that the building rules allow roommates.",
                      "Las juntas de co-op a menudo limitan compañeros. Revise las reglas primero." if "co-op" in own else "Confirme que las reglas del edificio permitan compañeros."))
 
@@ -886,7 +889,7 @@ def address_block():
         else:
             st.warning(L("Type an address first, and we'll take it from there 💕", "Primero escriba una dirección y nos encargamos del resto 💕"))
     if not ss.get("plain_addr"):
-        st.button(L("Keyboard trouble? Type it the simple way", "¿Problemas? Escríbala de forma sencilla"), key="plain_btn", type="tertiary",
+        st.button(L("Trouble typing? Use a plain box", "¿Problemas? Use una caja simple"), key="plain_btn", type="tertiary",
                   on_click=lambda: ss.update(plain_addr=True))
 
 
@@ -935,20 +938,23 @@ def home_page():
 def not_found(r):
     """Friendly, never a dead end: say what happened, offer tappable matches, and show which map services were tried."""
     typed = st.session_state.get("prop_addr", "")
-    st.info(L(f"Hmm, we couldn't place “{typed}” on the map 💕 Try one of these, or add the town (like '12 Main St, Fort Lee').",
-              f"Mmm, no pudimos ubicar “{typed}” en el mapa 💕 Pruebe una de estas o agregue el pueblo (por ejemplo '12 Main St, Fort Lee')."), icon="🌷")
     try:
         from bellazu.geo import suggest
         sug = [x for x in suggest(typed, 4) if x.lower() != typed.lower()]
     except Exception:
         sug = []
+    st.info(L(f"Hmm, we couldn't place “{typed}” on the map 💕 " + ("Is it one of these?" if sug else "Check the street number and add the town, like '12 Main St, Fort Lee'."),
+              f"Mmm, no pudimos ubicar “{typed}” en el mapa 💕 " + ("¿Es una de estas?" if sug else "Revise el número y agregue el pueblo, por ejemplo '12 Main St, Fort Lee'.")), icon="🌷")
     for i, x in enumerate(sug):
         st.button(f"📍 {x}", key=f"nf_{i}", on_click=_go_recent, args=(x,), width="stretch")
     tried = [s_ for s_ in r.get("sources_status") or [] if str(s_.get("source", "")).startswith("geocode")]
     if tried:
         nm = {"geocode:nominatim": "OpenStreetMap", "geocode:photon": "Photon", "geocode:census": "US Census"}
-        st.caption(L("Map services tried: ", "Servicios de mapa consultados: ") + ", ".join(
-            f"{nm.get(s_['source'], s_['source'])} ({L('no match', 'sin resultado') if s_.get('ok') or s_.get('http') == 200 else s_.get('http') or L('no answer', 'sin respuesta')})" for s_ in tried[:6]))
+        seen = {}
+        for s_ in tried:
+            why = L("no match", "sin resultado") if s_.get("ok") or s_.get("http") == 200 else (f"busy ({s_.get('http')})" if s_.get("http") else L("no answer", "sin respuesta"))
+            seen.setdefault(nm.get(s_["source"], s_["source"]), why)
+        st.caption(L("Map services tried: ", "Servicios de mapa consultados: ") + ", ".join(f"{k} ({v})" for k, v in seen.items()))
 
 
 def show_town(a):
@@ -1030,7 +1036,7 @@ def town_details(a):
     glossary()
     used = [f"{u['source']} ({u.get('n', 0)})" for u in a.get("sources_used") or []]
     st.caption(L("Rentals from: ", "Alquileres de: ") + ", ".join(used) + ". " + L("Airbnb data: Inside Airbnb.", "Datos de Airbnb: Inside Airbnb."))
-    st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), arb_html(a).encode(), f"BellaZu_Town_{safe_name(a['town'])}.html", "text/html",
+    st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), arb_html(a, lang="es" if ES() else "en").encode(), f"BellaZu_Town_{safe_name(a['town'])}.html", "text/html",
                        key="dl_town", type="primary", width="stretch", on_click="ignore")
     try:
         xb, xn = xlsx_bytes(a, "arbitrage")
