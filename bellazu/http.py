@@ -22,13 +22,14 @@ def _throttle(host, min_interval):
         _last[host] = time.time()
 
 
-def record(source, url, ok, http=None, note=""):
-    STATUS.append({"source": source, "url": url, "ok": bool(ok), "http": http, "note": note})
+def record(source, url, ok, http=None, note="", ms=None):
+    STATUS.append({"source": source, "url": url, "ok": bool(ok), "http": http, "note": note, **({"ms": ms} if ms is not None else {})})
 
 
 def fetch(url, source, ttl_hours=24, method="GET", data=None, headers=None, binary=False,
           ua="browser", min_interval=2.0, timeout=40, validate=None, session=None, retries=1):
     """Return (content or None). Cached by url+data. validate(content)->bool marks blocks."""
+    t0 = time.time()
     key = hashlib.sha1((method + url + json.dumps(data, sort_keys=True)).encode()).hexdigest()
     sub = CACHE / "http"
     sub.mkdir(exist_ok=True)
@@ -53,7 +54,7 @@ def fetch(url, source, ttl_hours=24, method="GET", data=None, headers=None, bina
                 break
         except Exception as e:  # network error
             if attempt == retries:
-                record(source, url, False, None, f"network error: {e.__class__.__name__}")
+                record(source, url, False, None, f"network error: {e.__class__.__name__}", ms=round((time.time() - t0) * 1000))
                 return None
         time.sleep(8)   # one polite retry for transient rate-limits
 
@@ -64,10 +65,10 @@ def fetch(url, source, ttl_hours=24, method="GET", data=None, headers=None, bina
         ok = bool(validate(body if binary else txt))
     if not ok:
         note = "blocked/challenge" if r.status_code in (202, 403, 429) or (r.status_code == 200) else "error"
-        record(source, url, False, r.status_code, note)
+        record(source, url, False, r.status_code, note, ms=round((time.time() - t0) * 1000))
         return None
     path.write_bytes(body)
-    record(source, url, True, r.status_code, "")
+    record(source, url, True, r.status_code, "", ms=round((time.time() - t0) * 1000))
     return body if binary else txt
 
 

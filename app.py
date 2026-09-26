@@ -1333,7 +1333,37 @@ from bellazu import town_snapshot                               # noqa: E402
 from bellazu.render import town_html, write_town                # noqa: E402
 town_html, write_town = timed("rep:town_html")(town_html), timed("rep:town_xlsx")(write_town)
 property_html = timed("rep:prop_html")(property_html)
-town_snapshot = timed("town_snapshot")(town_snapshot)
+
+
+def _net_timed(f, name):
+    """Like timed(), and also lists each slow web fetch inside (source, HTTP status, ms) for ?debug_timing=1."""
+    import functools
+
+    @functools.wraps(f)
+    def w(*a, **k):
+        with tm(name):
+            r = f(*a, **k)
+        try:
+            for x in (r or {}).get("sources_status") or []:
+                if (x.get("ms") or 0) >= 150:
+                    st.session_state.setdefault("_tm_cur", []).append((f"  net:{x.get('source')}:{x.get('http')}", x["ms"]))
+        except Exception:
+            pass
+        return r
+    return w
+
+
+town_snapshot = _net_timed(town_snapshot, "town_snapshot")
+from bellazu.sources import hud as _hud_m, insideairbnb as _iab_m, craigslist as _cl_m, rentcom as _rcom_m, redfin as _rf_m   # noqa: E402
+if not getattr(_hud_m, "_bz_timed", False):          # finer ?debug_timing=1 detail inside the town/home lookups (module attributes, once per process)
+    _hud_m._load = timed("  hud_load")(_hud_m._load)
+    _iab_m.load = timed("  iab_load")(_iab_m.load)
+    _cl_m.search = timed("  craigslist")(_cl_m.search)
+    _rcom_m.search = timed("  rent.com")(_rcom_m.search)
+    _rf_m.rentals = timed("  redfin")(_rf_m.rentals)
+    C.town_rank = timed("  town_rank")(C.town_rank)
+    _hud_m._bz_timed = True
+analyze_property = _net_timed(analyze_property, "analyze_property")
 
 MONTHS = [("J", "E"), ("F", "F"), ("M", "M"), ("A", "A"), ("M", "M"), ("J", "J"), ("J", "J"), ("A", "A"), ("S", "S"), ("O", "O"), ("N", "N"), ("D", "D")]
 
