@@ -1374,8 +1374,8 @@ LISTING_TYPE = {"condo": "condo", "2fam": "2-family", "house": "single-family"}
 
 
 @st.cache_data(ttl=18 * 3600, show_spinner=False)
-def _feed_cached(town, status):
-    r = listings.fetch_town(town, status)
+def _feed_cached(town, status, zip_code=None):
+    r = listings.fetch_town(town, status, zip_code=zip_code)
     if not r.get("ok"):
         raise RuntimeError(r.get("error") or "error")
     return r
@@ -1383,7 +1383,7 @@ def _feed_cached(town, status):
 
 def feed(town, status):
     try:
-        return _feed_cached(town, status)
+        return _feed_cached(town, status, (C.town_info(town) or {}).get("zip"))
     except RuntimeError as e:
         return {"ok": False, "error": str(e), "rows": []}
 

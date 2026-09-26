@@ -140,9 +140,11 @@ def _cpath(name):
     return _DIR / (re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") + ".json")
 
 
-def fetch_town(town, status="for_sale", page=0):
-    """One list call per town + status (+ page of 200), cached on disk for TTL_H hours. Never raises."""
-    p = _cpath(f"{town}_{status}_{page}")
+def fetch_town(town, status="for_sale", page=0, zip_code=None):
+    """One list call per town + status (+ page of 200), cached on disk for TTL_H hours. Never raises.
+    If the city name finds fewer than 25 homes and the town's main ZIP is known, one more call by ZIP is merged in
+    (realtor.com's city names don't always match the township name, e.g. Union)."""
+    p = _cpath(f"{town}_{status}_{page}_v2")
     if p.exists() and time.time() - p.stat().st_mtime < TTL_H * 3600:
         try:
             return json.loads(p.read_text())
@@ -155,9 +157,17 @@ def fetch_town(town, status="for_sale", page=0):
     if err:
         return {"ok": False, "error": err, "rows": []}
     hs = ((d or {}).get("data") or {}).get("home_search") or {}
-    rows = [_norm(x, status) for x in hs.get("results") or []]
+    res = list(hs.get("results") or [])
+    if len(res) < 25 and zip_code and page == 0:
+        b2 = {k: v for k, v in body.items() if k not in ("city",)}
+        b2["postal_code"] = str(zip_code)
+        d2, err2 = _call("POST", "/properties/v3/list", json=b2)
+        if not err2:
+            ids = {x.get("property_id") for x in res}
+            res += [x for x in (((d2 or {}).get("data") or {}).get("home_search") or {}).get("results") or [] if x.get("property_id") not in ids]
+    rows = [_norm(x, status) for x in res]
     rows = [r for r in rows if r["type"] != "land"]
-    rows = [r for r in rows if r["price"] and (r["town"] or "").lower() == town.lower()] or rows
+    rows = [r for r in rows if r["price"]]
     out = {"ok": True, "rows": rows, "total": hs.get("total"), "fetched": dt.datetime.now().strftime("%Y-%m-%d %H:%M"), "town": town, "status": status}
     p.write_text(json.dumps(out))
     return out
@@ -181,8 +191,8 @@ def filter_rows(rows, min_price=None, max_price=None, beds=None, kind="any"):
     return out
 
 
-def search(town, min_price=None, max_price=None, beds=None, kind="any", status="for_sale"):
-    res = fetch_town(town, status)
+def search(town, min_price=None, max_price=None, beds=None, kind="any", status="for_sale", zip_code=None):
+    res = fetch_town(town, status, zip_code=zip_code)
     return filter_rows(res.get("rows") or [], min_price, max_price, beds, kind)
 
 
