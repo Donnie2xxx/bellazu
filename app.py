@@ -344,6 +344,7 @@ hr {border-color:var(--line) !important}
 .bz-addr {text-transform:uppercase; letter-spacing:.07em; font-size:.76rem; color:var(--mute); margin:.2rem 0 .6rem}
 .bz-price {font-family:var(--body); font-weight:800; font-size:32px; line-height:1.1; letter-spacing:-.02em; color:var(--rose); margin:-.2rem 0 .15rem}
 .bz-price .f {display:block; font-size:.95rem; font-weight:500; letter-spacing:0; color:#DADADA; margin-top:.2rem}
+.bz-fh {font-family:var(--disp); text-transform:uppercase; font-size:1.75rem; line-height:1; color:var(--paper); margin:.55rem 0 .45rem}
 .bz-tsum {border:1px solid var(--line2); border-radius:18px; background:var(--ink2); padding:.55rem .85rem; margin:.45rem 0 .2rem; font-size:.9rem; line-height:1.45}
 .bz-tsum div + div {margin-top:.15rem}
 /* result: verdict, tiles grid, airbnb line, cards */
@@ -2260,9 +2261,7 @@ def show_town_view(a):
     icon, en_, es_ = S.airbnb_line(sr, "owner")
     lim, cty = FHA.loan_limit(t, 1)
     lim2, _ = FHA.loan_limit(t, 2)
-    html(f"<div class='bz-tsum'><div>{icon} {H.escape(es_ if ES() else en_)}</div>"
-         f"<div>{L('✅ FHA 3.5% down works here', '✅ FHA con 3.5% inicial sirve aquí')}" + (f" · {L('up to', 'hasta')} {kmoney(lim)}" if lim else "") + "</div></div>")
-    with st.expander(L("📋 Town rules and FHA details", "📋 Reglas del pueblo y detalles de FHA"), key=f"tinfo_{sid}"):
+    with st.expander(f"{icon} {es_ if ES() else en_} · {L('✅ FHA 3.5% down OK', '✅ FHA 3.5% inicial sí')}", key=f"tinfo_{sid}"):
         rules_card(sr, t)
         cn = (cty or "").title()
         if lim:
@@ -2628,7 +2627,7 @@ def feed_block(ts, drives, sid):
     if not listings.available():
         return
     multi = len(ts) > 1
-    st.markdown(f"#### {L('🏡 Homes in ' + ts[0], '🏡 Casas en ' + ts[0]) if not multi else L(f'🏡 Homes in your {len(ts)} towns', f'🏡 Casas en sus {len(ts)} pueblos')}")
+    html(f"<div class='bz-fh'>{H.escape(L('🏡 Homes in ' + ts[0], '🏡 Casas en ' + ts[0]) if not multi else L(f'🏡 Homes in your {len(ts)} towns', f'🏡 Casas en sus {len(ts)} pueblos'))}</div>")
     status = st.segmented_control(L("For sale or rent", "En venta o alquiler"), ["for_sale", "for_rent"], key=f"hst_{sid}", default="for_sale", required=True, label_visibility="collapsed", width="stretch",
                                   on_change=lambda: st.session_state.update(_full=True),
                                   format_func=lambda s_: L("For sale", "En venta") if s_ == "for_sale" else L("For rent", "En alquiler"))
@@ -2667,13 +2666,6 @@ def feed_block(ts, drives, sid):
     allrows = _dedupe([dict(r, town=r.get("town") or t, _t=t) for t, r_ in ok.items() for r in r_["rows"]])
     rows = _sort_rows(listings.filter_rows(allrows, None, mx, bd or None, kd), srt)
     shown = int(ss.get(f"hn_{sid}", 8))
-    upd = min((r_.get("fetched") or "") for r_ in ok.values())[-5:]
-    if multi:
-        st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings in {len(ok)} towns match (updated {upd}).",
-                     f"{len(rows)} de los {len(allrows)} anuncios más nuevos en {len(ok)} pueblos coinciden (actualizado {upd})."))
-    else:
-        st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings match (updated {upd}).",
-                     f"{len(rows)} de los {len(allrows)} anuncios más nuevos coinciden (actualizado {upd})."))
     listings.prefetch_details([h.get("id") for h in rows[:shown]])      # Pro only: galleries for the cards on screen, on a side thread
     for i, h in enumerate(rows[:shown]):
         hk = f"{sid}_{i}_{h.get('id') or safe_name(h.get('address') or '')[:20]}"
@@ -2693,6 +2685,13 @@ def feed_block(ts, drives, sid):
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
     if not rows:
         st.caption(L("No listings match. Try another price or type.", "Ningún anuncio coincide. Pruebe otro precio o tipo."))
+    upd = min((r_.get("fetched") or "") for r_ in ok.values())[-5:]
+    if multi:
+        st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings in {len(ok)} towns match (updated {upd}).",
+                     f"{len(rows)} de los {len(allrows)} anuncios más nuevos en {len(ok)} pueblos coinciden (actualizado {upd})."))
+    else:
+        st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings match (updated {upd}).",
+                     f"{len(rows)} de los {len(allrows)} anuncios más nuevos coinciden (actualizado {upd})."))
     u = listings.usage()
     st.caption(L(f"Listing data from realtor.com via Realty in US. Prices and details can change; check with the agent. Swipe a photo to see more. Home searches this month: {u['used']} of {u['cap']}.",
                  f"Datos de anuncios de realtor.com vía Realty in US. Los precios y datos pueden cambiar; confirme con el agente. Deslice una foto para ver más. Búsquedas de casas este mes: {u['used']} de {u['cap']}."))
