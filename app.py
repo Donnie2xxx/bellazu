@@ -67,7 +67,7 @@ export default function(component) {
   const T = lang === "es" ? d.es : d.en;
   let qs = window.location.search;                       // keep the rest of the link (e.g. ?towns=secaucus,kearny)
   try { if (window.top.location.search) qs = window.top.location.search; } catch (e) {}
-  const P = new URLSearchParams(qs); P.set("lang", lang);
+  const P = new URLSearchParams(qs); P.delete("moved_preview"); P.set("lang", lang);
   const url = d.url.split("?")[0] + "?" + P.toString();
   const root = document.createElement("div");
   root.className = "mv";
@@ -100,9 +100,9 @@ def moved_page(url):
     comp(key="bz_moved", data={
         "url": url,
         "en": {"h": "BellaZu moved 💕", "p": "BellaZu has a new home. It is faster and never falls asleep. Your saved homes come along: same passcode.",
-               "b": "Open the new BellaZu", "s": "Taking you there now..."},
+               "b": "Open the new BellaZu", "s": "Tap the button. Tip: save the new page to your home screen."},
         "es": {"h": "BellaZu se mudó 💕", "p": "BellaZu tiene una nueva casa. Es más rápida y nunca se duerme. Sus casas guardadas vienen también: el mismo código.",
-               "b": "Abrir la nueva BellaZu", "s": "La llevamos allá ahora..."}})
+               "b": "Abrir la nueva BellaZu", "s": "Toque el botón. Consejo: guarde la nueva página en su pantalla de inicio."}})
     st.stop()
 
 
