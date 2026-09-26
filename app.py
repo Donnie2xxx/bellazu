@@ -2059,6 +2059,13 @@ def _hud_for(town, beds):
         return None
 
 
+def _num_g(v):
+    try:
+        return f"{float(v):g}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
 @timed('property_view')
 def show_property(r):
     ss = st.session_state
@@ -2073,7 +2080,7 @@ def show_property(r):
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
     if f.get("price"):
-        fl_ = " · ".join(x for x in [f"{f['beds']} {L('bd', 'hab')}" if f.get("beds") is not None else "", f"{f['baths']} {L('ba', 'baños')}" if f.get("baths") else "",
+        fl_ = " · ".join(x for x in [f"{f['beds']} {L('bd', 'hab')}" if f.get("beds") is not None else "", f"{_num_g(f['baths'])} {L('ba', 'baños')}" if f.get("baths") else "",
                                       L(f"fee {money(f['hoa_monthly'])}/mo", f"cuota {money(f['hoa_monthly'])}/mes") if f.get("hoa_monthly") else ""] if x)
         html(f"<div class='bz-price'>{money(f['price'])}" + (f"<span class='f'>{H.escape(fl_)}</span>" if fl_ else "") + "</div>")
     p_addr = ss.get("prop_addr", r["address"])
