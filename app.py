@@ -985,7 +985,10 @@ def kmoney(v):
     if v is None:
         return "?"
     v = float(v)
-    return f"${v / 1000:.1f}K" if abs(v) >= 10000 else f"${round(v):,}"
+    if abs(v) >= 10000:
+        k = v / 1000
+        return f"${k:,.0f}K" if abs(k - round(k)) < 0.05 or abs(k) >= 100 else f"${k:.1f}K"
+    return f"${round(v):,}"
 
 
 def drive_badge(d):
@@ -1395,7 +1398,8 @@ def _home_card(h, drive, rent):
             f"{h['sqft']:,} ft²" if h.get("sqft") else None,
             (L(f"fee {money(h['hoa_monthly'])}/mo", f"cuota {money(h['hoa_monthly'])}/mes") if h.get("hoa_monthly") else None)]
     days = h.get("days")
-    dl = (L("listed today", "publicada hoy") if days == 0 else L(f"{days} days listed", f"{days} días publicada")) if days is not None else ""
+    dl = (L("listed today", "publicada hoy") if days == 0 else L("listed yesterday", "publicada ayer") if days == 1
+          else L(f"listed {days} days ago", f"publicada hace {days} días")) if days is not None else ""
     dr = L(f"🚗 {drive['min']}-{drive['rush'][1]} min to Midtown", f"🚗 {drive['min']}-{drive['rush'][1]} min a Midtown") if drive and drive.get("rush") else ""
     img = f"<img src='{H.escape(h['photo'])}' loading='lazy' alt=''>" if h.get("photo") else "<div class='noimg'>📷</div>"
     pc = f"<span class='pc'>📷 {h['photo_count']}</span>" if h.get("photo_count") else ""
