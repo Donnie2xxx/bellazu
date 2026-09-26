@@ -99,9 +99,17 @@ def main():
             if listings.cached(t, "for_sale"):
                 continue
             u = listings.usage()
-            if spent + 2 > a.rapid or u["used"] + 2 > a.ceiling or u["left"] < 2:
-                log(f"rapidapi: stop (spent {spent} tonight, {u['used']} used this month, ceiling {a.ceiling})")
-                break
+            need = 2                                            # a small town can cost 2 (city search + ZIP search)
+            try:
+                if len(json.loads(listings._cpath(f"{t}_for_sale_0_v2").read_text()).get("rows") or []) >= 25:
+                    need = 1                                    # last time the city search alone found plenty
+            except Exception:
+                pass
+            if spent + need > a.rapid or u["used"] + need > a.ceiling or u["left"] < need:
+                if spent >= a.rapid or u["used"] + 1 > a.ceiling or u["left"] < 1:
+                    log(f"rapidapi: stop (spent {spent} tonight, {u['used']} used this month, ceiling {a.ceiling})")
+                    break
+                continue                                        # this one might need 2; a cheaper town may still fit
             if a.dry_run:
                 log(f"rapidapi: would fetch {t}"); spent += 1; continue
             before = u["used"]
