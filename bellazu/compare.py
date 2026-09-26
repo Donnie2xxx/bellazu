@@ -335,14 +335,16 @@ def compare(base, sel):
 def _unit_levels(u):
     e = (u or {}).get("ltr") or {}
     hud = (u or {}).get("hud")
+    n = {"n": int(e.get("n") or 0), "by_source": e.get("by_source") or {}}
     if e.get("ok") and hud and e.get("median") and e.get("p25") and e["median"] > 1.4 * hud:
         # listings here are mostly new luxury buildings; an older 2-family unit rents nearer HUD's fair rent.
         # low = HUD fair rent, typical = halfway between HUD and the cheapest quarter of listings, high = listing median
-        return {"low": hud, "typ": round((hud + min(e["p25"], e["median"])) / 2), "high": e["median"], "skewed": True}
+        return {"low": hud, "typ": round((hud + min(e["p25"], e["median"])) / 2), "high": e["median"], "skewed": True, **n}
     if e.get("ok"):
-        return _lv(e.get("p25"), e.get("median"), e.get("p75"))
+        lv = _lv(e.get("p25"), e.get("median"), e.get("p75"))
+        return {**lv, **n} if lv else None
     if u and u.get("hud"):
-        return {"low": u["hud"] * 0.9, "typ": u["hud"], "high": u["hud"] * 1.1, "hud": True}
+        return {"low": u["hud"] * 0.9, "typ": u["hud"], "high": u["hud"] * 1.1, "hud": True, **n}
     return None
 
 

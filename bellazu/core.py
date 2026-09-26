@@ -2,6 +2,7 @@
 No browser, no GUI. Every number carries a source or is labeled as an assumption."""
 import datetime as dt
 import math
+import os
 import numpy as np
 import pandas as pd
 
@@ -11,7 +12,7 @@ from .geo import geocode, haversine_km
 from .finance import loan_costs, carrying_costs, str_operating, mtr_operating
 from . import towns
 from . import compare as cmpmod
-from .sources import insideairbnb as iab, hud, census, fred, craigslist, rentcom, redfin, rentcast, listing, fha, str_rules
+from .sources import insideairbnb as iab, hud, census, fred, craigslist, rentcom, redfin, rentcast, listing, fha, str_rules, realtor_rent
 from .sources import airbnb_manual, bnbcalc
 
 STR_RULES_URL_HINT = "data/str_rules.json"
@@ -84,18 +85,35 @@ def _join(fut):
     return r
 
 
-def _ltr_rows(town, state, zipcode, lat, lon, beds_range=(0, 4), include_rentcast=False, after_cl=None):
+def rentcom_on():
+    """Rent.com is optional: it works from Streamlit Cloud but answers the DigitalOcean server with a robot check
+    (never worked around). Off on the server (BELLAZU_SERVER=1) or with BELLAZU_RENTCOM=off; on elsewhere."""
+    v = (os.environ.get("BELLAZU_RENTCOM") or "").strip().lower()
+    if v in ("off", "0", "no", "false"):
+        return False
+    if v in ("on", "1", "yes", "true"):
+        return True
+    return os.environ.get("BELLAZU_SERVER") != "1"
+
+
+def _ltr_rows(town, state, zipcode, lat, lon, beds_range=(0, 4), include_rentcast=False, after_cl=None, allow_rent_call=True):
+    """Long-term rent pool: Craigslist + realtor.com for-rent (Realty in US, cached 72 h) + Redfin (+ Rent.com where it works, + RentCast if asked)."""
     rows, used = [], []
-    f_rc = _bg(rentcom.search, town, state, pages=2)          # Rent.com and Redfin load while Craigslist loads
+    f_rr = _bg(realtor_rent.rows_for, town, state, zipcode, allow_call=allow_rent_call)   # these load while Craigslist loads
+    f_rc = _bg(rentcom.search, town, state, pages=2) if rentcom_on() else None
     f_rf = _bg(redfin.rentals, town, state.upper())
     cl = craigslist.search(town, state, "apa", beds_range[0], beds_range[1], postal=zipcode, radius_mi=3 if zipcode else None)
     if after_cl:
         after_cl()                     # e.g. start the Craigslist room search now (Craigslist's own spacing still applies)
     used.append({"source": "Craigslist", "ok": cl["ok"], "url": cl["url"], "n": len(cl["rows"])})
     rows += cl["rows"]
-    rc = _join(f_rc)
-    used.append({"source": "Rent.com", "ok": rc["ok"], "url": rc["url"], "n": len(rc["rows"])})
-    rows += rc["rows"]
+    rr = _join(f_rr)
+    used.append({"source": "realtor.com (Realty in US)", "ok": rr["ok"], "url": rr["url"], "n": rr["n"], "note": rr.get("note", "")})
+    rows += rr["rows"]
+    if f_rc is not None:
+        rc = _join(f_rc)
+        used.append({"source": "Rent.com", "ok": rc["ok"], "url": rc["url"], "n": len(rc["rows"])})
+        rows += rc["rows"]
     rf = _join(f_rf)
     used.append({"source": "Redfin", "ok": rf["ok"], "url": rf.get("url"), "n": len(rf["rows"]), "note": rf.get("note", "")})
     rows += rf["rows"]
@@ -138,10 +156,14 @@ def rent_estimate(df, beds, A, lat, lon):
         sub = df[(df.beds == beds) & (df.dist_km <= r)]
         if len(sub) >= c["ltr_min_comps"]:
             break
+    by_src = {str(k): int(v) for k, v in sub.source.value_counts().items()} if len(sub) else {}
+    mn = int(c.get("ltr_min_sample", 5))
+    if len(sub) < mn:                  # too few current listings for a median: the app falls back to HUD's fair rent
+        return {"ok": False, "n": int(len(sub)), "min_n": mn, "by_source": by_src, "radius_km": r}
     s = _trim(sub.price, c["outlier_trim_pct"])
     if s.empty:
         return {"ok": False, "n": 0}
-    return {"ok": True, "n": int(len(sub)), "radius_km": r, "median": float(s.median()),
+    return {"ok": True, "n": int(len(sub)), "radius_km": r, "median": float(s.median()), "by_source": by_src,
             "p25": float(s.quantile(.25)), "p75": float(s.quantile(.75)),
             "comps": sub.sort_values("dist_km").head(15)}
 
@@ -471,8 +493,11 @@ def scan_arbitrage(town, options=None):
     rules = str_rules.rules_for(tname)
     beds_ok = A["arbitrage"]["beds"]
     rows, used = [], []
-    rc = rentcom.search(tname, state, pages=A["arbitrage"]["max_pages_rentcom"])
-    used.append({"source": "Rent.com", "ok": rc["ok"], "url": rc["url"], "n": len(rc["rows"])}); rows += rc["rows"]
+    rr = realtor_rent.rows_for(tname, state, g.get("zip"), allow_call=bool(o.get("allow_rent_call", True)))
+    used.append({"source": "realtor.com (Realty in US)", "ok": rr["ok"], "url": rr["url"], "n": rr["n"], "note": rr.get("note", "")}); rows += rr["rows"]
+    if rentcom_on():
+        rc = rentcom.search(tname, state, pages=A["arbitrage"]["max_pages_rentcom"])
+        used.append({"source": "Rent.com", "ok": rc["ok"], "url": rc["url"], "n": len(rc["rows"])}); rows += rc["rows"]
     cl = craigslist.search(tname, state, "apa", min(beds_ok), max(beds_ok))
     used.append({"source": "Craigslist", "ok": cl["ok"], "url": cl["url"], "n": len(cl["rows"])}); rows += cl["rows"]
     rf = redfin.rentals(tname, state.upper())
@@ -581,10 +606,10 @@ def scan_arbitrage(town, options=None):
            "results": res.to_dict("records"), "assumptions": A,
            "caveats_en": ["Rental arbitrage always needs the landlord's WRITTEN permission (lease sublet clause) and building/HOA approval.",
                           "STR revenue = Inside Airbnb San-Francisco-model estimates for same-bedroom active listings nearby; real results vary widely (see P25-P75).",
-                          "Listing rents are ASKING rents on the fetch date; Rent.com shows the lowest price per floor plan."],
+                          "Listing rents are ASKING rents on the fetch date; Rent.com and realtor.com buildings show the lowest price per floor plan."],
            "caveats_es": ["El arbitraje de alquiler siempre requiere permiso ESCRITO del dueño (cláusula de subarriendo) y aprobación del edificio/HOA.",
                           "Los ingresos STR son estimaciones del modelo San Francisco de Inside Airbnb para anuncios activos cercanos con igual número de habitaciones; los resultados reales varían mucho (ver P25-P75).",
-                          "Las rentas son rentas PEDIDAS en la fecha de consulta; Rent.com muestra el precio más bajo por plano."],
+                          "Las rentas son rentas PEDIDAS en la fecha de consulta; Rent.com y los edificios de realtor.com muestran el precio más bajo por plano."],
            "rentcast": {"enabled": use_rc, "usage": rentcast.usage()},
            "sources_status": list(http.STATUS)}
     return _clean(out)
@@ -616,7 +641,7 @@ def town_snapshot(town, options=None):
     safmr = hud.safmr(zipcode) if zipcode else None
     use_rc = bool(o.get("use_rentcast", False)) and rentcast.available()
     f_room = []                        # room posts load while Rent.com/Redfin load (started right after the apartment search)
-    ltr_df, used = _ltr_rows(tname, state, zipcode, lat, lon, include_rentcast=use_rc,
+    ltr_df, used = _ltr_rows(tname, state, zipcode, lat, lon, include_rentcast=use_rc, allow_rent_call=bool(o.get("allow_rent_call", True)),
                              after_cl=lambda: f_room.append(_bg(room_estimate, tname, state, zipcode, lat, lon, A)))
     if not ltr_df.empty:
         ltr_df = ltr_df[(ltr_df.dist_km <= 4) | ltr_df.dist_km.isna()]

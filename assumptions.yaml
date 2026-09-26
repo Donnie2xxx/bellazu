@@ -61,6 +61,7 @@ comps:
   str_active_min_reviews_ltm: 1       # "active" = >=1 review in last 12 months
   ltr_radius_km: [1.5, 3.0, 5.0]
   ltr_min_comps: 5
+  ltr_min_sample: 5                   # fewer current listings than this for a bed count -> no listing median (HUD fair rent is used)
   outlier_trim_pct: 0.10              # trim top/bottom 10% before medians
 
 arbitrage:

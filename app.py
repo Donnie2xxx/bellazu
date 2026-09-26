@@ -1056,7 +1056,7 @@ def property_details(r, f, sc, o, rent, rent_src, own):
 
 SRC_NAMES = {"census": ("U.S. Census", "Censo de EE.UU."), "fred": ("Freddie Mac rates", "tasas de Freddie Mac"), "geocode": ("map lookup", "búsqueda en el mapa"),
              "insideairbnb": ("Inside Airbnb", "Inside Airbnb"), "listing_page": ("listing page", "página del anuncio"), "hud": ("HUD", "HUD"),
-             "craigslist": ("Craigslist", "Craigslist"), "rent.com": ("Rent.com", "Rent.com"), "redfin": ("Redfin", "Redfin"), "rentcast": ("RentCast", "RentCast"),
+             "craigslist": ("Craigslist", "Craigslist"), "rent.com": ("Rent.com", "Rent.com"), "realtor.com": ("realtor.com", "realtor.com"), "redfin": ("Redfin", "Redfin"), "rentcast": ("RentCast", "RentCast"),
              "zillow": ("Zillow", "Zillow"), "nominatim": ("map lookup", "búsqueda en el mapa")}
 
 
@@ -2007,6 +2007,16 @@ def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est
                      f"Mostramos los 5 más cercanos de {len(m)}. Véalos todos en “En alquiler” en la lista de casas del pueblo."))
 
 
+def _est_lbl(b, lv):
+    """'(2 bd, town typical from 14 listings)' — or HUD's fair rent when too few current listings."""
+    n = int((lv or {}).get("n") or 0)
+    if (lv or {}).get("hud"):
+        few = L(f", only {n} listing{'s' if n != 1 else ''} now", f", solo {n} anuncio{'s' if n != 1 else ''} ahora") if n else ""
+        return L(f"({b} bd, HUD fair rent{few})", f"({b} hab, renta justa de HUD{few})")
+    return L(f"({b} bd, town typical from {n} listings)", f"({b} hab, típico del pueblo según {n} anuncios)") if n else \
+        L(f"({b} bd, town typical)", f"({b} hab, típico del pueblo)")
+
+
 def _town_comps(a, sid, size, out):
     ss = st.session_state
     two = size == "2fam"
@@ -2016,7 +2026,7 @@ def _town_comps(a, sid, size, out):
     lv = (C._unit_levels(u) or {}) if u else {}
     est = lv.get("typ") if lv else None
     rules = a.get("str_rules") or {}
-    rent_comps_box("t_" + sid, a.get("town"), b, None, a.get("lat"), a.get("lon"), est, L(f"({b} bd, town typical)", f"({b} hab, típico del pueblo)") if est else None,
+    rent_comps_box("t_" + sid, a.get("town"), b, None, a.get("lat"), a.get("lon"), est, _est_lbl(b, lv) if est else None,
                    u.get("hud"), None, rules, u.get("str"), u.get("mtr"),
                    air_ok=(out or {}).get("airbnb_allowed", C.airbnb_ok(rules, "multi-family" if two else "single-family", "unit" if two else "room")))
 
@@ -2358,9 +2368,15 @@ export default function(component) {
     s.pv.onclick = (e) => { e.stopPropagation(); go(Math.max(s.idx - 1, 0)); };
     s.nx.onclick = (e) => { e.stopPropagation(); go(Math.min(s.idx + 1, s.slides - 1)); };
     let t = null, sx = 0, sy = 0;
+    // a sideways swipe has started: ask for the rest of the photos NOW (not when the finger lands on the empty slide),
+    // so the one detail call runs while the swipe animates. A vertical page scroll over the card never asks.
+    const early = (dx, dy) => { if (s.extra && !s.asked && dx > 10 && dx > 1.5 * dy) { s.asked = true; setTriggerValue('more', String(s.d.id)); } };
     s.tr.addEventListener('scroll', () => { s.moved = true; clearTimeout(t); t = setTimeout(() => s.upd(), 80); }, { passive: true });
     s.tr.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; s.moved = false; });
-    s.tr.addEventListener('pointermove', (e) => { if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) s.moved = true; });
+    s.tr.addEventListener('pointermove', (e) => { const dx = Math.abs(e.clientX - sx), dy = Math.abs(e.clientY - sy); if (dx > 8 || dy > 8) s.moved = true; early(dx, dy); });
+    s.tr.addEventListener('touchstart', (e) => { const p = e.touches[0]; if (p) { sx = p.clientX; sy = p.clientY; s.moved = false; } }, { passive: true });
+    s.tr.addEventListener('touchmove', (e) => { const p = e.touches[0]; if (p) early(Math.abs(p.clientX - sx), Math.abs(p.clientY - sy)); }, { passive: true });
+    s.nx.addEventListener('pointerdown', () => early(99, 0));
     s.tr.addEventListener('click', (e) => {
       if (s.moved || !e.target.closest('.im')) return;
       if (s.d.open) setTriggerValue('open', String(s.d.id) + ':' + Date.now());
@@ -2387,7 +2403,12 @@ export default function(component) {
   const extra = (d.more && ph.length < (d.count || 0)) ? 1 : 0;
   if (s.n !== ph.length || s.extra !== extra) {
     const esc = (u) => String(u).replace(/[\"'<>]/g, '');
-    let h = ph.map((u, i) => '<div class="sl im"><img src="' + esc(u) + '"' + (i ? ' loading="lazy"' : '') + ' alt="' + esc(lb.photo || '') + ' ' + (i + 1) + '" draggable="false"></div>').join('');
+    // photos 1-3 load right away (the 2nd with high priority) so the first swipes show a ready photo; the rest load lazily.
+    // Each slide shows realtor.com's tiny 120 px version of its photo (about 4 KB) as a blurred placeholder until the real one arrives.
+    const tiny = (u) => /rdcpix\\.com\\/.+-m\\d+[a-z]?(rd|od)-w\\d+_h\\d+\\.jpg$/.test(u) ? String(u).replace(/(rd|od)-w\\d+_h\\d+\\.jpg$/, 's.jpg') : '';
+    let h = ph.map((u, i) => { const ty = i ? tiny(u) : '';
+      return '<div class="sl im"' + (ty ? ' style="background:#1c1c1c url(\\'' + esc(ty) + '\\') center/cover no-repeat"' : '') + '><img src="' + esc(u) + '"' +
+        (i < 3 ? (i === 1 ? ' fetchpriority="high"' : '') : ' loading="lazy"') + ' decoding="async" alt="' + esc(lb.photo || '') + ' ' + (i + 1) + '" draggable="false"></div>'; }).join('');
     if (!ph.length) h = '<div class="sl no">&#128247;</div>';
     if (extra) h += '<div class="sl ld">' + esc(lb.loading || '...') + '</div>';
     if (s.n >= 0 && ph.length > s.n) s.asked = false;
@@ -2606,6 +2627,7 @@ def feed_block(ts, drives, sid):
     else:
         st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings match (updated {upd}).",
                      f"{len(rows)} de los {len(allrows)} anuncios más nuevos coinciden (actualizado {upd})."))
+    listings.prefetch_details([h.get("id") for h in rows[:shown]])      # Pro only: galleries for the cards on screen, on a side thread
     for i, h in enumerate(rows[:shown]):
         hk = f"{sid}_{i}_{h.get('id') or safe_name(h.get('address') or '')[:20]}"
         with st.container(key=f"hcard_{hk}", gap=None):
@@ -3565,6 +3587,7 @@ def saved_page():
             items.sort(key=lambda x: -int(x.get("saved_ms") or 0))
         else:
             items.sort(key=lambda x: (x.get("price") is None, (x.get("price") or 0) * (1 if sort == "low" else -1)))
+        listings.prefetch_details([x.get("listing_id") for x in items], limit=12)   # Pro only: saved homes' galleries, side thread
         for x in items:
             saved_card(x)
         st.caption(L("Numbers are a snapshot from the day you saved. Prices and rules can change; open the home again for today's numbers.",
@@ -3671,11 +3694,11 @@ else:
 st.write("")
 with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
     md(L("BellaZu helps first-time buyers in North Jersey compare buying, renting out and Airbnb or 30+ day stays for a home or a town, using free public data "
-         "(Inside Airbnb, HUD, Census, Freddie Mac, OpenStreetMap and OSRM for drive times, Craigslist, Rent.com, Redfin and, if set up, RentCast).\n\n"
+         "(Inside Airbnb, HUD, Census, Freddie Mac, OpenStreetMap and OSRM for drive times, Craigslist, realtor.com rentals via Realty in US, Rent.com where it answers, Redfin and, if set up, RentCast).\n\n"
          "**Privacy:** what you type stays in this browser session. Saved homes are kept in this browser and in an encrypted online copy that opens only with the passcode. Nothing is saved to an account.\n\n"
          "**Important:** these are estimates, not financial, legal or lending advice.",
          "BellaZu ayuda a primeros compradores en el norte de NJ a comparar comprar, alquilar y Airbnb o estadías de 30+ días para una casa o un pueblo, con datos públicos gratuitos "
-         "(Inside Airbnb, HUD, Censo, Freddie Mac, OpenStreetMap, Craigslist, Rent.com, Redfin y, si está configurado, RentCast).\n\n"
+         "(Inside Airbnb, HUD, Censo, Freddie Mac, OpenStreetMap, Craigslist, alquileres de realtor.com vía Realty in US, Rent.com donde responde, Redfin y, si está configurado, RentCast).\n\n"
          "**Privacidad:** lo que escribe se queda en esta sesión del navegador. Las casas guardadas se quedan en este navegador y en una copia en línea cifrada que solo se abre con el código de entrada. No se guarda en ninguna cuenta.\n\n"
          "**Importante:** son estimados, no asesoría financiera, legal ni hipotecaria."))
     st.caption(rc_usage_line())
