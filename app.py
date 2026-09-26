@@ -6,6 +6,8 @@ RentCast key: data/rc.lock holds the key encrypted with the passcode (bellazu/ke
 RENTCAST_API_KEY is the fallback (also used if RentCast refuses the locked key). The key is never shown.
 Nothing personal lives in this file: every number is typed by the user and kept only in the browser session."""
 import hmac, html as H, json, os, pathlib, re, sys, tempfile, time
+_BZ_T0 = time.perf_counter()
+import contextlib
 import streamlit as st
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -59,6 +61,65 @@ from bellazu import listings                                  # noqa: E402
 from bellazu import saves                                     # noqa: E402
 
 st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
+
+
+# ------------------------------------------------------------------ optional timing (?debug_timing=1): per-section ms of each run, shown at the bottom
+def _tm_start():
+    ss = st.session_state
+    if "debug_timing" not in ss:
+        ss.debug_timing = str(st.query_params.get("debug_timing") or "") == "1"
+    cur = ss.get("_tm_cur")
+    if cur is not None:
+        cb = []
+        while cur and cur[-1][0].startswith("cb:"):          # callbacks ran just before this run: they belong to it
+            cb.insert(0, cur.pop())
+        if cur:
+            ss.setdefault("_tm_hist", []).append({"secs": cur, "total": ss.get("_tm_last", 0), "at": ss.get("_tm_at")})
+            ss._tm_hist = ss._tm_hist[-8:]
+        cur = cb
+    ss._tm_cur = list(cur or [])
+    ss._tm_at = time.strftime("%H:%M:%S")
+    ss._tm_last = 0
+
+
+@contextlib.contextmanager
+def tm(name):
+    t = time.perf_counter()
+    try:
+        yield
+    finally:
+        try:
+            ss = st.session_state
+            ss.setdefault("_tm_cur", []).append((name, round((time.perf_counter() - t) * 1000)))
+            if not name.startswith("cb:"):
+                ss._tm_last = round((time.perf_counter() - _BZ_T0) * 1000)
+        except Exception:
+            pass
+
+
+def _tm_show():
+    ss = st.session_state
+    if not ss.get("debug_timing"):
+        return
+    def fmt(r):
+        return " · ".join(f"{n} {ms}" for n, ms in r["secs"] if ms >= 5 or n in ("css", "total")) or "-"
+    runs = (ss.get("_tm_hist") or [])[-4:] + [{"secs": ss.get("_tm_cur") or [], "total": round((time.perf_counter() - _BZ_T0) * 1000), "at": ss.get("_tm_at")}]
+    st.code("\n".join(f"{'this run' if i == len(runs) - 1 else 'earlier'} {r.get('at') or ''}: total {r['total']} ms | {fmt(r)}" for i, r in enumerate(runs)), language=None)
+
+
+_tm_start()
+
+
+def timed(name):
+    import functools
+
+    def deco(f):
+        @functools.wraps(f)
+        def w(*a, **k):
+            with tm(name):
+                return f(*a, **k)
+        return w
+    return deco
 
 
 @st.cache_resource(show_spinner=False)
@@ -118,6 +179,7 @@ if "rc_budget" not in st.session_state:     # optional test aid: ?rc_budget=N ca
     except Exception:
         st.session_state.rc_budget = None
 
+_t_css = time.perf_counter()
 st.markdown("""<style>
 /* Design language: dark editorial landing page. Near-black canvas, white type, hairline dividers, tall condensed uppercase
    display type (League Gothic), neo-grotesk body (Inter), serif wordmark (Instrument Serif), outlined + solid pill buttons,
@@ -331,6 +393,8 @@ iframe[title*="searchbox"] {min-height:58px}
 [class*="st-key-svcard_"] {border:1px solid var(--line2) !important; border-radius:22px !important; background:var(--ink2); padding:.9rem .9rem .5rem !important}
 .bz-foot {text-transform:uppercase; letter-spacing:.08em; font-size:.66rem; color:#7D7D7D; text-align:center; margin-top:1.4rem}
 </style>""", unsafe_allow_html=True)
+st.session_state.setdefault("_tm_cur", []).append(("css", round((time.perf_counter() - _t_css) * 1000)))
+st.session_state._tm_cur.insert(0, ("boot", round((_t_css - _BZ_T0) * 1000)))
 
 
 # ------------------------------------------------------------------ language (one at a time) + helpers
@@ -376,6 +440,7 @@ def md(s):
     st.markdown(s.replace("$", "\\$"))
 
 
+@timed('header')
 def header(authed=False):
     top = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key="topbar")
     top.markdown("<div class='bz-word'>Bella<i>Zu</i></div>", unsafe_allow_html=True)
@@ -430,6 +495,7 @@ def _lang_from_prefs(d, force=False):
         ss.lang, ss.lang_t = pr["lang"], int(pr["t"])
 
 
+@timed('cb:sv_loaded')
 def _sv_on_loaded():
     """localStorage answered (first render of each session, even on the passcode screen)."""
     ss = st.session_state
@@ -451,6 +517,7 @@ def _sv_on_loaded():
         _sv_process()
 
 
+@timed('sv_process')
 def _sv_process():
     """Merge browser + online copy so neither ever drops a home (runs once per session, after the passcode)."""
     ss = st.session_state
@@ -525,6 +592,7 @@ def _sv_on_ack():
 
 
 
+@timed('store')
 def storage_bridge(gate_page=False):
     """Browser storage (localStorage): read once per session, write whenever the list or the language changed. Hidden."""
     ss = st.session_state
@@ -540,6 +608,7 @@ def storage_bridge(gate_page=False):
 
 
 # ------------------------------------------------------------------ passcode gate
+@timed('gate')
 def gate():
     header()
     st.markdown(f"<div class='bz-eyebrow'>{L('Private beta', 'Beta privada')}</div>"
@@ -585,6 +654,7 @@ store_slot = st.container()     # the browser-storage bridge is drawn here at th
 
 
 # ------------------------------------------------------------------ shared bits
+@timed("rep:prop_xlsx")
 def xlsx_bytes(r, kind):
     with tempfile.TemporaryDirectory() as d:
         files = write_property(r, d, st.session_state.get("prop_cv"), lang="es" if ES() else "en") if kind == "property" else write_arbitrage(r, d)
@@ -664,6 +734,7 @@ def profit_txt(v):
     return L(f"about {money(v)}/mo profit", f"unos {money(v)}/mes de ganancia") if v >= 0 else L(f"about {money(-v)}/mo loss", f"unos {money(-v)}/mes de pérdida")
 
 
+@timed('prop_details')
 def property_details(r, f, sc, o, rent, rent_src, own):
     A = r.get("assumptions") or {}
     fi = A.get("financing", {})
@@ -895,6 +966,7 @@ def glossary():
     md("\n".join(f"- **{P(w)}:** {P(d)}" for w, d in GLOSSARY))
 
 
+@timed('how')
 def how_it_works():
     steps = [L("Type an address", "Escriba una dirección"), L("We check the numbers", "Revisamos los números"),
              L("You get a plain answer", "Recibe una respuesta clara")]
@@ -984,6 +1056,7 @@ def _inc_chip():
         st.session_state.set_income = 0 if v == "skip" else int(v)
 
 
+@timed('settings')
 def settings_popover():
     with st.popover(L("⚙️ My settings", "⚙️ Mis ajustes"), width="content"):
         st.markdown(f"**{L('Your yearly income (before taxes)', 'Su ingreso anual (antes de impuestos)')}**")
@@ -1032,6 +1105,7 @@ def home_opts(addr):
             "building_policy": bp, "use_rentcast": bool(ss.get("set_rc")) and rentcast.available(), "assumption_overrides": aov}
 
 
+@timed('run_home')
 def run_home(addr, where):
     ss = st.session_state
     opts = home_opts(addr)
@@ -1257,6 +1331,9 @@ def not_found(r):
 from bellazu import compare as C                                # noqa: E402
 from bellazu import town_snapshot                               # noqa: E402
 from bellazu.render import town_html, write_town                # noqa: E402
+town_html, write_town = timed("rep:town_html")(town_html), timed("rep:town_xlsx")(write_town)
+property_html = timed("rep:prop_html")(property_html)
+town_snapshot = timed("town_snapshot")(town_snapshot)
 
 MONTHS = [("J", "E"), ("F", "F"), ("M", "M"), ("A", "A"), ("M", "M"), ("J", "J"), ("J", "J"), ("A", "A"), ("S", "S"), ("O", "O"), ("N", "N"), ("D", "D")]
 
@@ -1293,6 +1370,7 @@ def skew_note(base, sel):
                      f"Para una unidad en una casa de 2 familias usamos {money(u['typ'])}/mes, entre HUD y los anuncios más baratos. Mueva la barra de renta si sabe más."))
 
 
+@timed('strip')
 def compare_strip(out, first, loan_lbl=None):
     cols = C.labels(out, first)
     cells = ""
@@ -1307,6 +1385,7 @@ def compare_strip(out, first, loan_lbl=None):
     html(f"<div class='bz-lbl'>{H.escape(hd)}</div><div class='bz-cmp'>{cells}</div>")
 
 
+@timed('sel')
 def sel_for(sid, base):
     """Tap-only choices for the compare view. Returns the selection dict for compare()."""
     ss = st.session_state
@@ -1342,6 +1421,7 @@ RANGE_LBL = {"rent": (("Rent you'd get (a month)", "Renta que recibiría (al mes
              "str": (("Airbnb income (a year, before costs)", "Ingreso de Airbnb (al año, antes de gastos)"),)}
 
 
+@timed('ranges')
 def ranges_block(sid, out):
     lv = {k: v for k, v in (out.get("levels") or {}).items() if v}
     if not lv:
@@ -1366,6 +1446,7 @@ def ranges_block(sid, out):
     st.caption(" ".join(notes))
 
 
+@timed('cash')
 def cash_card(sid, out, rent_ref):
     cash = out.get("cash")
     if not cash:
@@ -1416,6 +1497,7 @@ def _place_iab(c, kind):
             + (f"<a href='{H.escape(url)}' target='_blank'>Airbnb</a>" if url else "") + "</div></div>")
 
 
+@timed('places')
 def places_block(lists, rules, town, datasets, ok_airbnb, d30):
     st.markdown(f"#### {L('🏘️ Similar places', '🏘️ Lugares parecidos')}")
     t1, t2, t3 = st.tabs([L("To rent", "Para alquilar"), L(f"{d30}+ day", f"{d30}+ días"), "Airbnb"])
@@ -1442,6 +1524,7 @@ def places_block(lists, rules, town, datasets, ok_airbnb, d30):
     st.caption(L("Airbnb and 30+ day listings: Inside Airbnb (public data). Photos come from those listings.", "Anuncios de Airbnb y 30+ días: Inside Airbnb (datos públicos). Las fotos son de esos anuncios."))
 
 
+@timed('season')
 def season_block(s, town):
     if not s:
         return
@@ -1575,6 +1658,7 @@ def fha_loan_lbl(fa, ln=None):
     return L(f"normal loan, {pct} down", f"préstamo normal, {pct} inicial") + (f" ({why})" if why else "")
 
 
+@timed('fha_card')
 def fha_card(fa, where):
     if not fa:
         return
@@ -1654,6 +1738,7 @@ def _load_rentals(town):
     st.session_state.setdefault("rc_load", set()).add(town)
 
 
+@timed('comps')
 def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est_lbl=None, hud=None, rc_comps=None, rules=None, strs=None, mtr=None,
                    calls_ok=True, air_ok=None):
     """Realty in US for-rent list (cached per town; a call only on a tap, or never when calls_ok=False), else RentCast comps already
@@ -1758,6 +1843,7 @@ def _hud_for(town, beds):
         return None
 
 
+@timed('property_view')
 def show_property(r):
     ss = st.session_state
     f = r.get("facts") or {}
@@ -1855,6 +1941,7 @@ def show_property(r):
 
 
 # ------------------------------------------------------------------ town view (same layout)
+@timed('run_town')
 def run_town(name, where):
     ss = st.session_state
     tn = towns.normalize(name)
@@ -1879,6 +1966,7 @@ def safety_note(town):
         html(f"<div class='bz-warn{' hi' if lvl == 'exclude' else ''}'>{'⚠️' if lvl == 'exclude' else 'ℹ️'} {H.escape(P(c))}</div>")
 
 
+@timed('town_view')
 def show_town_view(a):
     ss = st.session_state
     first = ss.get("hmode", "first") == "first"
@@ -2011,6 +2099,7 @@ def feed(town, status):
         return {"ok": False, "error": str(e), "rows": []}
 
 
+@timed('cb:open_listing')
 def _open_listing(row):
     ss = st.session_state
     v = ss.get("view")
@@ -2140,6 +2229,7 @@ def carousel(h, key, rent, town_lbl=None):
         on_more_change=lambda k=key, x=h: _cz_more(k, x), on_open_change=(lambda x=h: _open_listing(x)) if not rent else (lambda: None))
 
 
+@timed('card')
 def _home_card(h, drive, rent, key, town_lbl=None):
     cut = f"<span class='cut'>↓ {kmoney(h['price_cut'])}</span>" if h.get("price_cut") else ("<span class='new'>" + L("NEW", "NUEVA") + "</span>" if h.get("new") else "")
     bits = [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None, f"{h['baths']:g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
@@ -2182,6 +2272,7 @@ def _dedupe(rows):
     return out
 
 
+@timed('feed_fetch')
 def feeds_for(ts, status):
     """One list call per uncached town, one town after another; cached towns cost nothing. Shows progress when something has to load."""
     need = [t for t in ts if not listings.cached(t, status)]
@@ -2210,6 +2301,7 @@ def homes_block(t, drive, sid):
     feed_block([t], {t: drive}, sid)
 
 
+@timed('feed')
 def feed_block(ts, drives, sid):
     """Listings feed for one town or several (combined, deduped, town label on each card). Filters and sort apply across all of them."""
     ss = st.session_state
@@ -2276,6 +2368,7 @@ def feed_block(ts, drives, sid):
                  f"Datos de anuncios de realtor.com vía Realty in US. Los precios y datos pueden cambiar; confirme con el agente. Deslice una foto para ver más. Búsquedas de casas este mes: {u['used']} de {u['cap']}."))
 
 
+@timed('run_listing')
 def run_listing(h, where):
     """Open a listing: one detail call (photos + HOA + taxes, cached), then our analysis with the listing's facts (no RentCast needed for price)."""
     ss = st.session_state
@@ -2343,6 +2436,7 @@ def resolve(val):
 
 
 @st.fragment
+@timed('search')
 def search_block():
     ss = st.session_state
     val = None
@@ -2452,6 +2546,7 @@ def _sync_multi(key, opts):
     st.session_state[key] = [t for t in tsel() if t in opts]
 
 
+@timed('chips')
 def town_chips(hm):
     ss = st.session_state
     rows = C.mode_towns(hm)
@@ -2519,6 +2614,7 @@ def _safety_short(t):
     return f"{ic} " + L(f"Violent crime {r:.1f}× the NJ average", f"Crimen violento {r:.1f}× el promedio de NJ")
 
 
+@timed('towns_view')
 def show_towns_view(ts):
     """Several towns side by side: a compact card per town, then one combined listings feed."""
     ss = st.session_state
@@ -2659,6 +2755,7 @@ def _vkey(v):
     return json.dumps(list(v) if v else None, default=list)
 
 
+@timed('nav')
 def nav_mount():
     """Count view changes (new town selection, opened listing, back). Only then does the page jump: to the top, or back to the saved place."""
     ss = st.session_state
@@ -2722,6 +2819,7 @@ def _remove_town(t):
     _set_tsel([x for x in tsel() if x != t])
 
 
+@timed('town_bar')
 def town_bar(view, here=None):
     """Always-visible bar on town, feed and home views: current towns with ✕, and a big Change town button that opens the picker right here."""
     ss = st.session_state
@@ -2742,6 +2840,7 @@ def town_bar(view, here=None):
             town_picker()
 
 
+@timed('picker')
 def town_picker():
     ss = st.session_state
     ss.setdefault("pk_mode", ss.get("hmode", "first"))
@@ -2750,6 +2849,7 @@ def town_picker():
     town_chips(md_ or "first")
 
 
+@timed('ranking')
 def town_ranking(hm):
     ss = st.session_state
     st.markdown(f"#### {L('🏆 Best towns for your first home' if hm == 'first' else '🏆 Towns by the numbers', '🏆 Mejores pueblos para su primera casa' if hm == 'first' else '🏆 Pueblos según los números')}")
@@ -2937,6 +3037,7 @@ def _from_stash(iid, which):
     return entry_from_property(iid, *a) if which == "prop" else entry_from_town(iid, *a)
 
 
+@timed('cb:heart')
 def _sv_toggle(iid, builder, *args):
     ss = st.session_state
     items = sv()["items"]
@@ -3031,6 +3132,7 @@ def _cmp_html(cols, extra_cls=""):
     return f"<div class='bz-cmp {extra_cls}'>{cells}</div>" if cells else ""
 
 
+@timed('saved_card')
 def saved_card(x):
     k = _sv_key(x["id"])
     with st.container(key=f"svcard_{k}"):
@@ -3129,6 +3231,7 @@ def backup_block():
             st.rerun()
 
 
+@timed('saved_page')
 def saved_page():
     ss = st.session_state
     st.button(L("← Back to search", "← Volver a buscar"), key="sv_back", type="tertiary", on_click=lambda: ss.update(page="main"))
@@ -3177,6 +3280,7 @@ def saved_page():
 
 
 # ------------------------------------------------------------------ the one page
+@timed('main')
 def main_page():
     ss = st.session_state
     nav_mount()
@@ -3310,3 +3414,4 @@ with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
         st.rerun()
 
 storage_bridge()
+_tm_show()
