@@ -27,6 +27,25 @@ for _k in ("RENTCAST_API_KEY", "RENTCAST_MONTHLY_CAP", "RENTCAST_USED_OFFSET"): 
     if _v and not os.environ.get(_k):
         os.environ[_k] = _v
 
+
+def _fresh_engine():
+    """Streamlit Cloud pulls new commits into a running process, which re-runs app.py but keeps the old bellazu
+    modules in memory. Reload them when their files change (or on the first run after such a pull)."""
+    import sys, importlib, pathlib as _pl
+    root = _pl.Path(__file__).parent / "bellazu"
+    stamp = tuple(sorted((str(p), p.stat().st_mtime_ns) for p in root.rglob("*.py")))
+    old = getattr(sys, "_bz_stamp", None)
+    stale = (old is None and "bellazu" in sys.modules) or (old is not None and old != stamp)
+    if stale:
+        for name in sorted([m for m in list(sys.modules) if m == "bellazu" or m.startswith("bellazu.")], key=lambda n: -n.count(".")):
+            try:
+                importlib.reload(sys.modules[name])
+            except Exception:
+                pass
+    sys._bz_stamp = stamp
+
+
+_fresh_engine()
 from bellazu import analyze_property, scan_arbitrage          # noqa: E402
 from bellazu.render import property_html, arb_html, write_property, write_arbitrage  # noqa: E402
 from bellazu.sources import rentcast                          # noqa: E402
