@@ -34,13 +34,17 @@ for _k in ("RENTCAST_API_KEY", "RENTCAST_MONTHLY_CAP", "RENTCAST_USED_OFFSET"): 
 
 def _moved_to():
     """The app now lives on its own always-on server. Only the old Streamlit Community Cloud copy (it runs from /mount/src and
-    the server sets BELLAZU_SERVER=1) shows a "BellaZu moved" page, and only once data/moved.json names the new address."""
+    the server sets BELLAZU_SERVER=1) shows a "BellaZu moved" page, once data/moved.json names the new address with
+    "live": true. With "live": false it shows only for ?moved_preview=1 (to test the redirect on Streamlit Cloud)."""
     if os.environ.get("BELLAZU_SERVER") == "1" or not str(ROOT).startswith("/mount/"):
         return ""
     try:
-        return str(json.loads((ROOT / "data" / "moved.json").read_text()).get("url") or "").strip()
+        m = json.loads((ROOT / "data" / "moved.json").read_text())
     except Exception:
         return ""
+    if not m.get("live") and str(st.query_params.get("moved_preview") or "") != "1":   # not switched on yet: preview only
+        return ""
+    return str(m.get("url") or "").strip()
 
 
 MOVED_JS = """
