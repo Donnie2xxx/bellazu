@@ -334,6 +334,11 @@ def compare(base, sel):
 # ------------------------------------------------------------------ adapters
 def _unit_levels(u):
     e = (u or {}).get("ltr") or {}
+    hud = (u or {}).get("hud")
+    if e.get("ok") and hud and e.get("median") and e.get("p25") and e["median"] > 1.4 * hud:
+        # listings here are mostly new luxury buildings; an older 2-family unit rents nearer HUD's fair rent.
+        # low = HUD fair rent, typical = halfway between HUD and the cheapest quarter of listings, high = listing median
+        return {"low": hud, "typ": round((hud + min(e["p25"], e["median"])) / 2), "high": e["median"], "skewed": True}
     if e.get("ok"):
         return _lv(e.get("p25"), e.get("median"), e.get("p75"))
     if u and u.get("hud"):

@@ -1003,6 +1003,17 @@ def drive_badge(d):
          + (f"<span class='x'>🚆 {H.escape(tr[1] if ES() else tr[0])}</span>" if tr else "") + "</div>")
 
 
+def skew_note(base, sel):
+    if sel.get("rent_out") != "unit":
+        return
+    u = ((base.get("units") or {}).get(sel.get("unit_beds", 2)) or {}).get("ltr") or {}
+    if u.get("skewed"):
+        st.caption(L(f"Most rentals listed here are in new buildings (typical {money(u['high'])}/mo), well above HUD's fair rent ({money(u['low'])}). "
+                     f"For an older 2-family unit we use {money(u['typ'])}/mo, halfway between HUD and the cheaper listings. Move the rent slider if you know better.",
+                     f"La mayoría de los alquileres aquí son de edificios nuevos (típico {money(u['high'])}/mes), muy por encima de la renta justa de HUD ({money(u['low'])}). "
+                     f"Para una unidad en una casa de 2 familias usamos {money(u['typ'])}/mes, entre HUD y los anuncios más baratos. Mueva la barra de renta si sabe más."))
+
+
 def compare_strip(out, first):
     cols = C.labels(out, first)
     cells = ""
@@ -1020,24 +1031,25 @@ def sel_for(sid, base):
     ss = st.session_state
     d = C.default_sel(base)
     multi = base["ptype"] == "multi-family"
+    pt = "mf" if multi else "sf"          # the choice resets when the home type changes (e.g. after the user says it's a 2-family)
     opts = ["room", "unit", "none"] if multi else ["room", "none"]
     nm = {"room": L("A room", "Un cuarto"), "unit": L("The other unit", "La otra unidad"), "none": L("Nothing", "Nada")}
     st.markdown(f"<div class='bz-lbl'>{L('What would you rent out?', '¿Qué alquilaría?')}</div>", unsafe_allow_html=True)
-    ro = st.segmented_control("rent out", opts, key=f"ro_{sid}", default=d["rent_out"] if d["rent_out"] in opts else "none", required=True,
+    ro = st.segmented_control("rent out", opts, key=f"ro_{sid}_{pt}", default=d["rent_out"] if d["rent_out"] in opts else "none", required=True,
                               label_visibility="collapsed", width="stretch", format_func=lambda k: nm[k])
     sel = dict(d, rent_out=ro)
     if ro == "unit":
         c1, c2 = st.columns(2)
         with c1:
-            sel["unit_beds"] = st.segmented_control(L("Other unit", "Otra unidad"), [1, 2, 3], key=f"ub_{sid}", default=d["unit_beds"], required=True,
+            sel["unit_beds"] = st.segmented_control(L("Other unit", "Otra unidad"), [1, 2, 3], key=f"ub_{sid}_{pt}", default=d["unit_beds"], required=True,
                                                     format_func=lambda b: f"{b} {L('bd', 'hab')}")
         if base.get("units_total", 2) >= 3:
             with c2:
-                sel["units_n"] = st.segmented_control(L("Units you rent", "Unidades que alquila"), [1, 2, 3], key=f"un_{sid}", default=d["units_n"], required=True)
+                sel["units_n"] = st.segmented_control(L("Units you rent", "Unidades que alquila"), [1, 2, 3], key=f"un_{sid}_{pt}", default=d["units_n"], required=True)
     elif ro == "room":
         spare = max(int(base.get("beds") or 2) - 1, 1)
         if spare >= 2:
-            sel["rooms"] = st.segmented_control(L("Rooms", "Cuartos"), [1, 2], key=f"rm_{sid}", default=1, required=True)
+            sel["rooms"] = st.segmented_control(L("Rooms", "Cuartos"), [1, 2], key=f"rm_{sid}_{pt}", default=1, required=True)
     sel["lvl"] = {k: ss.get(f"lv_{k}_{sid}") or "typ" for k in ("rent", "mtr", "str")}
     sel["own"] = {k: ss.get(f"own_{k}_{sid}") for k in ("rent", "mtr", "str")}
     sel["growth"] = (ss.get(f"g_{sid}") if ss.get(f"g_{sid}") is not None else 2) / 100
@@ -1220,6 +1232,7 @@ def show_property(r):
         sel = sel_for(sid, base)
         out = C.compare(base, sel)
         compare_strip(out, first)
+        skew_note(base, sel)
         ln = o["loan"]
         md(L(f"Same loan in every column: FHA {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} down + about {money(ln['closing_costs_est'])} fees = **{money(ln['cash_to_close_est'])} to close**.",
              f"Mismo préstamo en cada columna: FHA {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} inicial + unos {money(ln['closing_costs_est'])} de cierre = **{money(ln['cash_to_close_est'])} para cerrar**."))
@@ -1309,6 +1322,7 @@ def show_town_view(a):
         sel = sel_for(sid, base)
         out = C.compare(base, sel)
         compare_strip(out, first)
+        skew_note(base, sel)
         ln = base["loan"]
         tx = (L(f"Taxes use {t}'s typical rate, {base['tax_rate']:.2%} of the price (NJ Treasury 2025 average bill ÷ average sale price)", f"Los impuestos usan la tasa típica de {t}, {base['tax_rate']:.2%} del precio (Tesoro de NJ 2025: factura promedio ÷ precio promedio)")
               if not base.get("tax_fallback") else L(f"Taxes use a {base['tax_rate']:.1%} estimate", f"Los impuestos usan un estimado de {base['tax_rate']:.1%}"))
@@ -1348,7 +1362,7 @@ def show_town_view(a):
     if ro == "room":
         lists = {"rent": (a.get("rooms") or {}).get("comps") or [], "mtr": (a.get("room_mtr") or {}).get("comps") or [], "str": (a.get("room_str") or {}).get("comps") or []}
     else:
-        ub = int(ss.get(f"ub_{sid}") or 2) if ro == "unit" else sz
+        ub = int(ss.get(f"ub_{sid}_mf") or 2) if ro == "unit" else sz
         u = bb.get(min(ub, 3)) or {}
         lists = {"rent": u.get("ltr_comps") or [], "mtr": (u.get("mtr") or {}).get("comps") or [], "str": (u.get("str") or {}).get("comps") or []}
     ok_air = (out or {}).get("airbnb_allowed", C.airbnb_ok(a.get("str_rules") or {}, "multi-family" if size == "2fam" else "single-family", "unit" if size == "2fam" else "room"))
