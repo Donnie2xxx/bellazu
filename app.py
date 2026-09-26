@@ -80,6 +80,9 @@ def _tm_start():
     ss._tm_last = 0
 
 
+from streamlit.runtime.scriptrunner import get_script_run_ctx as _src_ctx   # noqa: E402
+
+
 @contextlib.contextmanager
 def tm(name):
     t = time.perf_counter()
@@ -87,6 +90,8 @@ def tm(name):
         yield
     finally:
         try:
+            if _src_ctx(suppress_warning=True) is None:      # a plain side thread (e.g. the engine's parallel web lookups): nothing to record into
+                raise LookupError
             ss = st.session_state
             ss.setdefault("_tm_cur", []).append((name, round((time.perf_counter() - t) * 1000)))
             if not name.startswith("cb:"):

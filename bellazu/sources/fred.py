@@ -1,12 +1,20 @@
 """30-year mortgage rate (Freddie Mac PMMS weekly average).
 FRED often times out from cloud hosts, so try it briefly, then Freddie Mac's own PMMS history CSV (same series)."""
+import time
+
 from ..http import fetch
+
+_FRED_DOWN = [0.0]   # FRED times out from Streamlit Cloud (12 s each time); after one miss skip it for 24 h in this process
+_MEMO = {}          # the answer, kept 6 h in this process (every town check asks for it)
 
 
 def _fred():
+    if time.time() < _FRED_DOWN[0]:
+        return None
     txt = fetch("https://fred.stlouisfed.org/graph/fredgraph.csv?id=MORTGAGE30US", "fred:MORTGAGE30US", ttl_hours=24, ua="bot",
-                timeout=12, retries=0)
+                timeout=6, retries=0)
     if not txt:
+        _FRED_DOWN[0] = time.time() + 24 * 3600
         return None
     rows = [l.split(",") for l in txt.strip().splitlines()[1:] if "," in l]
     rows = [(d, v) for d, v in rows if v not in (".", "")]
@@ -37,4 +45,10 @@ def _pmms():
 
 
 def mortgage30():
-    return _fred() or _pmms()
+    m = _MEMO.get("r")
+    if m and time.time() - m[0] < 6 * 3600:
+        return dict(m[1])
+    r = _fred() or _pmms()
+    if r:
+        _MEMO["r"] = (time.time(), dict(r))
+    return r

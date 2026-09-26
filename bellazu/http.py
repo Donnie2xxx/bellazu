@@ -48,12 +48,14 @@ _fail_url, _fail_host = {}, {}
 
 
 def _throttle(host, min_interval):
+    """Same spacing per site as before, but the wait happens outside the lock: a pause for one site
+    no longer holds up lookups to other sites running in parallel threads."""
     with _lock:
-        t = _last.get(host, 0)
-        wait = min_interval - (time.time() - t)
-        if wait > 0:
-            time.sleep(wait)
-        _last[host] = time.time()
+        now = time.time()
+        slot = max(now, _last.get(host, 0) + min_interval)
+        _last[host] = slot
+    if slot > now:
+        time.sleep(slot - now)
 
 
 def record(source, url, ok, http=None, note="", ms=None):

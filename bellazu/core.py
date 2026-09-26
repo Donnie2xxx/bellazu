@@ -56,15 +56,47 @@ def _rates(A):
 
 
 # ------------------------------------------------------------------ rent comps
-def _ltr_rows(town, state, zipcode, lat, lon, beds_range=(0, 4), include_rentcast=False):
+_POOL = None
+
+
+def _bg(fn, *a, **k):
+    """Run one web lookup on a side thread (different sites load at the same time instead of one after another).
+    The thread's source-status lines are handed back by _join, so the report lists the same sources as before."""
+    global _POOL
+    if _POOL is None:
+        import concurrent.futures as cf
+        _POOL = cf.ThreadPoolExecutor(max_workers=6, thread_name_prefix="bz-src")
+
+    def run():
+        http.STATUS.clear()
+        try:
+            return fn(*a, **k), None, list(http.STATUS)
+        except Exception as e:          # re-raised in the caller, like a plain call would
+            return None, e, list(http.STATUS)
+    return _POOL.submit(run)
+
+
+def _join(fut):
+    r, err, st = fut.result()
+    http.STATUS.extend(st)
+    if err is not None:
+        raise err
+    return r
+
+
+def _ltr_rows(town, state, zipcode, lat, lon, beds_range=(0, 4), include_rentcast=False, after_cl=None):
     rows, used = [], []
+    f_rc = _bg(rentcom.search, town, state, pages=2)          # Rent.com and Redfin load while Craigslist loads
+    f_rf = _bg(redfin.rentals, town, state.upper())
     cl = craigslist.search(town, state, "apa", beds_range[0], beds_range[1], postal=zipcode, radius_mi=3 if zipcode else None)
+    if after_cl:
+        after_cl()                     # e.g. start the Craigslist room search now (Craigslist's own spacing still applies)
     used.append({"source": "Craigslist", "ok": cl["ok"], "url": cl["url"], "n": len(cl["rows"])})
     rows += cl["rows"]
-    rc = rentcom.search(town, state, pages=2)
+    rc = _join(f_rc)
     used.append({"source": "Rent.com", "ok": rc["ok"], "url": rc["url"], "n": len(rc["rows"])})
     rows += rc["rows"]
-    rf = redfin.rentals(town, state.upper())
+    rf = _join(f_rf)
     used.append({"source": "Redfin", "ok": rf["ok"], "url": rf.get("url"), "n": len(rf["rows"]), "note": rf.get("note", "")})
     rows += rf["rows"]
     if include_rentcast and rentcast.available():
@@ -583,7 +615,9 @@ def town_snapshot(town, options=None):
     rates = _rates(A)
     safmr = hud.safmr(zipcode) if zipcode else None
     use_rc = bool(o.get("use_rentcast", False)) and rentcast.available()
-    ltr_df, used = _ltr_rows(tname, state, zipcode, lat, lon, include_rentcast=use_rc)
+    f_room = []                        # room posts load while Rent.com/Redfin load (started right after the apartment search)
+    ltr_df, used = _ltr_rows(tname, state, zipcode, lat, lon, include_rentcast=use_rc,
+                             after_cl=lambda: f_room.append(_bg(room_estimate, tname, state, zipcode, lat, lon, A)))
     if not ltr_df.empty:
         ltr_df = ltr_df[(ltr_df.dist_km <= 4) | ltr_df.dist_km.isna()]
     by_beds = {}
@@ -591,7 +625,7 @@ def town_snapshot(town, options=None):
         e = rent_estimate(ltr_df, b, A, lat, lon)
         by_beds[b] = {"ltr": {k: v for k, v in e.items() if k != "comps"}, "ltr_comps": e["comps"].head(10).to_dict("records") if e.get("ok") else [],
                       "hud": (safmr or {}).get(f"{b}br")}
-    room = room_estimate(tname, state, zipcode, lat, lon, A)
+    room = _join(f_room[0]) if f_room else room_estimate(tname, state, zipcode, lat, lon, A)
     rad, mn, rv = tuple(A["comps"]["str_radius_km"]), A["comps"]["str_min_comps"], A["comps"]["str_active_min_reviews_ltm"]
     for b in (1, 2, 3):
         by_beds[b]["str"] = _iab_pack(iab.comps(lat, lon, b, radii=rad, min_n=mn, min_reviews_ltm=rv, state=state))
