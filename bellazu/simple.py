@@ -56,7 +56,7 @@ def roommates_txt(n):
     return (f"{n} roommate" + ("" if n == 1 else "s"), f"{n} compañero" + ("" if n == 1 else "s"))
 
 
-def verdict_property(r):
+def verdict_property(r, star=None):
     """{'level': good|maybe|skip, 'en', 'es'}. Rules (shown to the user under 'See details'):
     skip  = income entered is below the co-op board rule, or housing > 45% of income entered,
             or even with roommates it costs more than renting a similar home;
@@ -73,6 +73,9 @@ def verdict_property(r):
     inc = r.get("income_annual")
     ic = r.get("coop_income_check")
     own, total, n = o.get("own_net_housing_cost"), o.get("total_cost"), int(o.get("rooms_rented") or 0)
+    what = (roommates_txt(n)[0], roommates_txt(n)[1])
+    if star and star.get("pay") is not None:      # the compare view's starred column (e.g. renting the other unit of a 2-family)
+        own, what, n = star["pay"], star["what"], max(n, 1)
     dti = o.get("front_end_dti")
     red, yellow, green = [], [], []
     if ic and inc and inc < ic["required_income_with_mortgage"]:
@@ -82,8 +85,8 @@ def verdict_property(r):
         red.append((f"Housing would take {dti:.0%} of your income, more than lenders usually allow",
                     f"La vivienda se llevaría el {dti:.0%} de su ingreso, más de lo que suelen permitir los prestamistas"))
     if rent and own is not None and own >= rent:
-        red.append((f"Even with {roommates_txt(n)[0]} it costs you {money(own)}/mo, more than renting a place like it",
-                    f"Aun con {roommates_txt(n)[1]} le cuesta {money(own)}/mes, más que alquilar algo parecido"))
+        red.append((f"Even with {what[0]} it costs you {money(own)}/mo, more than renting a place like it",
+                    f"Aun con {what[1]} le cuesta {money(own)}/mes, más que alquilar algo parecido"))
     if ic and not inc:
         yellow.append((f"Co-op board wants a yearly income of {thousands(ic['required_income_maintenance_only'])} or more",
                        f"La junta de la co-op pide un ingreso anual de {thousands(ic['required_income_maintenance_only'])} o más"))
@@ -94,7 +97,7 @@ def verdict_property(r):
         yellow.append(("We don't know the monthly building fee yet, so costs may be higher",
                        "Aún no sabemos la cuota mensual del edificio; el costo puede ser mayor"))
     if own is not None and own <= 0:
-        green.append(("Roommates would cover all of your monthly costs", "Los compañeros cubrirían todos sus costos mensuales"))
+        green.append((f"With {what[0]}, the rent would cover all of your monthly costs", f"Con {what[1]}, la renta cubriría todos sus costos mensuales"))
     elif rent and total is not None and total <= rent:
         green.append((f"Owning costs {money(total)}/mo, less than the {money(rent)}/mo a home like it rents for",
                       f"Comprarla le cuesta {money(total)}/mes, menos que los {money(rent)}/mes de alquiler de algo parecido"))
@@ -115,7 +118,7 @@ def verdict_property(r):
                "Pregunte a un prestamista si precalifica y luego pida al agente las reglas del edificio.")
     else:
         lvl = "maybe"
-        why = ((f"Costs you {money(own)}/mo with {roommates_txt(n)[0]}", f"Le cuesta {money(own)}/mes con {roommates_txt(n)[1]}") if n
+        why = ((f"Costs you {money(own)}/mo with {what[0]}", f"Le cuesta {money(own)}/mes con {what[1]}") if n
                else (f"Costs you {money(total)}/mo", f"Le cuesta {money(total)}/mes"))
         nxt = ("Ask a lender if you pre-qualify, and check the items under See details.",
                "Pregunte a un prestamista si precalifica y revise los puntos en Ver detalles.")

@@ -1225,9 +1225,22 @@ def show_property(r):
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
     safety_note(r.get("town"))
     drive_badge(ex.get("drive"))
-    verdict_box(S.verdict_property(r))
-    ask_missing(r)
     base = C.base_from_property(r)
+    star = None
+    if base:        # the verdict speaks about the same option the compare view stars (read the tap from last run, else the default)
+        try:
+            d0 = C.default_sel(base)
+            pt = "mf" if base["ptype"] == "multi-family" else "sf"
+            ro0 = ss.get(f"ro_{sid}_{pt}") or d0["rent_out"]
+            if ro0 != "none":
+                s0 = dict(d0, rent_out=ro0, unit_beds=ss.get(f"ub_{sid}_{pt}") or d0["unit_beds"])
+                c1 = C.compare(base, s0)["cols"][1]
+                star = {"pay": c1["pay"], "what": ("the other unit rented", "la otra unidad alquilada") if ro0 == "unit" else
+                        (("1 roommate", "1 compañero") if c1.get("n", 1) == 1 else (f"{c1['n']} roommates", f"{c1['n']} compañeros"))}
+        except Exception:
+            star = None
+    verdict_box(S.verdict_property(r, star))
+    ask_missing(r)
     if base:
         sel = sel_for(sid, base)
         out = C.compare(base, sel)
