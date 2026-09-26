@@ -145,7 +145,7 @@ def get_facts(address, listing_url=None, overrides=None, use_rentcast=True):
         own = (facts.get("ownership") or "").lower()
         taxes_in_hoa = "taxes" in [x.lower() for x in (facts.get("hoa_includes") or [])]
         if facts.get("taxes_annual") in (None, "") and not ("co-op" in own and taxes_in_hoa):
-            rec, s = rentcast.property_record(address)
+            rec, s = rentcast.property_record(address, reserve=1)   # keep the last lookup for the rent estimate
             rc_meta["property_record"] = s if rec else (s if s not in ("ok", "cache") else "not_found")
             if rec:
                 tax, yr = rentcast.latest_tax(rec)

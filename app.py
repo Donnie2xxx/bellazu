@@ -2,6 +2,8 @@
 Run locally:  APP_PASSCODE=... streamlit run app.py   (or put the values in .streamlit/secrets.toml)
 Secrets (st.secrets first, then environment variables):
   APP_PASSCODE (required), RENTCAST_API_KEY (optional), RENTCAST_MONTHLY_CAP / RENTCAST_USED_OFFSET (optional).
+RentCast key: data/rc.lock holds the key encrypted with the passcode (bellazu/keylock.py); it is tried first and
+RENTCAST_API_KEY is the fallback (also used if RentCast refuses the locked key). The key is never shown.
 Nothing personal lives in this file: every number is typed by the user and kept only in the browser session."""
 import hmac, html as H, json, os, pathlib, re, sys, tempfile, time
 import streamlit as st
@@ -52,8 +54,33 @@ from bellazu.sources import rentcast                          # noqa: E402
 from bellazu import simple as S                               # noqa: E402
 from bellazu import towns                                     # noqa: E402
 from bellazu.simple import money                              # noqa: E402
+from bellazu import keylock                                   # noqa: E402
 
 st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
+
+
+@st.cache_resource(show_spinner=False)
+def _locked_rc_key(pc_hash, _pc):
+    """Decrypt data/rc.lock once per process (slow KDF). Cached by a hash of the passcode, never shown."""
+    return keylock.unlock(ROOT / "data" / "rc.lock", _pc) if (ROOT / "data" / "rc.lock").exists() else None
+
+
+def _setup_rentcast():
+    pc = secret("APP_PASSCODE") or st.session_state.get("_gate_pc", "")
+    k = None
+    if pc:
+        import hashlib
+        k = _locked_rc_key(hashlib.sha256(pc.strip().lower().encode()).hexdigest(), pc)
+    rentcast.set_keys(k)            # RENTCAST_API_KEY (st.secrets -> environment) stays the fallback
+
+
+_setup_rentcast()
+if "rc_budget" not in st.session_state:     # optional test aid: ?rc_budget=N caps live RentCast lookups in this session (only lowers use)
+    try:
+        _b = st.query_params.get("rc_budget")
+        st.session_state.rc_budget = max(int(_b), 0) if _b not in (None, "") else None
+    except Exception:
+        st.session_state.rc_budget = None
 
 st.markdown("""<style>
 /* Design language: dark editorial landing page. Near-black canvas, white type, hairline dividers, tall condensed uppercase
@@ -224,6 +251,7 @@ def gate():
         if hmac.compare_digest(typed.strip().lower().encode(), pc.encode()):
             st.session_state.authed = True
             st.session_state.fails = 0
+            st.session_state._gate_pc = typed.strip().lower()   # server-side only; unlocks data/rc.lock if secrets lack it
             st.rerun()
         else:
             st.session_state.fails = n + 1
@@ -277,6 +305,9 @@ def tiles(items):
 
 def rc_usage_line():
     u = rentcast.usage()
+    if u.get("key_state") == "refused":
+        return L("Price lookups are off right now (RentCast didn't accept the key), so free sources are used. Add the price when we ask; everything else still works.",
+                 "Las búsquedas de precio están apagadas por ahora (RentCast no aceptó la clave); se usan fuentes gratuitas. Agregue el precio cuando se lo pidamos; todo lo demás funciona.")
     if not u["enabled"]:
         return L("RentCast is off, so only free sources are used.", "RentCast está apagado; solo se usan fuentes gratuitas.")
     s = L(f"RentCast lookups used this month: {u['used']} of {u['free_plan']} (this app's own count).",
@@ -451,7 +482,9 @@ def property_details(r, f, sc, o, rent, rent_src, own):
         lines.append(L(f"RentCast: {money(rc['rentcast_rent'])}/mo, from {rc['rentcast_n']} rentals{rng}", f"RentCast: {money(rc['rentcast_rent'])}/mes, de {rc['rentcast_n']} alquileres{rng}"))
     else:
         why = {"quota": L("monthly limit reached", "límite mensual alcanzado"), "not_found": L("no estimate for this address", "sin estimado para esta dirección"),
-               "no_key": L("not set up", "no configurado"), None: L("not used", "no usado")}.get(rc.get("rentcast_status"), L("not available", "no disponible"))
+               "no_key": L("not set up", "no configurado"), None: L("not used", "no usado"),
+               "error:401": L("price lookups are off right now", "búsquedas de precio apagadas por ahora"),
+               "budget": L("lookup limit for this check reached", "límite de consultas para esta revisión alcanzado")}.get(rc.get("rentcast_status"), L("not available", "no disponible"))
         lines.append(f"RentCast: {why}")
     md("\n".join(f"- {x}" for x in lines))
     g = S.rent_gap_line(r)
@@ -695,7 +728,10 @@ def run_home(addr, where):
     else:
         with where, st.spinner(L("Checking the numbers for you... about 20 to 60 seconds ✨", "Revisando los números por usted... unos 20 a 60 segundos ✨")):
             try:
-                r = analyze_property(addr.strip(), opts)
+                with rentcast.budget(ss.get("rc_budget")) as b:
+                    r = analyze_property(addr.strip(), opts)
+                if b is not None:
+                    ss.rc_budget = b[0]
             except Exception as e:  # never show a stack trace to the user
                 r = {"ok": False, "error": f"{e.__class__.__name__}"}
         if r.get("ok"):

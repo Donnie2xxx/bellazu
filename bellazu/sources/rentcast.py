@@ -6,10 +6,15 @@ Quota protection (every real request costs 1 of the 50 monthly lookups):
     endpoint + normalized params (never the key), so repeating an address does not spend quota;
   * a local monthly counter (cache/rentcast/usage.json) counts every real request this app makes;
   * RENTCAST_MONTHLY_CAP (default 45) stops calling before the free 50 are gone -> free-source fallback;
-  * RENTCAST_USED_OFFSET="YYYY-MM:N" adds N lookups spent elsewhere in that month (e.g. testing).
+  * RENTCAST_USED_OFFSET="YYYY-MM:N" adds N lookups spent elsewhere in that month (e.g. testing); the larger of it
+    and DEFAULT_OFFSET (below) is used;
+  * the last lookup left (monthly cap or a per-run budget) is kept for the rent estimate (property record skipped).
+Keys: the app may pass candidate keys with set_keys() (e.g. the passcode-locked key in data/rc.lock); RENTCAST_API_KEY
+from the environment is the last fallback. A key RentCast refuses (HTTP 401) is dropped for this process and the next
+one is tried; 401s are not counted as lookups.
 The counter is this app's own count, not RentCast's billing meter (RentCast's month may follow the
 signup date, and a restarted container without persistent disk starts from the offset again)."""
-import datetime as dt, hashlib, json, os, threading, time
+import contextlib, contextvars, datetime as dt, hashlib, json, os, threading, time
 import requests
 from ..http import CACHE, record
 
@@ -19,14 +24,61 @@ _MEM = {}
 _LOCK = threading.Lock()
 TTL_H = {"listings/sale": 72, "properties": 24 * 30, "avm/rent/long-term": 24 * 14, "listings/rental/long-term": 72}
 FREE_PLAN = 50
+DEFAULT_OFFSET = "2026-09:9"   # lookups already used this month (app count + tests), as of 2026-09-26
+_KEYS = []                     # candidate keys in priority order (set by the app)
+_BAD = set()                   # fingerprints of keys RentCast refused (401) in this process
+_BUDGET = contextvars.ContextVar("rentcast_budget", default=None)   # optional per-run limit: [remaining]
+
+
+def _fp(k):
+    return hashlib.sha256(k.encode()).hexdigest()[:16]
+
+
+def set_keys(*keys):
+    _KEYS[:] = [k.strip() for k in keys if isinstance(k, str) and k.strip()]
+
+
+def _candidates():
+    out = []
+    for k in list(_KEYS) + [(os.environ.get("RENTCAST_API_KEY") or "").strip()]:
+        if k and k not in out and _fp(k) not in _BAD:
+            out.append(k)
+    return out
 
 
 def _key():
-    return (os.environ.get("RENTCAST_API_KEY") or "").strip()
+    c = _candidates()
+    return c[0] if c else ""
 
 
 def available():
     return bool(_key())
+
+
+def key_state():
+    """'ok' (a usable key), 'refused' (every key got HTTP 401) or 'none' (no key set up)."""
+    return "ok" if available() else ("refused" if _BAD else "none")
+
+
+@contextlib.contextmanager
+def budget(n):
+    """Limit live lookups inside this block to n (None = no extra limit). Yields [remaining]."""
+    if n is None:
+        yield None
+        return
+    b = [max(int(n), 0)]
+    tok = _BUDGET.set(b)
+    try:
+        yield b
+    finally:
+        _BUDGET.reset(tok)
+
+
+def remaining():
+    """Live lookups still allowed right now (monthly cap and any per-run budget)."""
+    m = usage()["remaining_before_cap"]
+    b = _BUDGET.get()
+    return min(m, b[0]) if b is not None else m
 
 
 def _month():
@@ -38,13 +90,16 @@ def _usage_path():
     return _DIR / "usage.json"
 
 
-def _offset():
-    v = os.environ.get("RENTCAST_USED_OFFSET", "")
+def _parse_offset(v):
     try:
-        m, n = v.split(":")
+        m, n = (v or "").split(":")
         return int(n) if m.strip() == _month() else 0
     except Exception:
         return 0
+
+
+def _offset():
+    return max(_parse_offset(os.environ.get("RENTCAST_USED_OFFSET", "")), _parse_offset(DEFAULT_OFFSET))
 
 
 def cap():
@@ -66,7 +121,8 @@ def usage():
     n = int(d.get("count", 0)) if d.get("month") == _month() else 0
     used = n + _offset()
     return {"month": _month(), "app_calls": n, "offset": _offset(), "used": used, "cap": cap(),
-            "free_plan": FREE_PLAN, "remaining_before_cap": max(cap() - used, 0), "enabled": available()}
+            "free_plan": FREE_PLAN, "remaining_before_cap": max(cap() - used, 0), "enabled": available(),
+            "key_state": key_state()}
 
 
 def _bump(endpoint, status):
@@ -89,11 +145,23 @@ def _norm(params):
     return {k: (" ".join(str(v).lower().replace(",", " , ").split()) if isinstance(v, str) else v) for k, v in sorted(params.items())}
 
 
+def _cache_key(path, params):
+    return hashlib.sha1((path + json.dumps(_norm(params), sort_keys=True)).encode()).hexdigest()
+
+
+def _cached(path, params):
+    ck = _cache_key(path, params)
+    ttl = TTL_H.get(path, 72) * 3600
+    hit = _MEM.get(ck)
+    f = _DIR / f"{ck}.json"
+    return bool((hit and time.time() - hit["t"] < ttl) or (f.exists() and time.time() - f.stat().st_mtime < ttl))
+
+
 def _get(path, params):
     """Returns (data, status) where status in ok|cache|no_key|quota|not_found|error:<detail>."""
     if not available():
         return None, "no_key"
-    ck = hashlib.sha1((path + json.dumps(_norm(params), sort_keys=True)).encode()).hexdigest()
+    ck = _cache_key(path, params)
     f = _DIR / f"{ck}.json"
     ttl = TTL_H.get(path, 72) * 3600
     with _LOCK:
@@ -113,12 +181,26 @@ def _get(path, params):
         if u["used"] >= u["cap"]:
             record("RentCast " + path, BASE + path, False, None, f"monthly cap reached ({u['used']}/{u['cap']}); using free sources")
             return None, "quota"
-        try:
-            r = requests.get(BASE + path, params=params, headers={"X-Api-Key": _key(), "Accept": "application/json"}, timeout=30)
-        except Exception as e:
-            record("RentCast " + path, BASE + path, False, None, f"network error: {e.__class__.__name__}")
-            return None, "error:network"
+        b = _BUDGET.get()
+        if b is not None and b[0] <= 0:
+            record("RentCast " + path, BASE + path, False, None, "lookup budget for this run used up; using free sources")
+            return None, "budget"
+        while True:
+            key = _key()
+            if not key:
+                return None, "error:401"
+            try:
+                r = requests.get(BASE + path, params=params, headers={"X-Api-Key": key, "Accept": "application/json"}, timeout=30)
+            except Exception as e:
+                record("RentCast " + path, BASE + path, False, None, f"network error: {e.__class__.__name__}")
+                return None, "error:network"
+            if r.status_code != 401:
+                break
+            _BAD.add(_fp(key))            # refused key: not a billed lookup; drop it and try the next one
+            record("RentCast " + path, BASE + path, False, 401, "invalid/missing API key" + ("; trying the other key" if available() else ""))
         _bump(path, r.status_code)
+        if b is not None:
+            b[0] -= 1
         if r.status_code == 200:
             try:
                 body = r.json()
@@ -134,7 +216,7 @@ def _get(path, params):
                 msg = (r.json() or {}).get("error", "")
             except Exception:
                 pass
-            note = {401: "invalid/missing API key", 429: "rate limited / quota exhausted", 402: "billing / quota"}.get(r.status_code, "error")
+            note = {429: "rate limited / quota exhausted", 402: "billing / quota"}.get(r.status_code, "error")
             record("RentCast " + path, BASE + path, False, r.status_code, f"{note} {msg}".strip())
             return None, ("quota" if r.status_code in (402, 429) else f"error:{r.status_code}")
         _MEM[ck] = hit
@@ -177,9 +259,14 @@ def sale_listing(address):
     return (d[0] if isinstance(d, list) and d else None), s
 
 
-def property_record(address):
-    """Public-record facts (taxes, HOA, beds, sqft). 1 lookup (cached 30 days)."""
-    d, s = _get("properties", {"address": address, "limit": 1})
+def property_record(address, reserve=0):
+    """Public-record facts (taxes, HOA, beds, sqft). 1 lookup (cached 30 days). Skipped (status 'skipped') when it is not
+    cached and no more than `reserve` lookups are left, so the last one goes to the rent estimate."""
+    p = {"address": address, "limit": 1}
+    if reserve and available() and not _cached("properties", p) and remaining() <= reserve:
+        record("RentCast properties", BASE + "properties", False, None, "skipped to keep the last lookup for the rent estimate")
+        return None, "skipped"
+    d, s = _get("properties", p)
     return (d[0] if isinstance(d, list) and d else None), s
 
 
