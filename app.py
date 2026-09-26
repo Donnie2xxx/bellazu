@@ -2647,16 +2647,23 @@ def feed_block(ts, drives, sid):
         if any(res[t].get("error") == "cap" for t in bad):
             _cap_msg()
         st.caption(L(f"Couldn't load homes for {', '.join(bad)} right now; showing the others.", f"No se pudieron cargar las casas de {', '.join(bad)} ahora; mostramos los demás."))
-    st.markdown(f"<div class='bz-lbl'>{L('Price up to', 'Precio hasta')}</div>", unsafe_allow_html=True)
-    mx = st.segmented_control(L("Top price", "Precio máximo"), FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=None if rent else 500_000, required=True, label_visibility="collapsed", width="stretch",
-                              format_func=lambda v: L("Any", "Todo") if v is None else (money(v) if rent else kmoney(v)))
-    c1, c2 = st.columns([2, 3])
-    with c1:
-        bd = st.segmented_control(L("Bedrooms", "Habitaciones"), [0, 1, 2, 3], key=f"hbd_{sid}", default=0, required=True, width="stretch",
-                                  format_func=lambda b: L("Any", "Todas") if b == 0 else f"{b}+")
-    with c2:
-        kd = st.segmented_control(L("Type", "Tipo"), list(FEED_KIND), key=f"hkd_{sid}", default="any", required=True, width="stretch", format_func=lambda k: P(FEED_KIND[k]))
-    srt = st.segmented_control(L("Sort", "Ordenar"), list(FEED_SORT), key=f"hsort_{sid}", default="new", required=True, width="stretch", format_func=lambda k: P(FEED_SORT[k]))
+    # filters one tap away (summary in the label) so the first home card shows on the first screen
+    _mx0 = ss.get(f"hpx_{sid}_{status}", None if rent else 500_000)
+    _bd0, _kd0, _srt0 = ss.get(f"hbd_{sid}", 0), ss.get(f"hkd_{sid}", "any"), ss.get(f"hsort_{sid}", "new")
+    _fl = " · ".join([(L("any price", "cualquier precio") if _mx0 is None else L("up to ", "hasta ") + (money(_mx0) if rent else kmoney(_mx0))),
+                      (L("any beds", "cualquier tamaño") if not _bd0 else L(f"{_bd0}+ bd", f"{_bd0}+ hab")),
+                      P(FEED_KIND.get(_kd0, FEED_KIND["any"])), P(FEED_SORT.get(_srt0, FEED_SORT["new"]))])
+    with st.expander(L(f"⚙️ Filters: {_fl}", f"⚙️ Filtros: {_fl}"), key=f"hflt_{sid}"):
+        st.markdown(f"<div class='bz-lbl'>{L('Price up to', 'Precio hasta')}</div>", unsafe_allow_html=True)
+        mx = st.segmented_control(L("Top price", "Precio máximo"), FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=None if rent else 500_000, required=True, label_visibility="collapsed", width="stretch",
+                                  format_func=lambda v: L("Any", "Todo") if v is None else (money(v) if rent else kmoney(v)))
+        c1, c2 = st.columns([2, 3])
+        with c1:
+            bd = st.segmented_control(L("Bedrooms", "Habitaciones"), [0, 1, 2, 3], key=f"hbd_{sid}", default=0, required=True, width="stretch",
+                                      format_func=lambda b: L("Any", "Todas") if b == 0 else f"{b}+")
+        with c2:
+            kd = st.segmented_control(L("Type", "Tipo"), list(FEED_KIND), key=f"hkd_{sid}", default="any", required=True, width="stretch", format_func=lambda k: P(FEED_KIND[k]))
+        srt = st.segmented_control(L("Sort", "Ordenar"), list(FEED_SORT), key=f"hsort_{sid}", default="new", required=True, width="stretch", format_func=lambda k: P(FEED_SORT[k]))
     allrows = _dedupe([dict(r, town=r.get("town") or t, _t=t) for t, r_ in ok.items() for r in r_["rows"]])
     rows = _sort_rows(listings.filter_rows(allrows, None, mx, bd or None, kd), srt)
     shown = int(ss.get(f"hn_{sid}", 8))
