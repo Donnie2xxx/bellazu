@@ -2013,6 +2013,9 @@ def _est_lbl(b, lv):
     if (lv or {}).get("hud"):
         few = L(f", only {n} listing{'s' if n != 1 else ''} now", f", solo {n} anuncio{'s' if n != 1 else ''} ahora") if n else ""
         return L(f"({b} bd, HUD fair rent{few})", f"({b} hab, renta justa de HUD{few})")
+    if (lv or {}).get("skewed"):
+        return L(f"({b} bd, older unit: between HUD's fair rent and the cheaper of {n} listings, mostly new buildings)",
+                 f"({b} hab, unidad más antigua: entre la renta justa de HUD y los más baratos de {n} anuncios, casi todos edificios nuevos)")
     return L(f"({b} bd, town typical from {n} listings)", f"({b} hab, típico del pueblo según {n} anuncios)") if n else \
         L(f"({b} bd, town typical)", f"({b} hab, típico del pueblo)")
 
