@@ -261,7 +261,7 @@ def _clients():
 def _repo():
     """Local cache: a bare clone in /tmp (rebuilt from GitHub after a restart)."""
     from dulwich.repo import Repo
-    d = os.path.join(tempfile.gettempdir(), "bz_saves.git")
+    d = os.environ.get("BELLAZU_SAVES_DIR") or os.path.join(tempfile.gettempdir(), "bz_saves.git")   # server: a folder that survives restarts
     return Repo(d) if os.path.isdir(d) else Repo.init_bare(d, mkdir=True)
 
 

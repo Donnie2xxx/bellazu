@@ -32,6 +32,81 @@ for _k in ("RENTCAST_API_KEY", "RENTCAST_MONTHLY_CAP", "RENTCAST_USED_OFFSET"): 
         os.environ[_k] = _v
 
 
+def _moved_to():
+    """The app now lives on its own always-on server. Only the old Streamlit Community Cloud copy (it runs from /mount/src and
+    the server sets BELLAZU_SERVER=1) shows a "BellaZu moved" page, and only once data/moved.json names the new address."""
+    if os.environ.get("BELLAZU_SERVER") == "1" or not str(ROOT).startswith("/mount/"):
+        return ""
+    try:
+        return str(json.loads((ROOT / "data" / "moved.json").read_text()).get("url") or "").strip()
+    except Exception:
+        return ""
+
+
+MOVED_JS = """
+export default function(component) {
+  const { data, parentElement } = component;
+  const d = data || {};
+  if (parentElement.__bzm) return;
+  parentElement.__bzm = 1;
+  // one language, same rules as the app: ?lang= wins, then the language saved on this phone, then a Spanish phone
+  let lang = "";
+  const pick = (q) => { try { const v = new URLSearchParams(q).get("lang"); return v ? v.toLowerCase().slice(0, 2) : ""; } catch (e) { return ""; } };
+  lang = pick(window.location.search);
+  if (!lang) { try { lang = pick(window.top.location.search); } catch (e) {} }
+  if (lang !== "en" && lang !== "es") {
+    lang = "";
+    try { const raw = window.localStorage.getItem("bellazu_saves_v1"); const p = raw ? (JSON.parse(raw).prefs || {}) : {};
+          if (p.lang === "ES" || p.lang === "EN") lang = p.lang.toLowerCase(); } catch (e) {}
+  }
+  if (!lang) lang = String(navigator.language || "").toLowerCase().startsWith("es") ? "es" : "en";
+  const T = lang === "es" ? d.es : d.en;
+  let qs = window.location.search;                       // keep the rest of the link (e.g. ?towns=secaucus,kearny)
+  try { if (window.top.location.search) qs = window.top.location.search; } catch (e) {}
+  const P = new URLSearchParams(qs); P.set("lang", lang);
+  const url = d.url.split("?")[0] + "?" + P.toString();
+  const root = document.createElement("div");
+  root.className = "mv";
+  root.innerHTML = '<div class="w">BellaZu</div><div class="h">' + T.h + '</div><p>' + T.p + '</p>' +
+    '<a class="b" target="_top" rel="noopener" href="' + url.replace(/"/g, "") + '">' + T.b + '</a><p class="s">' + T.s + '</p>';
+  parentElement.appendChild(root);
+  setTimeout(() => {
+    try { window.top.location.href = url; }
+    catch (e) { try { window.open(url, "_top"); } catch (e2) {} }
+  }, 900);
+}
+"""
+MOVED_CSS = """
+.mv {text-align:center; padding:48px 12px; color:#fff; font-family:Inter, system-ui, sans-serif}
+.mv .w {font-family:'Instrument Serif', Georgia, serif; font-size:30px; margin-bottom:28px}
+.mv .h {font-family:'League Gothic', Impact, sans-serif; font-size:46px; text-transform:uppercase; line-height:1.05; margin-bottom:14px}
+.mv p {color:#ddd; font-size:17px; line-height:1.5; margin:0 0 26px}
+.mv .b {display:block; background:#F4A7BB; color:#141414 !important; text-decoration:none; font-weight:700; font-size:20px;
+        padding:20px 18px; border-radius:999px; letter-spacing:.04em; text-transform:uppercase}
+.mv .s {color:#A9A9A9; font-size:14px; margin-top:18px}
+"""
+
+
+def moved_page(url):
+    """Old address: a one-language "BellaZu moved" note, a big button, and an automatic jump to the new address.
+    Nothing else runs here (no passcode, no lookups, no API calls)."""
+    st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
+    st.markdown("<style>#MainMenu, footer, header[data-testid='stHeader'], [data-testid='stToolbar'], [data-testid='stDecoration'],"
+                "[data-testid='stStatusWidget'] {display:none !important} .stApp {background:#141414}</style>", unsafe_allow_html=True)
+    comp = st.components.v2.component("bz_moved", css=MOVED_CSS, js=MOVED_JS)
+    comp(key="bz_moved", data={
+        "url": url,
+        "en": {"h": "BellaZu moved 💕", "p": "BellaZu has a new home. It is faster and never falls asleep. Your saved homes come along: same passcode.",
+               "b": "Open the new BellaZu", "s": "Taking you there now..."},
+        "es": {"h": "BellaZu se mudó 💕", "p": "BellaZu tiene una nueva casa. Es más rápida y nunca se duerme. Sus casas guardadas vienen también: el mismo código.",
+               "b": "Abrir la nueva BellaZu", "s": "La llevamos allá ahora..."}})
+    st.stop()
+
+
+if _moved_to():
+    moved_page(_moved_to())
+
+
 def _fresh_engine():
     """Streamlit Cloud pulls new commits into a running process, which re-runs app.py but keeps the old bellazu
     modules in memory. Reload them when their files change (or on the first run after such a pull)."""
@@ -172,9 +247,13 @@ def _setup_saves():
     pc = secret("APP_PASSCODE") or st.session_state.get("_gate_pc", "")
     if os.environ.get("BZ_NO_CLOUD"):          # local tests: keep saved homes in the browser only (never touch the real online copy)
         return
+    k = None
     if pc:
         import hashlib
-        saves.set_key(_locked_saves_key(hashlib.sha256(pc.strip().lower().encode()).hexdigest(), pc))
+        k = _locked_saves_key(hashlib.sha256(pc.strip().lower().encode()).hexdigest(), pc)
+    k = k or secret("BELLAZU_SAVES_DEPLOY_KEY")      # server: the key sits in its secrets file (the passcode lock stays the first choice)
+    if k:
+        saves.set_key(k)
 
 
 _setup_saves()
