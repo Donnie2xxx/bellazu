@@ -486,6 +486,66 @@ iframe[title*="searchbox"] {min-height:58px}
 .stLinkButton a * {color:var(--paper) !important}
 [class*="st-key-svcard_"] {border:1px solid var(--line2) !important; border-radius:22px !important; background:var(--ink2); padding:.9rem .9rem .5rem !important}
 .bz-foot {text-transform:uppercase; letter-spacing:.08em; font-size:.66rem; color:#7D7D7D; text-align:center; margin-top:1.4rem}
+/* ---- Calm pass (2026-09-26): sentence case, two type sizes for UI text (1rem / .85rem) and three weights (400/600/800),
+   fewer outlined boxes (whitespace instead), muted grey only for secondary text. Brand pieces (wordmark, landing headline) keep their look. */
+h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; text-transform:none; font-weight:800 !important; letter-spacing:-.015em; line-height:1.2 !important}
+[data-testid="stMarkdownContainer"] h4 {font-size:1.25rem; margin:2rem 0 .6rem; padding-top:0; border-top:0}
+.stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopoverButton"], .stLinkButton a {text-transform:none; letter-spacing:0; font-size:1rem !important; font-weight:600}
+.stButton button[kind="tertiary"] {text-decoration:none; font-weight:600}
+[data-baseweb="input"] input::placeholder {text-transform:none; letter-spacing:0; font-size:1rem !important}
+[data-testid="stTextInput"] label p, [data-testid="stSelectbox"] label p, [data-testid="stNumberInput"] label p, [data-testid="stWidgetLabel"] p {text-transform:none; letter-spacing:0; font-size:.85rem !important; font-weight:600}
+[data-testid="stButtonGroup"] button {text-transform:none; letter-spacing:0; font-size:.9rem; font-weight:600}
+[data-testid="stExpander"] details {border-top:0; border-bottom:1px solid var(--line)}
+[data-testid="stExpander"] summary p {text-transform:none; letter-spacing:0; font-size:1rem; font-weight:600}
+[data-testid="stExpander"] summary svg {color:var(--mute)}
+[data-testid="stTabs"] button p {text-transform:none; letter-spacing:0; font-size:.95rem; font-weight:600}
+.bz-eyebrow, .bz-lede, .bz-steps .s, .bz-sub, .bz-tile .lbl, .bz-tile summary, .bz-card a, .bz-col .tag, .bz-col .h, .bz-col .l, .bz-place a,
+.bz-rc .st span, .bz-mt .k, .bz-foot {text-transform:none !important; letter-spacing:0 !important}
+.bz-lede, .bz-sub {font-size:1rem; font-weight:400}
+.bz-hello {font-family:var(--body); text-transform:none; font-weight:800; font-size:2rem; letter-spacing:-.025em; line-height:1.15; margin:.6rem 0 .2rem}
+.bz-fh {font-family:var(--body); text-transform:none; font-weight:800; font-size:1.25rem; letter-spacing:-.015em; margin:1.4rem 0 .5rem}
+.bz-addr {text-transform:none; letter-spacing:0; font-size:1rem; color:var(--paper); margin:.5rem 0 .1rem}
+.bz-lbl {text-transform:none; letter-spacing:0; font-size:.85rem; font-weight:600; color:var(--mute); margin:.9rem 0 .35rem}
+.bz-verdict .big {font-family:var(--body); text-transform:none; font-size:1.9rem; font-weight:800; letter-spacing:-.02em; line-height:1.1}
+.bz-rc .h {font-family:var(--body); font-weight:800; font-size:1.1rem}
+.bz-card, .bz-drive, .bz-fha, .bz-rc, .bz-mt {border:0 !important; border-radius:20px}
+.bz-fha {border-left:3px solid #9FE0B0 !important; border-radius:6px 16px 16px 6px}
+.bz-rc {background:transparent; padding:.2rem 0 .4rem}
+.bz-line {font-size:1rem; color:var(--paper); margin:0 0 .8rem; line-height:1.5}
+.bz-line .x {color:var(--mute)}
+/* home cards: photo + one line, generous space between cards */
+.bz-hl {display:flex; align-items:center; gap:.5rem; font-size:1rem; color:var(--paper); line-height:1.35; min-height:2.4rem}
+.bz-hl .x {color:var(--mute)}
+[class*="st-key-hcard_"] {margin-top:1.6rem}
+[class*="st-key-hrow_"] {margin-top:.15rem; gap:.25rem !important}
+[class*="st-key-hrow_"] .stButton button, [class*="st-key-svrow_"] .stButton button {min-height:2.4rem; border:0; padding:0 .6rem; font-weight:600}
+[class*="st-key-hrow_"] .stButton button:hover {background:transparent; color:var(--rose)}
+[class*="st-key-hrow_"] .stLinkButton a {border:0 !important; min-height:2.4rem; color:var(--rose) !important}
+[class*="st-key-hrow_"] .stLinkButton a * {color:var(--rose) !important}
+/* lighter For sale / For rent switch */
+[class*="st-key-hst_"] [data-testid="stButtonGroup"] button {min-height:2.3rem; border:0 !important; border-radius:0 !important; background:transparent !important; color:var(--mute) !important; padding:0 .2rem; margin-right:1.1rem}
+[class*="st-key-hst_"] [data-testid="stButtonGroup"] button * {color:var(--mute) !important}
+[class*="st-key-hst_"] [data-testid="stButtonGroup"] button[kind$="Active"], [class*="st-key-hst_"] [data-testid="stButtonGroup"] button[aria-checked="true"],
+[class*="st-key-hst_"] [data-testid="stButtonGroup"] button[data-selected="true"], [class*="st-key-hst_"] [data-testid="stButtonGroup"] button[aria-pressed="true"] {background:transparent !important; box-shadow:inset 0 -2px 0 var(--rose)}
+[class*="st-key-hst_"] [data-testid="stButtonGroup"] button[kind$="Active"] *, [class*="st-key-hst_"] [data-testid="stButtonGroup"] button[aria-checked="true"] *,
+[class*="st-key-hst_"] [data-testid="stButtonGroup"] button[data-selected="true"] *, [class*="st-key-hst_"] [data-testid="stButtonGroup"] button[aria-pressed="true"] * {color:var(--paper) !important}
+/* lighter filters bar + "About this town" */
+[class*="st-key-hflt_"] details, [class*="st-key-tinfo_"] details, .st-key-mt_sum details {border-bottom:0 !important}
+[class*="st-key-hflt_"] summary p, [class*="st-key-tinfo_"] summary p, .st-key-mt_sum summary p {font-size:.9rem; font-weight:600; color:var(--mute)}
+/* home detail: 3-number summary */
+.bz-3 {display:grid; grid-template-columns:repeat(3, 1fr); gap:.5rem; margin:1rem 0 .4rem}
+.bz-3 div {background:var(--ink2); border-radius:16px; padding:.7rem .6rem; min-width:0}
+.bz-3 b {display:block; font-size:1.3rem; font-weight:800; letter-spacing:-.02em; color:var(--paper); white-space:nowrap}
+.bz-3 span {display:block; font-size:.8rem; color:var(--mute); line-height:1.3; margin-top:.15rem}
+.bz-3n {font-size:.85rem; color:var(--mute); margin:.2rem 0 1rem}
+/* saved cards: photo on top, no outlined box */
+[class*="st-key-svcard_"] {border:0 !important; background:transparent; padding:0 !important; margin-top:1.4rem}
+.bz-svh {font-size:1rem; color:var(--paper); line-height:1.35; margin:.45rem 0 .1rem}
+.bz-svh .x {color:var(--mute); font-size:.85rem}
+[class*="st-key-svrow_"] {gap:.2rem !important; margin-top:.1rem}
+[class*="st-key-svrow_"] .stLinkButton a {border:0 !important; min-height:2.4rem; color:var(--rose) !important; font-weight:600}
+[class*="st-key-svrow_"] .stLinkButton a * {color:var(--rose) !important}
+[class*="st-key-svdt_"] details, [class*="st-key-svnx_"] details {border-bottom:0 !important}
 </style>""", unsafe_allow_html=True)
 st.session_state.setdefault("_tm_cur", []).append(("css", round((time.perf_counter() - _t_css) * 1000)))
 st.session_state._tm_cur.insert(0, ("boot", round((_t_css - _BZ_T0) * 1000)))
@@ -1541,6 +1601,17 @@ def kmoney(v):
     return f"${round(v):,}"
 
 
+def drive_line(d):
+    """One plain line: '26 min to Midtown · NJ Transit train 11-14 min to Penn Station'."""
+    if not d:
+        return
+    bits = [L(f"🚗 {d['min']} min to Midtown", f"🚗 {d['min']} min a Midtown")]
+    tr = d.get("transit")
+    if tr:
+        bits.append("🚆 " + re.sub(r"\s(about|unos)\s", " ", tr[1] if ES() else tr[0]))
+    html(f"<div class='bz-line'>{H.escape(' · '.join(bits))}</div>")
+
+
 def drive_badge(d):
     if not d:
         return
@@ -1691,8 +1762,9 @@ def _place_iab(c, kind):
 
 
 @timed('places')
-def places_block(lists, rules, town, datasets, ok_airbnb, d30):
-    st.markdown(f"#### {L('🏘️ Similar places', '🏘️ Lugares parecidos')}")
+def places_block(lists, rules, town, datasets, ok_airbnb, d30, head=True):
+    if head:
+        st.markdown(f"#### {L('🏘️ Similar places', '🏘️ Lugares parecidos')}")
     t1, t2, t3 = st.tabs([L("To rent", "Para alquilar"), L(f"{d30}+ day", f"{d30}+ días"), "Airbnb"])
     borrowed = town and datasets and not any(town.lower().replace(" ", "-") in d for d in datasets)
     rough = L(f"Rough estimate: these listings are in {', '.join(sorted({d.split('/')[1].replace('-', ' ').title() for d in datasets}))}, not {town}.",
@@ -1718,7 +1790,7 @@ def places_block(lists, rules, town, datasets, ok_airbnb, d30):
 
 
 @timed('season')
-def season_block(s, town):
+def season_block(s, town, head=True):
     if not s:
         return
     idx = (s.get("short") or {}).get("index") or []
@@ -1728,7 +1800,8 @@ def season_block(s, town):
     bars = "".join(f"<div class='{'lo' if v < 1 else ''}' style='height:{max(v / mx, .05) * 100:.0f}%' title='{v:.2f}'></div>" for v in idx)
     mons = "".join(f"<span>{P(m)}</span>" for m in MONTHS)
     city = s["city"].replace("-", " ").title()
-    st.markdown(f"#### {L('📅 Busy vs slow months', '📅 Meses de mucho y poco movimiento')}")
+    if head:
+        st.markdown(f"#### {L('📅 Busy vs slow months', '📅 Meses de mucho y poco movimiento')}")
     busy = [P(("Jan", "Ene")), P(("Feb", "Feb")), P(("Mar", "Mar")), P(("Apr", "Abr")), P(("May", "May")), P(("Jun", "Jun")), P(("Jul", "Jul")), P(("Aug", "Ago")),
             P(("Sep", "Sep")), P(("Oct", "Oct")), P(("Nov", "Nov")), P(("Dec", "Dic"))]
     top = [busy[i] for i in sorted(range(12), key=lambda i: -idx[i])[:3]]
@@ -1852,7 +1925,7 @@ def fha_loan_lbl(fa, ln=None):
 
 
 @timed('fha_card')
-def fha_card(fa, where):
+def fha_card(fa, where, inline=False):
     if not fa:
         return
     c = fa.get("code")
@@ -1877,7 +1950,7 @@ def fha_card(fa, where):
     sub.append(L("Your lender has the final say.", "Su banco tiene la última palabra."))
     html(f"<div class='bz-fha {cls}'><b>{H.escape(P(FHA.badge(fa)))}</b>" + "".join(f"<div class='n'>⚠️ {H.escape(x)}</div>" for x in notes)
          + f"<div class='s'>{H.escape(' '.join(sub))}</div></div>")
-    fha_explainer(where)
+    fha_explainer(where, inline)
 
 
 def fha_explainer(where, inline=False):
@@ -2077,6 +2150,7 @@ def show_property(r):
     sid = safe_name(ss.get("prop_addr", r["address"]))[:30]
     first = ss.get("hmode", "first") == "first"
     ex = r.get("extra") or {}
+    # 1) the essentials first: photo, address, price, beds/baths, heart, then three numbers. Everything else is tucked into tap-to-open sections.
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
     if f.get("price"):
@@ -2088,14 +2162,15 @@ def show_property(r):
     sv_iid = find_home(p_addr, lid) or (saves.item_id("listing", lid) if lid else saves.item_id("address", p_addr))
     ss["_sv_stash_prop"] = (r, None, first, p_addr)
     heart(sv_iid, f"p_{_sv_key(sv_iid)}", _from_stash, ("prop",), wide=True)
-    safety_note(r.get("town"))
-    drive_badge(ex.get("drive"))
+    summ = st.container()                     # filled once the numbers below are worked out
+    lvl_, _c = C.town_caution(r.get("town"))
+    if lvl_ == "exclude":
+        safety_note(r.get("town"))
     am = ss.setdefault("addr_meta", {}).setdefault(p_addr.strip().lower(), {})
     am.update(town=r.get("town"), zip=r.get("zip") or am.get("zip"))
     if not facts_for(p_addr).get("type") and ui_type_of(r):
         am["type"] = ui_type_of(r)
     fa = fha_for_addr(p_addr, r)
-    fha_card(fa, "p_" + sid)
     base = C.base_from_property(r)
     star = None
     if base:        # the verdict speaks about the same option the compare view stars (read the tap from last run, else the default)
@@ -2110,42 +2185,71 @@ def show_property(r):
                         (("1 roommate", "1 compañero") if c1.get("n", 1) == 1 else (f"{c1['n']} roommates", f"{c1['n']} compañeros"))}
         except Exception:
             star = None
-    verdict_box(S.verdict_property(r, star))
     ask_missing(r)
+    v = S.verdict_property(r, star)
+    vbig = {"good": L("Good deal", "Buen negocio"), "maybe": L("Maybe", "Tal vez"), "skip": L("Skip this one", "Mejor no")}.get(v["level"], "")
+    with st.expander(L(f"Our take: {vbig}", f"Nuestra opinión: {vbig}"), key=f"pv_{sid}"):
+        verdict_box(v)
     if base:
-        sel = sel_for(sid, base)
-        out = C.compare(base, sel)
         ln = o["loan"]
         conv = ln.get("kind") == "conv"
-        compare_strip(out, first, fha_loan_lbl(fa) if (conv or fa) else None)
-        skew_note(base, sel)
-        lk = L("normal loan", "préstamo normal") if conv else "FHA"
-        md(L(f"Same loan in every column: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} down + about {money(ln['closing_costs_est'])} fees = **{money(ln['cash_to_close_est'])} to close**.",
-             f"Mismo préstamo en cada columna: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} inicial + unos {money(ln['closing_costs_est'])} de cierre = **{money(ln['cash_to_close_est'])} para cerrar**."))
-        _prop_comps(r, sel, base, own, rent, sid)
-        q = out.get("qualify")
-        if q:
-            md(L(f"🏦 A lender can count about **{money(q['counted'])}/mo** ({q['share']:.0%} of the other unit's fair rent) as your income. Roommate rent doesn't count.",
-                 f"🏦 El banco puede contar unos **{money(q['counted'])}/mes** ({q['share']:.0%} de la renta justa de la otra unidad) como su ingreso. La renta de compañeros no cuenta."))
-            if q.get("self_sufficiency"):
-                ssf = q["self_sufficiency"]
-                md(L(f"3-4 family check: the rents must cover the mortgage payment ({money(ssf['piti'])}) after a 25% cut: about {money(ssf['net_rent_all'])} → {'passes ✓' if ssf['passes'] else 'fails ✗'}.",
-                     f"Prueba de 3-4 familias: las rentas deben cubrir el pago ({money(ssf['piti'])}) tras un recorte del 25%: unos {money(ssf['net_rent_all'])} → {'pasa ✓' if ssf['passes'] else 'no pasa ✗'}."))
-        elif sel["rent_out"] == "room":
-            st.caption(L("Lenders don't count roommate rent when you apply. It still lowers what you pay each month.",
-                         "Los bancos no cuentan la renta de compañeros al aplicar. Aun así baja lo que paga cada mes."))
-        best = out["cols"][2].get("best")
-        if best and best.get("cap"):
-            st.caption(L(f"Airbnb here is capped at {best['cap']} nights a year, so we counted at most that.", f"Airbnb aquí tiene un tope de {best['cap']} noches al año; contamos como máximo eso."))
-        if best and best.get("capped"):
-            st.caption(L("30+ day rate capped at 1.5× normal rent (a safety limit).", "Tarifa de 30+ días limitada a 1.5× la renta normal (límite de seguridad)."))
-        ranges_block(sid, out)
+        with st.expander(L("What you'd pay each month", "Lo que pagaría cada mes"), key=f"pp_{sid}"):
+            sel = sel_for(sid, base)
+            out = C.compare(base, sel)
+            compare_strip(out, first, fha_loan_lbl(fa) if (conv or fa) else None)
+            skew_note(base, sel)
+            lk = L("normal loan", "préstamo normal") if conv else "FHA"
+            md(L(f"Same loan in every column: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} down + about {money(ln['closing_costs_est'])} fees = **{money(ln['cash_to_close_est'])} to close**.",
+                 f"Mismo préstamo en cada columna: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} inicial + unos {money(ln['closing_costs_est'])} de cierre = **{money(ln['cash_to_close_est'])} para cerrar**."))
+            q = out.get("qualify")
+            if q:
+                md(L(f"🏦 A lender can count about **{money(q['counted'])}/mo** ({q['share']:.0%} of the other unit's fair rent) as your income. Roommate rent doesn't count.",
+                     f"🏦 El banco puede contar unos **{money(q['counted'])}/mes** ({q['share']:.0%} de la renta justa de la otra unidad) como su ingreso. La renta de compañeros no cuenta."))
+                if q.get("self_sufficiency"):
+                    ssf = q["self_sufficiency"]
+                    md(L(f"3-4 family check: the rents must cover the mortgage payment ({money(ssf['piti'])}) after a 25% cut: about {money(ssf['net_rent_all'])} → {'passes ✓' if ssf['passes'] else 'fails ✗'}.",
+                         f"Prueba de 3-4 familias: las rentas deben cubrir el pago ({money(ssf['piti'])}) tras un recorte del 25%: unos {money(ssf['net_rent_all'])} → {'pasa ✓' if ssf['passes'] else 'no pasa ✗'}."))
+            elif sel["rent_out"] == "room":
+                st.caption(L("Lenders don't count roommate rent when you apply. It still lowers what you pay each month.",
+                             "Los bancos no cuentan la renta de compañeros al aplicar. Aun así baja lo que paga cada mes."))
+            best = out["cols"][2].get("best")
+            if best and best.get("cap"):
+                st.caption(L(f"Airbnb here is capped at {best['cap']} nights a year, so we counted at most that.", f"Airbnb aquí tiene un tope de {best['cap']} noches al año; contamos como máximo eso."))
+            if best and best.get("capped"):
+                st.caption(L("30+ day rate capped at 1.5× normal rent (a safety limit).", "Tarifa de 30+ días limitada a 1.5× la renta normal (límite de seguridad)."))
+            ranges_block(sid, out)
         ub = sel.get("unit_beds", 2)
         ref = ((base.get("units") or {}).get(ub) or {}).get("ltr", {}) if own == "multi-family" else None
-        cash_card(sid, out, (ref or {}).get("typ") if own == "multi-family" else rent)
+        rent_ref = (ref or {}).get("typ") if own == "multi-family" else rent
+        with st.expander(L("What similar places rent for", "Lo que se alquila algo parecido"), key=f"prc_{sid}"):
+            _prop_comps(r, sel, base, own, rent, sid)
+        with st.expander(L("Cash in, cash out", "Dinero que entra y sale"), key=f"pcc_{sid}"):
+            cash_card(sid, out, rent_ref)
+    with st.expander(L("FHA and your loan", "FHA y su préstamo"), key=f"pfha_{sid}"):
+        if fa:
+            fha_card(fa, "p_" + sid, inline=True)
+        else:
+            fha_explainer("p_" + sid, inline=True)
+    with st.expander(L("Drive and town rules", "Viaje y reglas del pueblo"), key=f"pdr_{sid}"):
+        drive_badge(ex.get("drive"))
+        if lvl_ != "exclude":
+            safety_note(r.get("town"))
+        rules_card(r.get("str_rules") or {}, r.get("town"))
+    if base:
         ok_air = out.get("airbnb_allowed")
-        places_block(lists_for_property(r, sel), r.get("str_rules") or {}, r.get("town"), (r.get("str") or {}).get("datasets") or [], ok_air, out.get("days30", 30))
-        season_block(C.seasonality((r.get("str") or {}).get("datasets")), r.get("town"))
+        with st.expander(L("Similar places nearby", "Lugares parecidos cerca"), key=f"ppl_{sid}"):
+            places_block(lists_for_property(r, sel), r.get("str_rules") or {}, r.get("town"), (r.get("str") or {}).get("datasets") or [], ok_air, out.get("days30", 30), head=False)
+        with st.expander(L("Busy vs slow months", "Meses de mucho y poco movimiento"), key=f"pss_{sid}"):
+            season_block(C.seasonality((r.get("str") or {}).get("datasets")), r.get("town"), head=False)
+        # the three numbers, shown right under the price
+        live = C.labels(out, first)[0]
+        cells = [(live["pay"], L("a month to own and live there", "al mes por ser dueña y vivir allí") if live["pay_lbl"][0] == "You pay" else L("a month you'd earn", "al mes que ganaría")),
+                 (f"{money(rent_ref)}/{L('mo', 'mes')}" if rent_ref else "—",
+                  L("the other unit could rent for", "podría rentar la otra unidad") if own == "multi-family" else L("it could rent for", "podría rentarse en")),
+                 (money(ln.get("cash_to_close_est")), L("cash needed to buy", "efectivo para comprar"))]
+        with summ:
+            html("<div class='bz-3'>" + "".join(f"<div><b>{H.escape(str(n))}</b><span>{H.escape(t)}</span></div>" for n, t in cells) + "</div>"
+                 + f"<div class='bz-3n'>{H.escape(L(f'With {fha_loan_lbl(fa)}. Tap a section below for the details.', f'Con {fha_loan_lbl(fa)}. Toque una sección abajo para ver los detalles.'))}</div>")
         cv = report_cv(out, ex.get("drive"), first)
         ss["_sv_stash_prop"] = (r, out, first, p_addr)
         old = sv()["items"].get(sv_iid)
@@ -2163,7 +2267,7 @@ def show_property(r):
     fix_facts(r)
     st.download_button(L("⬇️ Download your full report", "⬇️ Descargar su reporte completo"), lambda r=r, lg_=("es" if ES() else "en"), cv=cv: property_html(r, lg_, cv=cv).encode(),
                        L(f"BellaZu_Report_{safe_name(r['address'])}.html", f"BellaZu_Reporte_{safe_name(r['address'])}.html"), "text/html", key="dl_prop", type="primary", width="stretch", on_click="ignore")
-    with st.expander(L("See details", "Ver detalles")):
+    with st.expander(L("See details and words to know", "Ver detalles y palabras clave")):
         property_details(r, f, sc, o, rent, rent_src, own)
 
 
@@ -2261,14 +2365,18 @@ def show_town_view(a):
     if a.get("town_match") in ("alias", "fuzzy") and a.get("town_input"):
         st.caption(L(f"Showing {t} (you typed “{a['town_input']}”).", f"Mostrando {t} (usted escribió “{a['town_input']}”)."))
     html(f"<div class='bz-hello'>{H.escape(t)}</div>")
-    drive_badge(a.get("drive"))
-    safety_note(t)
-    # town rules + FHA: a two-line summary here, the full cards one tap away, so the first home shows on the first screen
+    drive_line(a.get("drive"))
     sr = a.get("str_rules") or {}
     icon, en_, es_ = S.airbnb_line(sr, "owner")
     lim, cty = FHA.loan_limit(t, 1)
     lim2, _ = FHA.loan_limit(t, 2)
-    with st.expander(f"{icon} {es_ if ES() else en_} · {L('✅ FHA 3.5% down OK', '✅ FHA 3.5% inicial sí')}", key=f"tinfo_{sid}"):
+    lvl, _c = C.town_caution(t)
+    if lvl == "exclude":
+        safety_note(t)                         # a strong caution stays in view; the milder ones are under "About this town"
+    with st.expander(L(f"About {t}", f"Sobre {t}"), key=f"tinfo_{sid}"):
+        drive_badge(a.get("drive"))
+        if lvl != "exclude":
+            safety_note(t)
         rules_card(sr, t)
         cn = (cty or "").title()
         if lim:
@@ -2286,26 +2394,28 @@ def show_town_view(a):
     _town_price_block(a, sid, first)
     hold = ss.get(f"_tph_{sid}") or {}
     size, out, cv = hold.get("size"), hold.get("out"), hold.get("cv")
-    _town_comps(a, sid, size, out)
+    with st.expander(L("🏷️ What similar places rent for", "🏷️ Lo que se alquila algo parecido"), key=f"trc_{sid}"):
+        _town_comps(a, sid, size, out)
     # Airbnb market card
     mk = a.get("market") or {}
     s_ = mk.get("summary") or {}
-    st.markdown(f"#### {L('🛏️ Airbnb market nearby', '🛏️ Mercado de Airbnb cerca')}")
-    if s_.get("n"):
-        rough = not mk.get("covered")
-        html("<div class='bz-card'>" + "".join(f"<div class='bz-kv'><span>{H.escape(x)}</span><b>{H.escape(y)}</b></div>" for x, y in [
-            (L("Active short-stay homes", "Casas activas de estadía corta"), str(s_["n"])),
-            (L("Typical nightly price", "Precio típico por noche"), money(s_.get("adr_median"))),
-            (L("Typical nights booked a year", "Noches reservadas típicas al año"), str(round((s_.get("occ_median_sf_model") or 0) * 365))),
-            (L("Typical income a year", "Ingreso típico al año"), f"{money(s_.get('revenue_median'))}"),
-            (L("Usual range a year", "Rango usual al año"), f"{kmoney(s_.get('revenue_p25'))}-{kmoney(s_.get('revenue_p75'))}"),
-            (L("Furnished 30+ day listings (2 bd)", "Anuncios amueblados 30+ días (2 hab)"), str(mk.get("n_30plus") or 0))]) + "</div>")
-        st.caption((L(f"Rough estimate borrowed from {', '.join(x.replace('-', ' ').title() for x in mk.get('datasets') or [])} Airbnb data (no Inside Airbnb data for {t}).",
-                      f"Estimado aproximado con datos de Airbnb de {', '.join(x.replace('-', ' ').title() for x in mk.get('datasets') or [])} (no hay datos de Inside Airbnb para {t}).") + " " if rough else "")
-                   + L("Before costs. Inside Airbnb's model: booked nights from reviews, capped at 70%.", "Antes de gastos. Modelo de Inside Airbnb: noches según reseñas, tope 70%."))
-    else:
-        st.caption(L("No Airbnb data near this town.", "No hay datos de Airbnb cerca de este pueblo."))
-    season_block(a.get("seasonality"), t)
+    with st.expander(L("🛏️ Airbnb market nearby", "🛏️ Mercado de Airbnb cerca"), key=f"tmk_{sid}"):
+        if s_.get("n"):
+            rough = not mk.get("covered")
+            html("<div class='bz-card'>" + "".join(f"<div class='bz-kv'><span>{H.escape(x)}</span><b>{H.escape(y)}</b></div>" for x, y in [
+                (L("Active short-stay homes", "Casas activas de estadía corta"), str(s_["n"])),
+                (L("Typical nightly price", "Precio típico por noche"), money(s_.get("adr_median"))),
+                (L("Typical nights booked a year", "Noches reservadas típicas al año"), str(round((s_.get("occ_median_sf_model") or 0) * 365))),
+                (L("Typical income a year", "Ingreso típico al año"), f"{money(s_.get('revenue_median'))}"),
+                (L("Usual range a year", "Rango usual al año"), f"{kmoney(s_.get('revenue_p25'))}-{kmoney(s_.get('revenue_p75'))}"),
+                (L("Furnished 30+ day listings (2 bd)", "Anuncios amueblados 30+ días (2 hab)"), str(mk.get("n_30plus") or 0))]) + "</div>")
+            st.caption((L(f"Rough estimate borrowed from {', '.join(x.replace('-', ' ').title() for x in mk.get('datasets') or [])} Airbnb data (no Inside Airbnb data for {t}).",
+                          f"Estimado aproximado con datos de Airbnb de {', '.join(x.replace('-', ' ').title() for x in mk.get('datasets') or [])} (no hay datos de Inside Airbnb para {t}).") + " " if rough else "")
+                       + L("Before costs. Inside Airbnb's model: booked nights from reviews, capped at 70%.", "Antes de gastos. Modelo de Inside Airbnb: noches según reseñas, tope 70%."))
+        else:
+            st.caption(L("No Airbnb data near this town.", "No hay datos de Airbnb cerca de este pueblo."))
+    with st.expander(L("📅 Busy vs slow months", "📅 Meses de mucho y poco movimiento"), key=f"tss_{sid}"):
+        season_block(a.get("seasonality"), t, head=False)
     sz = 2 if size == "2fam" else int(size)
     ro = (out or {}).get("rent_out", "unit" if size == "2fam" else "room")
     bb = {int(k): v for k, v in (a.get("by_beds") or {}).items()}
@@ -2316,7 +2426,8 @@ def show_town_view(a):
         u = bb.get(min(ub, 3)) or {}
         lists = {"rent": u.get("ltr_comps") or [], "mtr": (u.get("mtr") or {}).get("comps") or [], "str": (u.get("str") or {}).get("comps") or []}
     ok_air = (out or {}).get("airbnb_allowed", C.airbnb_ok(a.get("str_rules") or {}, "multi-family" if size == "2fam" else "single-family", "unit" if size == "2fam" else "room"))
-    places_block(lists, a.get("str_rules") or {}, t, mk.get("datasets") and [f"nj/{x}" for x in mk["datasets"]] or [], ok_air, C.days30(a.get("str_rules") or {}))
+    with st.expander(L("🏘️ Similar places nearby", "🏘️ Lugares parecidos cerca"), key=f"tpl_{sid}"):
+        places_block(lists, a.get("str_rules") or {}, t, mk.get("datasets") and [f"nj/{x}" for x in mk["datasets"]] or [], ok_air, C.days30(a.get("str_rules") or {}), head=False)
     lg_ = "es" if ES() else "en"                      # both files are made only when tapped
     hold_ = ss.get(f"_tph_{sid}") or {}
     st.download_button(L("⬇️ Download the town report", "⬇️ Descargar el reporte del pueblo"), lambda a=a, h=hold_, lg_=lg_: town_html(a, h.get("cv"), lg_).encode(),
@@ -2497,40 +2608,33 @@ def _cz_more(key, h):
         ss.setdefault("cz_fail", set()).add(pid)
 
 
-def carousel(h, key, rent, town_lbl=None):
+def carousel(h, key, rent, town_lbl=None, on_open=None, more_ok=True):
     ss = st.session_state
     tag, tagc = ((f"↓ {kmoney(h['price_cut'])}", "cut") if h.get("price_cut") else (L("NEW", "NUEVA"), "new") if h.get("new") else ("", ""))
     photos, count = _card_photos(h)
     pid = str(h.get("id") or "")
-    more = bool(pid) and pid not in (ss.get("cz_fail") or set()) and pid not in (ss.get("cz_ph") or {}) and count > len(photos)
+    more = more_ok and bool(pid) and pid not in (ss.get("cz_fail") or set()) and pid not in (ss.get("cz_ph") or {}) and count > len(photos)
     _CZ(key=key, data={"photos": photos, "count": count, "id": pid, "more": more, "open": not rent, "url": h.get("url") if rent else None,
                        "town": town_lbl or "", "price": money(h["price"]) if h.get("price") else "", "per": L("/mo", "/mes") if rent else "",
                        "tag": tag, "tagc": tagc,
                        "lbl": {"loading": L("Loading more photos... ✨", "Cargando más fotos... ✨"), "prev": L("Previous photo", "Foto anterior"),
                                "next": L("Next photo", "Foto siguiente"), "photo": L("Photo", "Foto")}},
-        on_more_change=lambda k=key, x=h: _cz_more(k, x), on_open_change=(lambda x=h: _open_listing(x)) if not rent else (lambda: None))
+        on_more_change=lambda k=key, x=h: _cz_more(k, x), on_open_change=(on_open or (lambda x=h: _open_listing(x))) if not rent else (lambda: None))
 
 
 @timed('card')
 def _home_card(h, drive, rent, key, town_lbl=None):
-    cut = f"<span class='cut'>↓ {kmoney(h['price_cut'])}</span>" if h.get("price_cut") else ("<span class='new'>" + L("NEW", "NUEVA") + "</span>" if h.get("new") else "")
-    bits = [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None, f"{h['baths']:g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
-            f"{h['sqft']:,} ft²" if h.get("sqft") else None,
-            (L(f"fee {money(h['hoa_monthly'])}/mo", f"cuota {money(h['hoa_monthly'])}/mes") if h.get("hoa_monthly") else None)]
-    days = h.get("days")
-    dl = (L("Listed today", "Publicada hoy") if days == 0 else L("Listed 1 day ago", "Publicada hace 1 día") if days == 1
-          else L(f"Listed {days} days ago", f"Publicada hace {days} días")) if days is not None else ""
-    dr = L(f"🚗 {drive['min']}-{drive['rush'][1]} min to Midtown", f"🚗 {drive['min']}-{drive['rush'][1]} min a Midtown") if drive and drive.get("rush") else ""
-    price = money(h["price"]) + (f"<span class='mo'>{L('/mo', '/mes')}</span>" if rent else "")
-    carousel(h, f"cz_{key}", rent, f"📍 {town_lbl}" if town_lbl else None)
-    fb = ""
-    if not rent:
-        fa = fha_for_row(h)
-        c = fa.get("code")
-        fb = f"<div class='fha {'ok' if c in ('ok', 'condo_ok') else 'no' if c in ('coop', 'condo_no', 'over_limit') else 'q'}'>{H.escape(fha_badge_short(fa))}</div>"
-    html(f"<div class='bz-home nb'><div class='bd'><div class='p'>{price} {cut}</div>"
-         f"<div class='m'>{' · '.join(b for b in bits if b)}</div><div class='m'>{' · '.join(x for x in (dl, dr) if x)}</div>{fb}"
-         f"<div class='a'>{H.escape(h['address'])}</div>" + (f"<div class='br'>{L('Listed by', 'Publicada por')} {H.escape(h['broker'])}</div>" if h.get("broker") else "") + "</div></div>")
+    """Just the photos with the price badge on them (price, /mo, NEW or price-cut tag). Days listed, drive, FHA, fee, broker and
+    address are in the home's own view (tap the photo or "Details"); the one facts line + heart come right after (feed_block)."""
+    carousel(h, f"cz_{key}", rent, None)
+
+
+def _card_line(h, town_lbl=None):
+    """beds · baths · town (several towns) or sqft (one town): the only text under a card's photo."""
+    b = [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None,
+         f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
+         town_lbl if town_lbl else (f"{int(h['sqft']):,} ft²" if h.get("sqft") else None)]
+    return " · ".join(x for x in b if x)
 
 
 FEED_SORT = {"new": ("Newest", "Más nuevas"), "low": ("Price ↑", "Precio ↑"), "high": ("Price ↓", "Precio ↓")}
@@ -2679,14 +2783,14 @@ def feed_block(ts, drives, sid):
         with st.container(key=f"hcard_{hk}", gap=None):
             _home_card(h, drives.get(h["_t"]), rent, hk, h["_t"] if multi else None)
         iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
-        with st.container(horizontal=True, vertical_alignment="center", key=f"hrow_{sid}_{i}"):
+        with st.container(horizontal=True, vertical_alignment="center", key=f"hrow_{sid}_{i}", gap="small"):
+            st.markdown(f"<div class='bz-hl'>{H.escape(_card_line(h, h['_t'] if multi else None))}</div>", unsafe_allow_html=True, width="stretch")
             heart(iid, f"h_{sid}_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (h, rent))
             if rent:
                 if h.get("url"):
-                    st.link_button(L("Photos on realtor.com ↗", "Fotos en realtor.com ↗"), h["url"], width="stretch")
+                    st.link_button(L("realtor.com ↗", "realtor.com ↗"), h["url"], type="tertiary")
             else:
-                st.button(L("📷 More photos + my numbers", "📷 Más fotos + mis números"), key=f"ho_{sid}_{i}_{h['id']}", width="stretch", type="primary",
-                          on_click=_open_listing, args=(h,))
+                st.button(L("Details ›", "Ver ›"), key=f"ho_{sid}_{i}_{h['id']}", type="tertiary", on_click=_open_listing, args=(h,))
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
@@ -2717,7 +2821,7 @@ def run_listing(h, where):
     ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": (d.get("photos") if d.get("ok") else None) or h.get("photos") or [], "url": h.get("url"),
                                                           "broker": h.get("broker"), "price": h.get("price"), "hoa": hoa, "count": h.get("photo_count"),
                                                           "id": str(h.get("id") or ""), "text": (d.get("text") if d.get("ok") else None),
-                                                          "town": h.get("town"), "zip": h.get("zip"), "flags": h.get("flags") or []}
+                                                          "town": h.get("town"), "zip": h.get("zip"), "flags": h.get("flags") or [], "days": h.get("days")}
     ss.view = ("addr", addr)
     ss.prop_addr = addr
     run_home(addr, where)
@@ -2730,6 +2834,10 @@ def gallery_block(addr):
     ph = g["photos"][:40]
     html("<div class='bz-gal'>" + "".join(f"<img src='{H.escape(u)}' loading='{'eager' if i < 2 else 'lazy'}' alt=''>" for i, u in enumerate(ph)) + "</div>")
     bits = [L(f"Swipe for {len(ph)} photos", f"Deslice para ver {len(ph)} fotos")] if len(ph) > 1 else []
+    dy = g.get("days")
+    if isinstance(dy, int):
+        bits.append(L("listed today", "publicada hoy") if dy == 0 else L("listed 1 day ago", "publicada hace 1 día") if dy == 1 else
+                    L(f"listed {dy} days ago", f"publicada hace {dy} días"))
     if g.get("hoa") is not None:
         bits.append(L(f"building fee {money(g['hoa'])}/mo", f"cuota {money(g['hoa'])}/mes"))
     if g.get("broker"):
@@ -3491,47 +3599,55 @@ def _cmp_html(cols, extra_cls=""):
 
 @timed('saved_card')
 def saved_card(x):
+    """Calm saved card: photo carousel with the price on it, one facts line, then tap-to-open details and notes."""
     k = _sv_key(x["id"])
     with st.container(key=f"svcard_{k}"):
         pic = x.get("photo") if str(x.get("photo") or "").startswith("https://") else None
-        img = f"<img src='{H.escape(pic)}' loading='lazy' alt=''>" if pic else f"<div class='noimg'>{'🏙️' if x.get('kind') == 'town' else '🏡'}</div>"
+        phs = [u for u in (x.get("photos") or []) if str(u).startswith("https://")] or ([pic] if pic else [])
         price = (money(x["price"]) + (L("/mo", "/mes") if x.get("rent") else "")) if x.get("price") else ""
         fl = x.get("facts_line_es" if ES() else "facts_line_en") or ""
         src = {"full": L("full check", "revisión completa"), "town": L("quick estimate from town averages", "estimado rápido con promedios del pueblo")}.get(x.get("nums_src"), "")
         title = x.get("addr") or x.get("title") or ""
-        html(f"<div class='bz-sv'>{img}<div style='min-width:0'>" + (f"<div class='p'>{H.escape(price)}</div>" if price else "") + f"<div class='t'>{H.escape(title)}</div>"
-             f"<div class='m'>{H.escape(fl)}</div><div class='d'>♥ {L('Saved', 'Guardada')} {H.escape(_date_txt(x.get('saved')))}"
-             + (f" · {H.escape(src)}" if src and x.get("cols") else "") + "</div></div></div>")
-        if x.get("cols"):
-            html(f"<div class='bz-lbl' style='margin-top:.7rem'>{L('Each month, when saved', 'Cada mes, al guardarla')}</div>" + _cmp_html(x["cols"], "bz-sv-nums"))
-        if x.get("legal"):
-            html(f"<div class='bz-sv-b'>{H.escape(P(x['legal']))}</div>")
-        if x.get("safety"):
-            html(f"<div class='bz-sv-b'>ℹ️ {H.escape(P(x['safety']))}</div>")
-        if x.get("kind") == "home" and not x.get("rent"):
-            fa = fha_for_saved(x)
-            if fa:
-                html(f"<div class='bz-sv-b'>{H.escape(fha_badge_short(fa))}</div>")
-        if x.get("town") and x.get("kind") in ("home", "town"):
-            with st.expander(L("🏷️ What similar places rent for", "🏷️ Lo que se alquila algo parecido"), key=f"svrc_{k}"):
+        if x.get("kind") == "home" and phs:
+            h = {"id": x.get("listing_id") or "", "photo": phs[0], "photos": phs, "photo_count": len(phs), "price": x.get("price"),
+                 "url": x.get("url"), "new": False, "price_cut": None}
+            carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=(lambda i=x["id"]: _sv_open(i)), more_ok=False)
+        elif price:
+            html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
+        html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
+        with st.expander(L("Details", "Detalles"), key=f"svdt_{k}"):
+            st.caption(f"♥ {L('Saved', 'Guardada')} {_date_txt(x.get('saved'))}" + (f" · {src}" if src and x.get("cols") else ""))
+            if x.get("cols"):
+                html(f"<div class='bz-lbl' style='margin-top:.3rem'>{L('Each month, when saved', 'Cada mes, al guardarla')}</div>" + _cmp_html(x["cols"], "bz-sv-nums"))
+            if x.get("legal"):
+                html(f"<div class='bz-sv-b'>{H.escape(P(x['legal']))}</div>")
+            if x.get("safety"):
+                html(f"<div class='bz-sv-b'>ℹ️ {H.escape(P(x['safety']))}</div>")
+            if x.get("kind") == "home" and not x.get("rent"):
+                fa = fha_for_saved(x)
+                if fa:
+                    html(f"<div class='bz-sv-b'>{H.escape(fha_badge_short(fa))}</div>")
+            if x.get("town") and x.get("kind") in ("home", "town"):
+                st.markdown(f"**{L('What similar places rent for', 'Lo que se alquila algo parecido')}**")
                 b = x.get("beds") if x.get("kind") == "home" else (2 if x.get("size") == "2fam" else int(x.get("size") or 2))
                 if x.get("kind") == "home" and (x.get("type_lbl") or [""])[0].startswith("2") and b:
                     b = 2
                 tk = (x.get("type_lbl") or [""])[0].lower()
                 rent_comps_box("sv_" + k, x["town"], b, "condo" if tk in ("condo", "co-op") else "house" if tk == "house" else None, None, None,
                                None, None, _hud_for(x["town"], b), None, None, None, None)
-        st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
-                 format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
-        st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
-                     placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
-                     on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
-        if not x.get("rent"):
-            st.button(L("📊 Open my numbers again", "📊 Abrir mis números otra vez"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="primary", width="stretch")
-        row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center")
+        with st.expander(L("My status and notes", "Mi estado y notas"), key=f"svnx_{k}"):
+            st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
+                     format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
+            st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
+                         placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
+                         on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
+        row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"svrow_{k}")
         with row:
+            if not x.get("rent"):
+                st.button(L("Open my numbers", "Abrir mis números"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="tertiary")
             if str(x.get("url") or "").startswith("http"):
-                st.link_button(L("See listing ↗", "Ver anuncio ↗"), x["url"])
-            st.button(L("🗑 Remove", "🗑 Quitar"), key=f"svrm_{k}", on_click=_sv_remove, args=(x["id"],), type="tertiary")
+                st.link_button(L("Listing ↗", "Anuncio ↗"), x["url"], type="tertiary")
+            st.button(L("Remove", "Quitar"), key=f"svrm_{k}", on_click=_sv_remove, args=(x["id"],), type="tertiary")
 
 
 def _sv_wait_cloud():
