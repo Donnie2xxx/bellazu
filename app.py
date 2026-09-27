@@ -511,8 +511,7 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; t
 .bz-card, .bz-drive, .bz-fha, .bz-rc, .bz-mt {border:0 !important; border-radius:20px}
 .bz-fha {border-left:3px solid #9FE0B0 !important; border-radius:6px 16px 16px 6px}
 .bz-rc {background:transparent; padding:.2rem 0 .4rem}
-.bz-line {font-size:1rem; color:var(--paper); margin:0 0 .8rem; line-height:1.5}
-.bz-line .x {color:var(--mute)}
+.bz-tl {font-size:1rem; color:var(--paper); margin:0 0 .6rem; line-height:1.5}
 /* home cards: photo + one line, generous space between cards */
 .bz-hl {display:flex; align-items:center; gap:.5rem; font-size:1rem; color:var(--paper); line-height:1.35; min-height:2.4rem}
 .bz-hl .x {color:var(--mute)}
@@ -1609,7 +1608,7 @@ def drive_line(d):
     tr = d.get("transit")
     if tr:
         bits.append("🚆 " + re.sub(r"\s(about|unos)\s", " ", tr[1] if ES() else tr[0]))
-    html(f"<div class='bz-line'>{H.escape(' · '.join(bits))}</div>")
+    html(f"<div class='bz-tl'>{H.escape(' · '.join(bits))}</div>")
 
 
 def drive_badge(d):
@@ -2244,8 +2243,8 @@ def show_property(r):
         # the three numbers, shown right under the price
         live = C.labels(out, first)[0]
         cells = [(live["pay"], L("a month to own and live there", "al mes por ser dueña y vivir allí") if live["pay_lbl"][0] == "You pay" else L("a month you'd earn", "al mes que ganaría")),
-                 (f"{money(rent_ref)}/{L('mo', 'mes')}" if rent_ref else "—",
-                  L("the other unit could rent for", "podría rentar la otra unidad") if own == "multi-family" else L("it could rent for", "podría rentarse en")),
+                 (money(rent_ref) if rent_ref else "—",
+                  L("a month the other unit could rent for", "al mes podría rentar la otra unidad") if own == "multi-family" else L("a month it could rent for", "al mes podría rentarse")),
                  (money(ln.get("cash_to_close_est")), L("cash needed to buy", "efectivo para comprar"))]
         with summ:
             html("<div class='bz-3'>" + "".join(f"<div><b>{H.escape(str(n))}</b><span>{H.escape(t)}</span></div>" for n, t in cells) + "</div>"
