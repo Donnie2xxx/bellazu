@@ -545,6 +545,8 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; t
 [class*="st-key-svrow_"] .stLinkButton a {border:0 !important; min-height:2.4rem; color:var(--rose) !important; font-weight:600}
 [class*="st-key-svrow_"] .stLinkButton a * {color:var(--rose) !important}
 [class*="st-key-svdt_"] details, [class*="st-key-svnx_"] details {border-bottom:0 !important}
+[class*="st-key-svcard_"] {gap:.35rem !important}
+[class*="st-key-svdt_"] summary p, [class*="st-key-svnx_"] summary p {font-size:.95rem; font-weight:600; color:var(--mute)}
 </style>""", unsafe_allow_html=True)
 st.session_state.setdefault("_tm_cur", []).append(("css", round((time.perf_counter() - _t_css) * 1000)))
 st.session_state._tm_cur.insert(0, ("boot", round((_t_css - _BZ_T0) * 1000)))
