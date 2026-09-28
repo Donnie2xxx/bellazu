@@ -2381,8 +2381,8 @@ def loan_breakdown(c, ln, hi, f, r, own, apm):
     if "taxes" in inc:
         tx = L("included in the maintenance (co-op)", "incluidos en el mantenimiento (co-op)")
     elif f.get("taxes_annual"):
-        tx = L(f"{money(f['taxes_annual'])}/yr from ", f"{money(f['taxes_annual'])}/año de ") + (L("what you entered", "lo que usted ingresó") if tsrc == "user input" else
-                                                                                               L("the home's tax record", "el registro de impuestos de la casa"))
+        tx = L(f"{money(f['taxes_annual'])}/yr from ", f"{money(f['taxes_annual'])}/año ") + (L("what you entered", "de lo que usted ingresó") if tsrc == "user input" else
+                                                                                               L("the home's tax record", "del registro de impuestos de la casa"))
     else:
         tx = L(f"the lender's {money(lp['tax_y'])}/yr (this home's tax bill is unknown)", f"los {money(lp['tax_y'])}/año del banco (no se sabe la factura de esta casa)")
     mi = int(c.get("mortgage_insurance") or 0)
