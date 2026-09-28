@@ -2454,7 +2454,7 @@ def loan_breakdown(c, ln, hi, f, r, own, apm):
     body = "".join(f"<tr><td>{H.escape(a)}<span class='x'>{H.escape(str(sub))}</span></td><td class='n'>{money(v or 0)}</td></tr>" for a, v, sub in rows)
     body += f"<tr class='t'><td>{L('Total a month', 'Total al mes')}</td><td class='n'>{money(tot)}</td></tr>"
     body += (f"<tr><td>{L('Your approved monthly payment', 'Su pago mensual aprobado')}<span class='x'>"
-             f"{H.escape(L(f'at {mxs}, with the lender’s taxes and insurance, no HOA', f'a {mxs}, con los impuestos y seguro del banco, sin HOA'))}</span></td>"
+             f"{H.escape(L(f'FHA at {mxs}, {money(apm[chr(108) + chr(111) + chr(97) + chr(110)][chr(100) + chr(111) + chr(119) + chr(110) + chr(95) + chr(112) + chr(97) + chr(121) + chr(109) + chr(101) + chr(110) + chr(116)])} down, with the lender’s taxes and insurance, no HOA', f'FHA a {mxs}, {money(apm[chr(108) + chr(111) + chr(97) + chr(110)][chr(100) + chr(111) + chr(119) + chr(110) + chr(95) + chr(112) + chr(97) + chr(121) + chr(109) + chr(101) + chr(110) + chr(116)])} de inicial, con los impuestos y seguro del banco, sin HOA'))}</span></td>"
              f"<td class='n'>{money(apm['total'])}</td></tr>")
     html(f"<table class='bz-bd'>{body}</table>")
     md(L(f"**Cash to close (est.):** {money(ln.get('down_payment'))} down ({(ln.get('down_pct') or 0) * 100:.1f}%) + about {money(ln.get('closing_costs_est'))} closing costs "
