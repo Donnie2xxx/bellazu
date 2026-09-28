@@ -1478,11 +1478,11 @@ def loan_panel():
     ins_es = (f"con el MIP inicial de 1.75%, {rate_lbl()}, {p['term']} años, MIP de 0.55%/año" if fha_ else
               f"{rate_lbl()}, {p['term']} años, PMI est. {p['pmi_pct'] * 100:.2f}%/año")
     cap(L(f"Approved monthly payment: {money(ap['total'])} ({'FHA' if fha_ else 'conventional'} at {kmoney(p['max_price'])}, {money(ap['loan']['down_payment'])} down, "
-          f"loan {money(ap['loan']['loan_amount'])} {ins_en}, the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). "
+          f"loan {money(ap['loan']['loan_amount'])}{' ' if fha_ else ', '}{ins_en}, the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). "
           + ("FHA condos must be on HUD's approved list; co-ops can't use FHA." if fha_ else
              "Conventional: condos don't need HUD approval. Co-ops need a lender that does co-op loans (priced at 10% down)."),
           f"Pago mensual aprobado: {money(ap['total'])} ({'FHA' if fha_ else 'convencional'} a {kmoney(p['max_price'])}, {money(ap['loan']['down_payment'])} de inicial, "
-          f"préstamo {money(ap['loan']['loan_amount'])} {ins_es}, los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). "
+          f"préstamo {money(ap['loan']['loan_amount'])}{' ' if fha_ else ', '}{ins_es}, los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). "
           + ("Los condos con FHA deben estar en la lista aprobada de HUD; los co-ops no pueden usar FHA." if fha_ else
              "Convencional: los condos no necesitan aprobación de HUD. Los co-ops necesitan un banco que haga préstamos de co-op (calculado con 10% inicial).")))
     st.button(L("Reset to my pre-approval", "Volver a mi pre-aprobación"), key="ml_reset", on_click=_loan_reset, type="tertiary")
