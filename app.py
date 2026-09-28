@@ -606,6 +606,11 @@ def md(s):
     st.markdown(s.replace("$", "\\$"))
 
 
+def cap(s):
+    """st.caption with dollar signs kept literal (two $ in one line would turn into math)."""
+    st.caption(s.replace("$", "\\$"))
+
+
 @timed('header')
 def header(authed=False):
     top = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key="topbar")
@@ -1408,10 +1413,10 @@ def loan_panel():
     with c6:
         st.number_input(L("Taxes if unknown ($/yr)", "Impuestos si no se saben ($/año)"), 0, 50_000, step=100, key="ml_tax", on_change=_loan_save)
     ap = approved_monthly()
-    st.caption(L(f"Approved monthly payment: {money(ap['total'])} (at {kmoney(p['max_price'])}, loan {money(ap['loan']['loan_amount'])}, {rate_lbl()}, "
-                 f"with the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). FHA: 1.75% upfront MIP added to the loan + 0.55%/yr.",
+    cap(L(f"Approved monthly payment: {money(ap['total'])} (at {kmoney(p['max_price'])}, loan {money(ap['loan']['loan_amount'])}, {rate_lbl()}, "
+                 f"with the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). FHA: 1.75% upfront MIP added to the loan + 0.55%/yr; the approved payment stays at the letter's terms (normal loan, 5% down).",
                  f"Pago mensual aprobado: {money(ap['total'])} (a {kmoney(p['max_price'])}, préstamo {money(ap['loan']['loan_amount'])}, {rate_lbl()}, "
-                 f"con los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). FHA: 1.75% de MIP inicial sumado al préstamo + 0.55%/año."))
+                 f"con los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). FHA: 1.75% de MIP inicial sumado al préstamo + 0.55%/año; el pago aprobado sigue con los términos de la carta (préstamo normal, 5% inicial)."))
     st.button(L("Reset to my pre-approval", "Volver a mi pre-aprobación"), key="ml_reset", on_click=_loan_reset, type="tertiary")
 
 
@@ -1833,7 +1838,7 @@ def skew_note(base, sel):
         return
     u = ((base.get("units") or {}).get(sel.get("unit_beds", 2)) or {}).get("ltr") or {}
     if u.get("skewed"):
-        st.caption(L(f"Most rentals listed here are in new buildings (typical {money(u['high'])}/mo), well above HUD's fair rent ({money(u['low'])}). "
+        cap(L(f"Most rentals listed here are in new buildings (typical {money(u['high'])}/mo), well above HUD's fair rent ({money(u['low'])}). "
                      f"For an older 2-family unit we use {money(u['typ'])}/mo, halfway between HUD and the cheaper listings. Move the rent slider if you know better.",
                      f"La mayoría de los alquileres aquí son de edificios nuevos (típico {money(u['high'])}/mes), muy por encima de la renta justa de HUD ({money(u['low'])}). "
                      f"Para una unidad en una casa de 2 familias usamos {money(u['typ'])}/mes, entre HUD y los anuncios más baratos. Mueva la barra de renta si sabe más."))
@@ -3630,7 +3635,7 @@ def town_ranking(hm):
     st.markdown(f"#### {L('🏆 Best towns for your first home' if hm == 'first' else '🏆 Towns by the numbers', '🏆 Mejores pueblos para su primera casa' if hm == 'first' else '🏆 Pueblos según los números')}")
     price = st.segmented_control(L("Price you're looking at", "Precio que está mirando"), C.PRICE_CHIPS, key="rank_price", default=C.PRICE_CHIPS[1], required=True, format_func=kmoney)
     rk = _rank_shared(hm, int(price), fha_rate())
-    st.caption(L(f"What you'd pay a month on a {kmoney(price)} 2-family, renting the other unit at HUD's fair rent for the town (2 bd). "
+    cap(L(f"What you'd pay a month on a {kmoney(price)} 2-family, renting the other unit at HUD's fair rent for the town (2 bd). "
                  + ("Ranked by drive time plus monthly cost." if hm == "first" else "Ranked by monthly cost; drive shown, not counted.") + " Tap a town.",
                  f"Lo que pagaría al mes en una casa de 2 familias de {kmoney(price)}, alquilando la otra unidad a la renta justa de HUD del pueblo (2 hab). "
                  + ("Ordenado por tiempo en carro más costo mensual." if hm == "first" else "Ordenado por costo mensual; el trayecto se muestra pero no cuenta.") + " Toque un pueblo."))
