@@ -553,6 +553,7 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; t
 .bz-cm {font-size:.9rem; color:var(--paper); line-height:1.45; margin:-.2rem 0 .2rem}
 .bz-cm .x {color:var(--mute); font-size:.85rem}
 .bz-cm .ff {color:#FFB38A; font-size:.85rem; font-weight:600}
+.bz-cm .cn {color:#FFE08A; font-size:.85rem}
 .tg {font-weight:600} .tg.g {color:#9FE0B0} .tg.y {color:#F5D37A} .tg.r {color:#F28B8B}
 .bz-tag {display:inline-block; border-radius:100px; padding:.3rem .8rem; font-weight:600; font-size:.9rem; margin:.1rem 0 .5rem}
 .bz-tag.g {background:rgba(159,224,176,.14); color:#9FE0B0} .bz-tag.y {background:rgba(245,211,122,.14); color:#F5D37A} .bz-tag.r {background:rgba(242,139,139,.14); color:#F28B8B}
@@ -1257,8 +1258,9 @@ def loan_rate():
 
 def rate_lbl():
     p = loan_prof()
-    if p.get("rate"):
-        if p.get("rate_src") == "lender":
+    rk, sk = ML.rate_keys(p["kind"])
+    if p.get(rk):
+        if p.get(sk) == "lender":
             return L(f"{loan_rate():.2f}% from your lender", f"{loan_rate():.2f}% de su banco")
         return L(f"{loan_rate():.2f}% (your rate)", f"{loan_rate():.2f}% (su tasa)")
     return L(f"{loan_rate():.2f}% est. rate, confirm with lender", f"{loan_rate():.2f}% tasa est., confírmela con su banco")
@@ -1274,7 +1276,7 @@ def loan_kind_lbl(lc=None):
     k = lc.get("kind") or p["kind"]
     dp = lc.get("down_pct") if lc.get("down_pct") is not None else (max(p["down_pct"], ML.FHA["down_pct"]) if k == "fha" else p["down_pct"])
     return (L(f"FHA {dp * 100:.1f}% down", f"FHA {dp * 100:.1f}% inicial") if k == "fha" else
-            L(f"normal loan {dp * 100:.1f}% down", f"préstamo normal {dp * 100:.1f}% inicial")) + f", {p['term']} {L('yr', 'años')}"
+            L(f"conventional {dp * 100:.1f}% down", f"convencional {dp * 100:.1f}% inicial")) + f", {p['term']} {L('yr', 'años')}"
 
 
 def hoa_txt(hi, short=False, es=None):
@@ -1345,6 +1347,11 @@ def FHA_LONG(ff):
             "limit": L("The price is above the county FHA limit, so the numbers above use a normal loan.", "El precio está sobre el límite FHA del condado, así que los números usan un préstamo normal.")}.get(ff, "")
 
 
+COOP_NOTE = ("ⓘ Co-op: needs a lender that does co-op loans · 10% down (est.)", "ⓘ Co-op: necesita un banco que haga préstamos de co-op · 10% inicial (est.)")
+COOP_LONG = ("Co-op: priced with a co-op loan at 10% down (some boards ask 20% or more) and PMI (est.). Not every lender does co-op loans: ask yours. The board also has to approve you.",
+             "Co-op: calculado con un préstamo de co-op con 10% inicial (algunas juntas piden 20% o más) y PMI (est.). No todos los bancos hacen préstamos de co-op: pregunte al suyo. La junta también tiene que aprobarla.")
+
+
 def fha_flag(fa):
     """With an FHA loan in My loan: 'condo' (building not on HUD's approved list), 'coop', 'limit' or None."""
     if not fa or loan_prof()["kind"] != "fha":
@@ -1373,7 +1380,7 @@ def home_money(h):
         ff = fha_flag(fha_for_row(dict(h, type="coop") if coop else h))
     except Exception:
         ff = None
-    out = {"hoa": hi, "m": m, "tag": ML.tag(price, m["total"], p, ap), "approved": ap, "fha": ff}
+    out = {"hoa": hi, "m": m, "tag": ML.tag(price, m["total"], p, ap), "approved": ap, "fha": ff, "coop": coop}
     if len(memo) > 3000:
         memo.clear()
     memo[key] = out
@@ -1385,15 +1392,18 @@ def _loan_save():
     ss = st.session_state
     p = loan_prof()
     kind = ss.get("ml_kind") or p["kind"]
+    rk, sk = ML.rate_keys(p["kind"])                 # the rate box edits the loan type that was showing
     r_new = float(ss["ml_rate"]) if ss.get("ml_rate") else None
-    r_src = (p.get("rate_src") if r_new is not None and p.get("rate") and abs(r_new - float(p["rate"])) < 1e-9 else ("you" if r_new is not None else None))
-    newp = dict(p, v=ML.DEFAULT["v"], kind=kind, rate_src=r_src, max_price=float(ss.get("ml_max") or p["max_price"]), down_pct=float(ss.get("ml_down") or p["down_pct"] * 100) / 100,
+    r_src = (p.get(sk) if r_new is not None and p.get(rk) and abs(r_new - float(p[rk])) < 1e-9 else ("you" if r_new is not None else None))
+    newp = dict(p, v=ML.DEFAULT["v"], kind=kind, max_price=float(ss.get("ml_max") or p["max_price"]), down_pct=float(ss.get("ml_down") or p["down_pct"] * 100) / 100,
                 min_down=float(ss.get("ml_min") if ss.get("ml_min") is not None else p["min_down"]),
-                rate=r_new, term=int(ss.get("ml_term") or p["term"]),
+                term=int(ss.get("ml_term") or p["term"]),
                 pmi_pct=float(ss.get("ml_pmi") if ss.get("ml_pmi") is not None else p["pmi_pct"] * 100) / 100,
                 closing_pct=float(ss.get("ml_close") if ss.get("ml_close") is not None else p["closing_pct"] * 100) / 100,
                 ins_m=float(ss.get("ml_ins") if ss.get("ml_ins") is not None else p["ins_m"]),
                 tax_y=float(ss.get("ml_tax") if ss.get("ml_tax") is not None else p["tax_y"]))
+    if kind == p["kind"]:                             # switching FHA <-> conventional keeps each type's own rate
+        newp[rk], newp[sk] = r_new, r_src
     sv()["loan"] = {"p": newp, "t": saves.now_ms()}
     ss.pop("_hm", None)
     _sv_touch()
@@ -1424,14 +1434,16 @@ def loan_panel():
     p = loan_prof()
     mr = market_rate()
     vals = {"ml_kind": p["kind"], "ml_max": int(p["max_price"]), "ml_down": round(p["down_pct"] * 100, 2), "ml_min": int(p["min_down"]),
-            "ml_rate": float(p["rate"] or 0.0), "ml_term": int(p["term"]), "ml_pmi": round(p["pmi_pct"] * 100, 2),
+            "ml_rate": float(p[ML.rate_keys(p["kind"])[0]] or 0.0), "ml_term": int(p["term"]), "ml_pmi": round(p["pmi_pct"] * 100, 2),
             "ml_close": round(p["closing_pct"] * 100, 2), "ml_ins": int(p["ins_m"]), "ml_tax": int(p["tax_y"])}
     for k, v in vals.items():
         ss[k] = v
     st.markdown(f"**{L('My loan', 'Mi préstamo')}**")
-    st.caption(L("From your pre-approval. Every monthly number in BellaZu uses it.", "De su pre-aprobación. Todos los números mensuales de BellaZu lo usan."))
-    st.segmented_control(L("Loan type", "Tipo de préstamo"), ["fha", "conv"], key="ml_kind", required=True, on_change=_loan_save, width="stretch",
-                         format_func=lambda k: L("Normal loan + PMI", "Préstamo normal + PMI") if k == "conv" else L("FHA (your loan)", "FHA (su préstamo)"))
+    st.caption(L("From your pre-approval and your lender's quotes. Every monthly number in BellaZu uses it.",
+                 "De su pre-aprobación y las cotizaciones de su banco. Todos los números mensuales de BellaZu lo usan."))
+    _rt = {k: (float(p[ML.rate_keys(k)[0]]) if p.get(ML.rate_keys(k)[0]) else float(mr["rate_pct"])) for k in ("conv", "fha")}
+    st.segmented_control(L("Loan type", "Tipo de préstamo"), ["conv", "fha"], key="ml_kind", required=True, on_change=_loan_save, width="stretch",
+                         format_func=lambda k: (L("Conventional", "Convencional") if k == "conv" else "FHA") + f" {_rt[k]:.2f}%")
     st.number_input(L("Approved up to (price, $)", "Aprobada hasta (precio, $)"), 50_000, 3_000_000, step=5_000, key="ml_max", on_change=_loan_save)
     ss["ml_dq"] = "letter" if (abs(p["down_pct"] - 0.05) < 1e-9 and int(p["min_down"]) == 15_000) else ("fhamin" if (abs(p["down_pct"] - 0.035) < 1e-9 and not p["min_down"]) else None)
     st.segmented_control(L("Down payment", "Pago inicial"), ["letter", "fhamin"], key="ml_dq", on_change=_loan_down, width="stretch",
@@ -1443,9 +1455,10 @@ def loan_panel():
     with c2:
         st.number_input(L("At least ($)", "Al menos ($)"), 0, 500_000, step=1_000, key="ml_min", on_change=_loan_save)
     st.number_input(L("Interest rate (%)", "Tasa de interés (%)"), 0.0, 15.0, step=0.125, format="%.3f", key="ml_rate", on_change=_loan_save)
-    cap(L(("Your lender's rate. " if p.get("rate") and p.get("rate_src") == "lender" else "")
+    _rk, _sk = ML.rate_keys(p["kind"])
+    cap(L(("Your lender's rate. " if p.get(_rk) and p.get(_sk) == "lender" else "")
           + f"Set 0 to use the market average ({mr['rate_pct']:.2f}%, Freddie Mac 30-year fixed, week of {mr.get('date') or '—'}, an estimate).",
-          ("La tasa de su banco. " if p.get("rate") and p.get("rate_src") == "lender" else "")
+          ("La tasa de su banco. " if p.get(_rk) and p.get(_sk) == "lender" else "")
           + f"Ponga 0 para usar el promedio del mercado ({mr['rate_pct']:.2f}%, Freddie Mac a 30 años fijo, semana del {mr.get('date') or '—'}, un estimado)."))
     st.segmented_control(L("Term", "Plazo"), [30, 15], key="ml_term", required=True, on_change=_loan_save, format_func=lambda y: L(f"{y} years", f"{y} años"))
     c3, c4 = st.columns(2)
@@ -1459,12 +1472,19 @@ def loan_panel():
     with c6:
         st.number_input(L("Taxes if unknown ($/yr)", "Impuestos si no se saben ($/año)"), 0, 50_000, step=100, key="ml_tax", on_change=_loan_save)
     ap = approved_monthly()
-    cap(L(f"Approved monthly payment: {money(ap['total'])} (FHA at {kmoney(p['max_price'])}, {money(ap['loan']['down_payment'])} down, loan {money(ap['loan']['loan_amount'])} with the 1.75% upfront MIP, "
-          f"{rate_lbl()}, {p['term']} years, 0.55%/yr MIP, the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). "
-          "FHA condos must be on HUD's approved list; co-ops can't use FHA.",
-          f"Pago mensual aprobado: {money(ap['total'])} (FHA a {kmoney(p['max_price'])}, {money(ap['loan']['down_payment'])} de inicial, préstamo {money(ap['loan']['loan_amount'])} con el MIP inicial de 1.75%, "
-          f"{rate_lbl()}, {p['term']} años, MIP de 0.55%/año, los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). "
-          "Los condos con FHA deben estar en la lista aprobada de HUD; los co-ops no pueden usar FHA."))
+    fha_ = p["kind"] == "fha"
+    ins_en = (f"with the 1.75% upfront MIP, {rate_lbl()}, {p['term']} years, 0.55%/yr MIP" if fha_ else
+              f"{rate_lbl()}, {p['term']} years, PMI est. {p['pmi_pct'] * 100:.2f}%/yr")
+    ins_es = (f"con el MIP inicial de 1.75%, {rate_lbl()}, {p['term']} años, MIP de 0.55%/año" if fha_ else
+              f"{rate_lbl()}, {p['term']} años, PMI est. {p['pmi_pct'] * 100:.2f}%/año")
+    cap(L(f"Approved monthly payment: {money(ap['total'])} ({'FHA' if fha_ else 'conventional'} at {kmoney(p['max_price'])}, {money(ap['loan']['down_payment'])} down, "
+          f"loan {money(ap['loan']['loan_amount'])} {ins_en}, the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). "
+          + ("FHA condos must be on HUD's approved list; co-ops can't use FHA." if fha_ else
+             "Conventional: condos don't need HUD approval. Co-ops need a lender that does co-op loans (priced at 10% down)."),
+          f"Pago mensual aprobado: {money(ap['total'])} ({'FHA' if fha_ else 'convencional'} a {kmoney(p['max_price'])}, {money(ap['loan']['down_payment'])} de inicial, "
+          f"préstamo {money(ap['loan']['loan_amount'])} {ins_es}, los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). "
+          + ("Los condos con FHA deben estar en la lista aprobada de HUD; los co-ops no pueden usar FHA." if fha_ else
+             "Convencional: los condos no necesitan aprobación de HUD. Los co-ops necesitan un banco que haga préstamos de co-op (calculado con 10% inicial).")))
     st.button(L("Reset to my pre-approval", "Volver a mi pre-aprobación"), key="ml_reset", on_click=_loan_reset, type="tertiary")
 
 
@@ -2205,6 +2225,9 @@ def fha_card(fa, where, inline=False):
     if fa.get("loan") == "conv" and c in ("condo_no", "condo_unknown") and loan_prof()["kind"] == "fha":
         sub.append(L("The numbers still use your FHA terms. Ask your lender about a single-unit approval; otherwise you'd need a normal loan (often 10% down).",
                      "Los números siguen usando sus términos FHA. Pregunte a su banco por una aprobación de unidad individual; si no, necesitaría un préstamo normal (a menudo 10% inicial)."))
+    elif c in ("condo_ok", "condo_no", "condo_unknown") and loan_prof()["kind"] != "fha":
+        sub.append(L("You're using a conventional loan, so the building doesn't need HUD's FHA approval.",
+                     "Usted usa un préstamo convencional, así que el edificio no necesita la aprobación FHA de HUD."))
     elif fa.get("loan") == "conv":
         sub.append(L(f"So the numbers below use a normal loan with at least {fa['down'] * 100:g}% down. Change it in ⚙️ My settings.",
                      f"Por eso los números usan un préstamo normal con al menos {fa['down'] * 100:g}% inicial. Cámbielo en ⚙️ Mis ajustes."))
@@ -2452,10 +2475,11 @@ def loan_breakdown(c, ln, hi, f, r, own, apm):
     tot = sum(int(x[1] or 0) for x in rows)
     mxs = kmoney(lp["max_price"])
     apd = money(apm["loan"]["down_payment"])
+    apk, apk_es = ("FHA", "FHA") if lp["kind"] == "fha" else ("Conventional", "Convencional")
     body = "".join(f"<tr><td>{H.escape(a)}<span class='x'>{H.escape(str(sub))}</span></td><td class='n'>{money(v or 0)}</td></tr>" for a, v, sub in rows)
     body += f"<tr class='t'><td>{L('Total a month', 'Total al mes')}</td><td class='n'>{money(tot)}</td></tr>"
     body += (f"<tr><td>{L('Your approved monthly payment', 'Su pago mensual aprobado')}<span class='x'>"
-             f"{H.escape(L(f'FHA at {mxs}, {apd} down, with the lender’s taxes and insurance, no HOA', f'FHA a {mxs}, {apd} de inicial, con los impuestos y seguro del banco, sin HOA'))}</span></td>"
+             f"{H.escape(L(f'{apk} at {mxs}, {apd} down, with the lender’s taxes and insurance, no HOA', f'{apk_es} a {mxs}, {apd} de inicial, con los impuestos y seguro del banco, sin HOA'))}</span></td>"
              f"<td class='n'>{money(apm['total'])}</td></tr>")
     html(f"<table class='bz-bd'>{body}</table>")
     md(L(f"**Cash to close (est.):** {money(ln.get('down_payment'))} down ({(ln.get('down_pct') or 0) * 100:.1f}%) + about {money(ln.get('closing_costs_est'))} closing costs "
@@ -2588,7 +2612,8 @@ def show_property(r):
         with summ:
             html("<div class='bz-3'>" + "".join(f"<div><b>{H.escape(str(n))}</b><span>{H.escape(t)}</span></div>" for n, t in cells) + "</div>"
                  + (f"<div class='bz-tag {tc}'>{H.escape(tt)}</div><div class='bz-3n'>{H.escape(long_)}</div>" if tg else "")
-                 + (f"<div class='bz-tag r'>{H.escape(L(*FHA_FLAG[ff_]))}</div><div class='bz-3n'>{H.escape(FHA_LONG(ff_))}</div>" if ff_ else "")
+                 + (f"<div class='bz-tag r'>{H.escape(L(*FHA_FLAG[ff_]))}</div><div class='bz-3n'>{H.escape(FHA_LONG(ff_))}</div>" if ff_ else
+                    f"<div class='bz-3n'>{H.escape(L(*COOP_LONG))}</div>" if (fa or {}).get("code") == "coop" else "")
                  + f"<div class='bz-3n'>{H.escape(L(f'My loan: {loan_kind_lbl(ln)}, {rate_lbl()}. Tap a section below for the details.', f'Mi préstamo: {loan_kind_lbl(ln)}, {rate_lbl()}. Toque una sección abajo para ver los detalles.'))}</div>")
             with st.expander(L("Monthly cost with my loan", "Costo mensual con mi préstamo"), key=f"pml_{sid}"):
                 loan_breakdown(c_, ln, hi_p, f, r, own, apm)
@@ -3149,7 +3174,8 @@ def feed_block(ts, drives, sid):
                 html(f"<div class='bz-cm'><span class='tg {tc}'>{H.escape(tt)}</span> · <b>{money(hm['m']['total'])}{L('/mo', '/mes')}</b>"
                      f"<div class='x'>{H.escape(hoa_txt(hm['hoa']))}"
                      + (H.escape(L(' · taxes: lender figure', ' · impuestos: cifra del banco')) if hm['m']['tax_src'] == 'lender' else '') + "</div>"
-                     + (f"<div class='ff'>{H.escape(L(*FHA_FLAG[hm['fha']]))}</div>" if hm.get("fha") else "") + "</div>")
+                     + (f"<div class='ff'>{H.escape(L(*FHA_FLAG[hm['fha']]))}</div>" if hm.get("fha") else
+                        f"<div class='cn'>{H.escape(L(*COOP_NOTE))}</div>" if hm.get("coop") else "") + "</div>")
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
