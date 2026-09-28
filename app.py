@@ -3837,7 +3837,7 @@ def _listing_facts(h, d=None):
     if d and d.get("ok") and d.get("taxes_annual"):
         fo["taxes"] = fo["taxes_listing"] = int(d["taxes_annual"])
     if h.get("kind") in LISTING_TYPE:
-        fo["type"] = "co-op" if h.get("type") == "coop" else LISTING_TYPE[h["kind"]]
+        fo["type"] = "co-op" if (h.get("type") == "coop" or hi.get("kind") == "coop") else LISTING_TYPE[h["kind"]]   # a 'condo' whose fee pays the taxes is a co-op
     if h.get("beds") is not None:
         fo["beds"] = int(h["beds"])
     if h.get("baths"):
