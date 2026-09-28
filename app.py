@@ -3152,7 +3152,12 @@ def feed_block(ts, drives, sid):
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
-    if not rows:
+    if not rows and not rent and ss.get(f"happ_{sid}") and loan_prof()["kind"] == "fha":
+        st.caption(L("No listings here fit your approval with FHA. Most condo buildings around here aren't on HUD's FHA-approved list, and co-ops can't use FHA. "
+                     "Turn off 'Only homes I'm approved for' to see homes flagged 'Not FHA-approved' and ask your lender about a single-unit approval.",
+                     "Ningún anuncio aquí cabe en su aprobación con FHA. La mayoría de los edificios de condos de la zona no están en la lista FHA de HUD, y los co-ops no pueden usar FHA. "
+                     "Apague 'Solo casas para las que estoy aprobada' para ver las casas marcadas 'Sin aprobación FHA' y pregunte a su banco por una aprobación de unidad individual."))
+    elif not rows:
         st.caption(L("No listings match. Try another price or type.", "Ningún anuncio coincide. Pruebe otro precio o tipo."))
     upd = min((r_.get("fetched") or "") for r_ in ok.values())[-5:]
     if multi:
