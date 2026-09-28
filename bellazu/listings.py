@@ -11,9 +11,10 @@ Interface used by the app:
          "photo_count", "days", "price_cut", "new", "lat", "lon", "url", "broker", "status", "source"}
     fetch_town(town, status) -> {"ok", "rows", "total", "fetched", "error"}   detail(id) -> {"ok", "photos", "hoa_monthly", ...}
 The key is set by the app (set_key) or RAPIDAPI_KEY in the environment; it is never logged."""
-import datetime as dt, json, os, re, threading, time
+import datetime as dt, json, os, pathlib, re, threading, time
 import requests
 from .http import CACHE, record
+from . import hoa as _hoa
 
 HOST = "realty-in-us.p.rapidapi.com"
 BASE = f"https://{HOST}"
@@ -331,22 +332,101 @@ def _detail(pid):
     p = _cpath(f"detail_{pid}")
     if p.exists() and time.time() - p.stat().st_mtime < 7 * 86400:
         try:
-            return json.loads(p.read_text())
+            old = json.loads(p.read_text())
+            # detail files from before the HOA fix (hoa_v < 2) kept only hoa.fee: condos/co-ops/townhomes without it are asked
+            # again once (the fee is often in the HOA section or the text); everything else is upgraded in place, no call
+            if old.get("hoa_v", 0) >= 2 or old.get("hoa_monthly") or _hoa.kind_of(old.get("type")) not in _hoa.HOA_KINDS:
+                if old.get("hoa_v", 0) < 2:
+                    old.update(hoa_v=2, hoa_src="listing: HOA fee field" if old.get("hoa_monthly") else None,
+                               hoa_kind=_hoa.kind_of(old.get("type")), hoa_label="maintenance" if _hoa.kind_of(old.get("type")) == "coop" else "hoa")
+                return old
         except Exception:
             pass
     d, err = _call("GET", "/properties/v3/detail", params={"property_id": pid})
     if err:
         return {"ok": False, "error": err}
     h = ((d or {}).get("data") or {}).get("home") or {}
+    out = detail_from_home(h)
+    p.write_text(json.dumps(out))
+    if out["hoa_monthly"]:
+        _hoa.add_obs(_DIR, pid, out.get("town"), out.get("zip"), out["hoa_kind"], out["hoa_monthly"], out.get("sqft"), out.get("beds"))
+    return out
+
+
+def detail_from_home(h):
+    """The cached detail record from one /properties/v3/detail 'home' object (photos, fee, taxes, facts, text)."""
     de = h.get("description") or {}
-    hoa = h.get("hoa") or {}
+    ad = ((h.get("location") or {}).get("address") or {})
     photos = [photo_url(x.get("href"), "big") for x in h.get("photos") or [] if x.get("href")]
     tax = None
     for t in h.get("tax_history") or []:
         if t.get("tax"):
             tax = t["tax"]; break
-    out = {"ok": True, "photos": photos, "hoa_monthly": hoa.get("fee") if isinstance(hoa, dict) else None, "taxes_annual": tax,
+    if not tax:
+        for dd in h.get("details") or []:
+            for line in dd.get("text") or []:
+                if str(line).lower().startswith("annual tax amount:"):
+                    tax = _hoa._num(line.split(":", 1)[1]); break
+    hz = _hoa.parse_detail(h)
+    out = {"ok": True, "photos": photos, "hoa_monthly": hz["fee"], "hoa_src": hz["src"], "hoa_label": hz["label"], "hoa_inc": hz["inc"],
+           "hoa_none": hz["none"], "hoa_kind": hz["kind"], "hoa_v": 2, "taxes_annual": tax,
            "year_built": de.get("year_built"), "sqft": de.get("sqft"), "beds": de.get("beds"), "baths": de.get("baths"), "type": de.get("type"),
-           "text": (de.get("text") or "")[:1200], "price": h.get("list_price")}
-    p.write_text(json.dumps(out))
+           "town": ad.get("city"), "zip": ad.get("postal_code"), "text": (de.get("text") or "")[:3000], "price": h.get("list_price")}
     return out
+
+
+# ------------------------------------------------------------------ HOA for a card / home (no API call)
+_OBS = {"t": 0, "obs": {}}
+SEED = pathlib.Path(__file__).resolve().parent.parent / "data" / "hoa_seed.json"
+
+
+def hoa_obs():
+    """Real fees seen so far (bundled seed + every detail call since), re-read at most once a minute."""
+    if time.time() - _OBS["t"] > 60:
+        _OBS.update(t=time.time(), obs=_hoa.load_obs(_DIR, SEED))
+    return _OBS["obs"]
+
+
+def set_detail_hoa(pid, fee, src):
+    """A fee found elsewhere (e.g. RentCast's copy of the listing): keep it with the home's detail file so its card shows it too."""
+    p = _cpath(f"detail_{pid}")
+    try:
+        d = json.loads(p.read_text())
+        if not d.get("hoa_monthly"):
+            d.update(hoa_monthly=int(fee), hoa_src=src)
+            p.write_text(json.dumps(d))
+    except Exception:
+        pass
+
+
+def add_hoa_obs(pid, town, zip_, kind, fee, sqft=None, beds=None):
+    _hoa.add_obs(_DIR, pid, town, zip_, kind, fee, sqft, beds)
+    _OBS["t"] = 0
+
+
+def hoa_info(row, d=None):
+    """What to show for the monthly fee of one listing, from what is already on disk (never calls the API):
+    {"state": "real"|"none"|"est"|"unknown", "fee", "label": "hoa"|"maintenance", "src", "inc", "n", "where", "kind"}."""
+    row = row or {}
+    if d is None and row.get("id"):
+        d = detail_cached(str(row["id"]))
+    d = d if (d and d.get("ok")) else {}
+    kind = _hoa.kind_of(row.get("type"))
+    if kind in ("other",) and d.get("type"):
+        kind = _hoa.kind_of(d.get("type"))
+    if d.get("hoa_kind") == "coop":
+        kind = "coop"
+    label = "maintenance" if kind == "coop" or d.get("hoa_label") == "maintenance" else "hoa"
+    if d.get("hoa_monthly"):
+        return {"state": "real", "fee": int(d["hoa_monthly"]), "label": label, "src": d.get("hoa_src") or "listing", "inc": d.get("hoa_inc") or [], "kind": kind}
+    if row.get("hoa_monthly"):
+        return {"state": "real", "fee": int(row["hoa_monthly"]), "label": label, "src": "listing", "inc": [], "kind": kind}
+    if kind in ("house", "multi") or d.get("hoa_none"):
+        return {"state": "none", "fee": 0, "label": "hoa", "src": "listing says no association" if d.get("hoa_none") else "typical for houses",
+                "inc": [], "kind": kind}
+    if kind in _hoa.HOA_KINDS:
+        e = _hoa.estimate(hoa_obs(), row.get("town") or d.get("town"), row.get("zip") or d.get("zip"), kind, row.get("sqft") or d.get("sqft"))
+        if e:
+            return {"state": "est", "fee": e["fee"], "label": label, "src": f"median of {e['n']} similar homes", "n": e["n"], "where": e["where"],
+                    "inc": d.get("hoa_inc") or [], "kind": kind}
+    return {"state": "unknown", "fee": None, "label": label, "src": None, "inc": d.get("hoa_inc") or [], "kind": kind}

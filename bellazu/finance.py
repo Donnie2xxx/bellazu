@@ -32,6 +32,9 @@ def carrying_costs(facts, A, occupied_by="owner"):
         notes.append("Property taxes are included in the maintenance fee (co-op).")
     elif facts.get("taxes_annual"):
         tax = float(facts["taxes_annual"]) / 12
+    elif oc.get("property_tax_fallback_annual"):      # My loan: the lender's qualifying tax figure when the real bill is unknown
+        tax = float(oc["property_tax_fallback_annual"]) / 12
+        notes.append(f"TAXES UNKNOWN: using the lender's ${oc['property_tax_fallback_annual']:,.0f}/yr — replace with the real tax bill.")
     else:
         tax = price * oc["property_tax_rate_fallback"] / 12
         notes.append(f"TAXES UNKNOWN: using fallback {oc['property_tax_rate_fallback']:.1%} of price — replace with the real tax bill.")

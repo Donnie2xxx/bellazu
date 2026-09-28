@@ -58,6 +58,16 @@ def normalize(d):
             out["removed"][str(k)] = int(t)
         except Exception:
             pass
+    ln = d.get("loan")                                  # My loan (numbers only), newest edit wins like the language
+    if isinstance(ln, dict) and isinstance(ln.get("p"), dict):
+        try:
+            keep = {"kind": str, "down_pct": float, "min_down": float, "max_price": float, "term": int, "rate": float, "pmi_pct": float,
+                    "closing_pct": float, "ins_m": float, "tax_y": float}
+            pp = {k: (f(v) if v is not None else None) for k, v in ln["p"].items() if k in keep for f in [keep[k]]}
+            if pp.get("kind") in ("conv", "fha"):
+                out["loan"] = {"p": pp, "t": int(ln.get("t", 0))}
+        except Exception:
+            pass
     pr = d.get("prefs")
     if isinstance(pr, dict) and pr.get("lang") in ("EN", "ES"):
         try:
@@ -85,6 +95,9 @@ def merge(a, b):
             continue
         out["items"][k] = best
     out["removed"] = {k: t for k, t in rem.items() if k not in out["items"]}
+    la, lb = a.get("loan"), b.get("loan")
+    if la or lb:
+        out["loan"] = la if (lb is None or (la is not None and la["t"] >= lb["t"])) else lb
     pa, pb = a.get("prefs"), b.get("prefs")          # settings (language): the newest choice wins
     if pa or pb:
         out["prefs"] = pa if (pb is None or (pa is not None and pa["t"] >= pb["t"])) else pb
@@ -319,7 +332,7 @@ def _write(secret, lst):
         merged = merge(lst, remote) if remote else normalize(lst)
         if remote is not None and same(merged, remote):
             return merged
-        if not merged["items"] and not merged["removed"] and not merged.get("prefs") and remote is None:
+        if not merged["items"] and not merged["removed"] and not merged.get("prefs") and not merged.get("loan") and remote is None:
             return merged                                                    # nothing to store yet
         blob = Blob.from_string(seal(merged, secret))
         repo.object_store.add_object(blob)

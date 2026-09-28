@@ -135,6 +135,8 @@ from bellazu.simple import money                              # noqa: E402
 from bellazu import keylock                                   # noqa: E402
 from bellazu import listings                                  # noqa: E402
 from bellazu import saves                                     # noqa: E402
+from bellazu import myloan as ML                              # noqa: E402
+from bellazu import hoa as HOA                                # noqa: E402
 
 st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
 
@@ -547,6 +549,15 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; t
 [class*="st-key-svdt_"] details, [class*="st-key-svnx_"] details {border-bottom:0 !important}
 [class*="st-key-svcard_"] {gap:.35rem !important}
 [class*="st-key-svdt_"] summary p, [class*="st-key-svnx_"] summary p {font-size:.95rem; font-weight:600; color:var(--mute)}
+/* My loan: approval tag + monthly under each card, and the home's breakdown */
+.bz-cm {font-size:.9rem; color:var(--paper); line-height:1.45; margin:-.2rem 0 .2rem}
+.bz-cm .x {color:var(--mute); font-size:.85rem}
+.tg {font-weight:600} .tg.g {color:#9FE0B0} .tg.y {color:#F5D37A} .tg.r {color:#F28B8B}
+.bz-tag {display:inline-block; border-radius:100px; padding:.3rem .8rem; font-weight:600; font-size:.9rem; margin:.1rem 0 .5rem}
+.bz-tag.g {background:rgba(159,224,176,.14); color:#9FE0B0} .bz-tag.y {background:rgba(245,211,122,.14); color:#F5D37A} .bz-tag.r {background:rgba(242,139,139,.14); color:#F28B8B}
+.bz-bd {width:100%; border-collapse:collapse; font-size:.92rem; margin:.2rem 0 .4rem}
+.bz-bd td {padding:.28rem 0; vertical-align:top} .bz-bd td.n {text-align:right; white-space:nowrap; font-weight:600; padding-left:.6rem}
+.bz-bd td .x {display:block; color:var(--mute); font-size:.8rem} .bz-bd tr.t td {border-top:1px solid var(--line2); font-weight:800; padding-top:.45rem}
 </style>""", unsafe_allow_html=True)
 st.session_state.setdefault("_tm_cur", []).append(("css", round((time.perf_counter() - _t_css) * 1000)))
 st.session_state._tm_cur.insert(0, ("boot", round((_t_css - _BZ_T0) * 1000)))
@@ -1217,6 +1228,192 @@ def includes_ui(eng):
     return out
 
 
+
+# ------------------------------------------------------------------ My loan (the buyer's pre-approval) + HOA labels
+@st.cache_data(ttl=6 * 3600, show_spinner=False)
+def market_rate():
+    """Freddie Mac PMMS 30-year fixed average (via FRED), cached 6 h. {"rate_pct", "date", "source"}."""
+    from bellazu.sources import fred as _fred
+    try:
+        r = _fred.mortgage30()
+    except Exception:
+        r = None
+    return r or {"rate_pct": 7.0, "date": None, "source": "fallback 7.0% (rate source unreachable)"}
+
+
+def loan_prof():
+    return ML.prof(((sv().get("loan") or {}).get("p")))
+
+
+def loan_rate():
+    return ML.rate_of(loan_prof(), market_rate()["rate_pct"])
+
+
+def rate_lbl():
+    p = loan_prof()
+    if p.get("rate"):
+        return L(f"{loan_rate():.2f}% (your rate)", f"{loan_rate():.2f}% (su tasa)")
+    return L(f"{loan_rate():.2f}% est. rate, confirm with lender", f"{loan_rate():.2f}% tasa est., confírmela con su banco")
+
+
+def approved_monthly():
+    return ML.approved(loan_prof(), market_rate()["rate_pct"])
+
+
+def loan_kind_lbl(lc=None):
+    p = loan_prof()
+    lc = lc or {}
+    k = lc.get("kind") or p["kind"]
+    dp = lc.get("down_pct") if lc.get("down_pct") is not None else (0.035 if k == "fha" else p["down_pct"])
+    return (L(f"FHA {dp * 100:.1f}% down", f"FHA {dp * 100:.1f}% inicial") if k == "fha" else
+            L(f"normal loan {dp * 100:.1f}% down", f"préstamo normal {dp * 100:.1f}% inicial")) + f", {p['term']} {L('yr', 'años')}"
+
+
+def hoa_txt(hi, short=False, es=None):
+    """'HOA $365/mo', 'Maintenance $1,555/mo (may include taxes)', 'No HOA (typical for houses)', 'HOA est. ~$525/mo'."""
+    if not hi:
+        return ""
+    es = ES() if es is None else es
+    L = (lambda a_, b_: b_) if es else (lambda a_, b_: a_)          # noqa: N806 (this language, or the one asked for)
+    st_, fee, mt = hi.get("state"), hi.get("fee"), hi.get("label") == "maintenance"
+    tx = L(" (includes taxes)", " (incluye impuestos)") if "taxes" in (hi.get("inc") or []) else L(" (may include taxes)", " (puede incluir impuestos)")
+    if st_ == "real":
+        return (L(f"Maintenance {money(fee)}/mo", f"Mantenimiento {money(fee)}/mes") + ("" if short else tx)) if mt else L(f"HOA {money(fee)}/mo", f"HOA {money(fee)}/mes")
+    if st_ == "est":
+        return (L(f"Maintenance est. ~{money(fee)}/mo", f"Mantenimiento est. ~{money(fee)}/mes") + ("" if short else tx)) if mt else \
+            L(f"HOA est. ~{money(fee)}/mo", f"HOA est. ~{money(fee)}/mes")
+    if st_ == "none":
+        return L("No HOA (listing says none)", "Sin HOA (según el anuncio)") if hi.get("src") == "listing says no association" else \
+            L("No HOA (typical for houses)", "Sin HOA (normal en casas)")
+    return L("HOA unknown", "HOA desconocida")
+
+
+def hoa_src_txt(hi):
+    s_ = (hi or {}).get("src") or ""
+    if (hi or {}).get("state") == "est":
+        w = hi.get("where")
+        where = L("nearby towns", "pueblos cercanos") if w == "area" else w
+        return L(f"estimate: median of {hi.get('n')} similar homes with a known fee ({where}); ask the agent for the real number",
+                 f"estimado: mediana de {hi.get('n')} viviendas parecidas con cuota conocida ({where}); pida el número real al agente")
+    if s_.startswith("listing description"):
+        return L("from the listing description ", "de la descripción del anuncio ") + s_[len("listing description"):].strip()
+    return {"listing: HOA fee field": L("from the listing (HOA fee)", "del anuncio (cuota HOA)"),
+            "listing: HOA section (monthly total)": L("from the listing's HOA section", "de la sección HOA del anuncio"),
+            "listing: HOA section": L("from the listing's HOA section", "de la sección HOA del anuncio"),
+            "listing: maintenance": L("from the listing (maintenance)", "del anuncio (mantenimiento)"),
+            "listing: realtor.com payment estimate": L("from realtor.com's payment estimate", "del estimado de pago de realtor.com"),
+            "RentCast sale listing": L("from RentCast's copy of the listing", "de la copia del anuncio en RentCast"),
+            "typical for houses": L("houses and 2-4 family homes usually have no HOA", "las casas y de 2 a 4 familias normalmente no tienen HOA"),
+            "listing says no association": L("the listing says there is no association", "el anuncio dice que no hay asociación"),
+            "user input": L("you entered it", "usted lo ingresó")}.get(s_, s_)
+
+
+TAG_TXT = {"ok": (("✓ Within your approval", "✓ Dentro de su aprobación"), "g"),
+           "monthly": (("⚠ Price OK, monthly above approval", "⚠ Precio OK, pago mensual sobre lo aprobado"), "y"),
+           "over": (("✕ Over your {max} approval", "✕ Sobre su aprobación de {max}"), "r")}
+
+
+def tag_txt(tg):
+    if not tg:
+        return "", ""
+    (en, es), c = TAG_TXT[tg]
+    mx = kmoney(loan_prof()["max_price"])
+    return L(en, es).replace("{max}", mx), c
+
+
+def home_money(h):
+    """HOA + real monthly cost with My loan + approval tag for one for-sale listing (no API call). Memoized per session."""
+    ss = st.session_state
+    p = loan_prof()
+    key = json.dumps([str(h.get("id")), h.get("price"), p, market_rate()["rate_pct"]], sort_keys=True, default=str)
+    memo = ss.setdefault("_hm", {})
+    if key in memo:
+        return memo[key]
+    d = listings.detail_cached(str(h["id"])) if h.get("id") else None
+    hi = listings.hoa_info(h, d)
+    price = float(h.get("price") or 0)
+    if not price:
+        return None
+    coop = hi.get("kind") == "coop"
+    m = ML.monthly(price, p, market_rate()["rate_pct"], (d or {}).get("taxes_annual") if (d or {}).get("ok") else None, hi.get("fee") or 0,
+                   taxes_in_hoa=coop and hi.get("state") in ("real", "est"), min_down_pct=0.10 if coop else None)
+    ap = approved_monthly()["total"]
+    out = {"hoa": hi, "m": m, "tag": ML.tag(price, m["total"], p, ap), "approved": ap}
+    if len(memo) > 3000:
+        memo.clear()
+    memo[key] = out
+    return out
+
+
+def _loan_save():
+    """A My loan field changed: keep it with the saved list (this browser + the online copy), newest edit wins."""
+    ss = st.session_state
+    p = loan_prof()
+    kind = ss.get("ml_kind") or p["kind"]
+    newp = dict(p, kind=kind, max_price=float(ss.get("ml_max") or p["max_price"]), down_pct=float(ss.get("ml_down") or p["down_pct"] * 100) / 100,
+                min_down=float(ss.get("ml_min") if ss.get("ml_min") is not None else p["min_down"]),
+                rate=(float(ss["ml_rate"]) if ss.get("ml_rate") else None), term=int(ss.get("ml_term") or p["term"]),
+                pmi_pct=float(ss.get("ml_pmi") if ss.get("ml_pmi") is not None else p["pmi_pct"] * 100) / 100,
+                closing_pct=float(ss.get("ml_close") if ss.get("ml_close") is not None else p["closing_pct"] * 100) / 100,
+                ins_m=float(ss.get("ml_ins") if ss.get("ml_ins") is not None else p["ins_m"]),
+                tax_y=float(ss.get("ml_tax") if ss.get("ml_tax") is not None else p["tax_y"]))
+    sv()["loan"] = {"p": newp, "t": saves.now_ms()}
+    ss.pop("_hm", None)
+    _sv_touch()
+
+
+def _loan_reset():
+    ss = st.session_state
+    sv()["loan"] = {"p": dict(ML.DEFAULT), "t": saves.now_ms()}
+    for k in ("ml_kind", "ml_max", "ml_down", "ml_min", "ml_rate", "ml_term", "ml_pmi", "ml_close", "ml_ins", "ml_tax"):
+        ss.pop(k, None)
+    ss.pop("_hm", None)
+    _sv_touch()
+
+
+def loan_panel():
+    """My loan, inside ⚙️ My settings. Values live in the saved list (sv['loan']); widgets are refilled from it on every draw."""
+    ss = st.session_state
+    p = loan_prof()
+    mr = market_rate()
+    vals = {"ml_kind": p["kind"], "ml_max": int(p["max_price"]), "ml_down": round(p["down_pct"] * 100, 2), "ml_min": int(p["min_down"]),
+            "ml_rate": float(p["rate"] or 0.0), "ml_term": int(p["term"]), "ml_pmi": round(p["pmi_pct"] * 100, 2),
+            "ml_close": round(p["closing_pct"] * 100, 2), "ml_ins": int(p["ins_m"]), "ml_tax": int(p["tax_y"])}
+    for k, v in vals.items():
+        ss[k] = v
+    st.markdown(f"**{L('My loan', 'Mi préstamo')}**")
+    st.caption(L("From your pre-approval. Every monthly number in BellaZu uses it.", "De su pre-aprobación. Todos los números mensuales de BellaZu lo usan."))
+    st.segmented_control(L("Loan type", "Tipo de préstamo"), ["conv", "fha"], key="ml_kind", required=True, on_change=_loan_save, width="stretch",
+                         format_func=lambda k: L("Normal 5% down + PMI", "Normal 5% inicial + PMI") if k == "conv" else L("FHA 3.5% down", "FHA 3.5% inicial"))
+    st.number_input(L("Approved up to (price, $)", "Aprobada hasta (precio, $)"), 50_000, 3_000_000, step=5_000, key="ml_max", on_change=_loan_save)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.number_input(L("Down payment (%)", "Pago inicial (%)"), 3.0, 50.0, step=0.5, key="ml_down", on_change=_loan_save, disabled=p["kind"] == "fha")
+    with c2:
+        st.number_input(L("At least ($)", "Al menos ($)"), 0, 500_000, step=1_000, key="ml_min", on_change=_loan_save, disabled=p["kind"] == "fha")
+    st.number_input(L(f"Interest rate (%), 0 = market average {mr['rate_pct']:.2f}%", f"Tasa de interés (%), 0 = promedio del mercado {mr['rate_pct']:.2f}%"),
+                    0.0, 15.0, step=0.125, format="%.3f", key="ml_rate", on_change=_loan_save)
+    st.caption(L(f"Market average: Freddie Mac 30-year fixed, week of {mr.get('date') or '—'}. An estimate: confirm your rate with your lender.",
+                 f"Promedio del mercado: Freddie Mac a 30 años fijo, semana del {mr.get('date') or '—'}. Es un estimado: confirme su tasa con su banco."))
+    st.segmented_control(L("Term", "Plazo"), [30, 15], key="ml_term", required=True, on_change=_loan_save, format_func=lambda y: L(f"{y} years", f"{y} años"))
+    c3, c4 = st.columns(2)
+    with c3:
+        st.number_input(L("PMI (%/yr, est.)", "PMI (%/año, est.)"), 0.0, 2.0, step=0.05, key="ml_pmi", on_change=_loan_save, disabled=p["kind"] == "fha")
+    with c4:
+        st.number_input(L("Closing costs (%, est.)", "Gastos de cierre (%, est.)"), 0.0, 8.0, step=0.25, key="ml_close", on_change=_loan_save)
+    c5, c6 = st.columns(2)
+    with c5:
+        st.number_input(L("Insurance ($/mo)", "Seguro ($/mes)"), 0, 2_000, step=10, key="ml_ins", on_change=_loan_save)
+    with c6:
+        st.number_input(L("Taxes if unknown ($/yr)", "Impuestos si no se saben ($/año)"), 0, 50_000, step=100, key="ml_tax", on_change=_loan_save)
+    ap = approved_monthly()
+    st.caption(L(f"Approved monthly payment: {money(ap['total'])} (at {kmoney(p['max_price'])}, loan {money(ap['loan']['loan_amount'])}, {rate_lbl()}, "
+                 f"with the lender's {money(p['tax_y'])}/yr taxes and {money(p['ins_m'] * 12)}/yr insurance, no HOA). FHA: 1.75% upfront MIP added to the loan + 0.55%/yr.",
+                 f"Pago mensual aprobado: {money(ap['total'])} (a {kmoney(p['max_price'])}, préstamo {money(ap['loan']['loan_amount'])}, {rate_lbl()}, "
+                 f"con los {money(p['tax_y'])}/año de impuestos y {money(p['ins_m'] * 12)}/año de seguro del banco, sin HOA). FHA: 1.75% de MIP inicial sumado al préstamo + 0.55%/año."))
+    st.button(L("Reset to my pre-approval", "Volver a mi pre-aprobación"), key="ml_reset", on_click=_loan_reset, type="tertiary")
+
+
 # ------------------------------------------------------------------ My settings (remembered in the session)
 SET_KEYS = ("set_income", "set_down", "set_rm", "set_rc", "inc_chip")
 
@@ -1246,11 +1443,7 @@ def settings_popover():
         st.pills(L("Quick pick", "Elegir rápido"), INCOME_PICKS, key="inc_chip", on_change=_inc_chip, label_visibility="collapsed",
                  format_func=lambda k: L("Skip", "Omitir") if k == "skip" else f"${k // 1000:,}K")
         st.number_input(L("Exact amount ($)", "Cantidad exacta ($)"), min_value=0, max_value=5_000_000, step=5000, key="set_income")
-        st.markdown(f"**{L('Down payment', 'Pago inicial')}**")
-        st.pills(L("Down payment", "Pago inicial"), DOWN_PICKS, key="set_down", required=True, label_visibility="collapsed",
-                 format_func=lambda k: L("3.5% FHA (usual)", "3.5% FHA (usual)") if k == "usual" else f"{k:g}%")
-        st.caption(L("'Usual' follows the FHA check: 3.5% FHA when it works, 10% for a condo building not on the FHA list, 20% for co-ops.",
-                     "'Usual' sigue la revisión FHA: 3.5% FHA cuando se puede, 10% para un condo fuera de la lista FHA, 20% para co-ops."))
+        loan_panel()
         st.markdown(f"**{L('Roommates', 'Compañeros de cuarto')}**")
         st.pills(L("Roommates", "Compañeros"), [0, 1, 2], key="set_rm", required=True, label_visibility="collapsed",
                  format_func=lambda k: {0: L("None", "Ninguno"), 1: "1", 2: "2"}[k])
@@ -1273,18 +1466,20 @@ def home_opts(addr):
     bp = {"en": "Board income rule entered by the user.", "es": "Regla de ingreso de la junta ingresada por el usuario.",
           "source": "user input", "income_multiple": float(b)} if isinstance(b, (int, float)) and b else None
     aov = {"roommate": {"rooms_rented_out": int(ss.get("set_rm", 1))}}
-    d = ss.get("set_down", "usual")
     fa = fha_for_addr(addr)
-    conv = bool(fa and fa.get("loan") == "conv")
-    if d != "usual":
-        aov["financing"] = {"fha_down_pct": float(d) / 100, "owner_conv_down_pct": float(d) / 100}
-    elif conv:                                   # the FHA check says a normal loan: model it with the usual down payment for that case
-        aov["financing"] = {"owner_conv_down_pct": fa["down"]}
+    lp = loan_prof()
+    eff = dict(lp)
+    if lp["kind"] == "fha" and fa and fa.get("loan") == "conv":      # FHA doesn't work for this home: a normal loan with My loan's down payment
+        eff["kind"] = "conv"
+    conv = eff["kind"] == "conv"
+    aov["financing"] = {"closing_cost_pct": lp["closing_pct"], "term_years": lp["term"], "pmi_annual_pct_if_lt20": lp["pmi_pct"]}
+    aov["ownership_costs"] = {"ho6_insurance_monthly": lp["ins_m"], "property_tax_fallback_annual": lp["tax_y"]}
     g = (ss.get("gallery") or {}).get(addr.strip().lower()) or {}
     return {"overrides": {k: v for k, v in ov.items() if v is not None}, "income_annual": int(ss.get("set_income") or 0) or None,
             "loan_type": "conv" if conv else None, "listing_text": g.get("text") or None,
             "units_total": 3 if fo.get("type") == "3-4-family" else 2,
-            "building_policy": bp, "use_rentcast": bool(ss.get("set_rc")) and rentcast.available(), "assumption_overrides": aov}
+            "building_policy": bp, "use_rentcast": bool(ss.get("set_rc")) and rentcast.available(), "assumption_overrides": aov,
+            "my_loan": {"p": eff, "min_down_pct": fa["down"] if (fa and fa.get("code") == "coop") else None, "rate": market_rate()["rate_pct"]}}
 
 
 @timed('run_home')
@@ -1378,7 +1573,8 @@ def missing_fact(r):
         return "type"
     if f.get("beds") in (None, ""):
         return "beds"
-    if f.get("hoa_monthly") in (None, "") and own in ("condo", "co-op", "townhouse"):
+    if own in ("condo", "co-op", "townhouse") and (f.get("hoa_monthly") in (None, "") or
+                                                   facts_for(st.session_state.get("prop_addr", r["address"])).get("hoa_src") == "est"):
         return "hoa"
     return None
 
@@ -1393,7 +1589,10 @@ def ask_missing(r):
     msg = {"price": L("We couldn't find the price. Add it and we'll redo the math ✨", "No encontramos el precio. Agréguelo y volvemos a calcular ✨"),
            "type": L("What kind of home is it? Tap one 👇", "¿Qué tipo de vivienda es? Toque una 👇"),
            "beds": L("How many bedrooms? Tap one 👇", "¿Cuántas habitaciones? Toque una 👇"),
-           "hoa": L("We couldn't find the monthly building fee. Add it for a truer cost ✨", "No encontramos la cuota mensual del edificio. Agréguela para un costo más real ✨")}[k]
+           "hoa": (L(f"The listing doesn't show the monthly fee, so we used an estimate (~{money(facts_for(addr).get('hoa'))}/mo, similar homes nearby). Add the real fee for a truer cost ✨",
+                     f"El anuncio no muestra la cuota mensual; usamos un estimado (~{money(facts_for(addr).get('hoa'))}/mes, viviendas parecidas cerca). Agregue la cuota real para un costo más exacto ✨")
+                   if facts_for(addr).get("hoa_src") == "est" else
+                   L("We couldn't find the monthly building fee. Add it for a truer cost ✨", "No encontramos la cuota mensual del edificio. Agréguela para un costo más real ✨"))}[k]
     html(f"<div class='bz-ask'>🔎 {H.escape(msg)}</div>")
     if k == "type":
         st.pills(msg, list(UI_TYPES), key=f"ask_type_{sid}", format_func=lambda x: P(UI_TYPES[x]), label_visibility="collapsed",
@@ -1411,6 +1610,8 @@ def ask_missing(r):
             ok = c2.form_submit_button(L("Update ✨", "Actualizar ✨"), type="primary", width="stretch")
         if ok and v is not None:
             facts_for(addr)["price" if k == "price" else "hoa"] = int(v)
+            if k == "hoa":
+                facts_for(addr).update(hoa_src="user", hoa_info=None)
             st.rerun()
 
 
@@ -1450,6 +1651,8 @@ def fix_facts(r):
             if baths is not None:
                 fo["baths"] = float(baths)
             if hoa or f.get("hoa_monthly") or fo.get("hoa") is not None:
+                if fo.get("hoa") != int(hoa) or fo.get("hoa_src") == "est":
+                    fo.update(hoa_src="user", hoa_info=None)
                 fo["hoa"] = int(hoa)
             fo["inc"] = list(inc or [])
             if taxes:
@@ -2141,6 +2344,68 @@ def _num_g(v):
 
 
 @timed('property_view')
+def prop_hoa(r, addr):
+    """The fee to show for an opened home: what the user typed, else what the listing gave (or its labeled estimate), else from the check."""
+    fo = facts_for(addr)
+    f = r.get("facts") or {}
+    own = (f.get("ownership") or "").lower()
+    lab = "maintenance" if "co-op" in own else "hoa"
+    if fo.get("hoa_src") == "user":
+        return {"state": "real" if fo.get("hoa") else "none", "fee": int(fo.get("hoa") or 0), "label": lab, "src": "user input",
+                "inc": includes_engine(fo.get("inc")) if fo.get("inc") is not None else []}
+    hi = fo.get("hoa_info")
+    if hi and fo.get("hoa_src") in ("real", "est", "none") and int(fo.get("hoa") or 0) == int(hi.get("fee") or 0):
+        return hi
+    v = f.get("hoa_monthly")
+    if v:
+        return {"state": "real", "fee": int(v), "label": lab, "src": (r.get("fact_sources") or {}).get("hoa_monthly") or "listing", "inc": f.get("hoa_includes") or []}
+    if "single" in own or "multi" in own:
+        return {"state": "none", "fee": 0, "label": "hoa", "src": "typical for houses", "inc": []}
+    return {"state": "unknown", "fee": None, "label": lab, "src": None, "inc": f.get("hoa_includes") or []} if own else None
+
+
+def loan_breakdown(c, ln, hi, f, r, own, apm):
+    """P&I + PMI/MIP + tax + insurance + HOA with My loan, the approved payment, and the cash to close."""
+    lp = loan_prof()
+    fha = ln.get("kind") == "fha"
+    inc = [x.lower() for x in (f.get("hoa_includes") or [])]
+    tsrc = (r.get("fact_sources") or {}).get("taxes_annual")
+    if "taxes" in inc:
+        tx = L("included in the maintenance (co-op)", "incluidos en el mantenimiento (co-op)")
+    elif f.get("taxes_annual"):
+        tx = L(f"{money(f['taxes_annual'])}/yr from ", f"{money(f['taxes_annual'])}/año de ") + (L("what you entered", "lo que usted ingresó") if tsrc == "user input" else
+                                                                                               L("the home's tax record", "el registro de impuestos de la casa"))
+    else:
+        tx = L(f"the lender's {money(lp['tax_y'])}/yr (this home's tax bill is unknown)", f"los {money(lp['tax_y'])}/año del banco (no se sabe la factura de esta casa)")
+    mi = int(c.get("mortgage_insurance") or 0)
+    rows = [(L("Principal and interest", "Capital e intereses"), c.get("principal_interest"),
+             L(f"loan {money(ln.get('loan_amount'))}, {rate_lbl()}, {lp['term']} years", f"préstamo {money(ln.get('loan_amount'))}, {rate_lbl()}, {lp['term']} años")),
+            ((L("FHA mortgage insurance", "Seguro hipotecario FHA") if fha else L("PMI (est.)", "PMI (est.)")), mi,
+             (L("0.55%/yr; the 1.75% upfront fee is added to the loan", "0.55%/año; la cuota inicial de 1.75% se suma al préstamo") if fha else
+              (L(f"about {lp['pmi_pct'] * 100:.2f}%/yr of the loan until you reach 20% equity", f"cerca de {lp['pmi_pct'] * 100:.2f}%/año del préstamo hasta tener 20% de valor") if mi else
+               L("none: 20% or more down", "ninguno: 20% o más de inicial")))),
+            (L("Property tax", "Impuestos a la propiedad"), c.get("property_tax"), tx),
+            (L("Home insurance", "Seguro de la casa"), c.get("insurance"),
+             L("the lender's figure", "la cifra del banco") + (L("; for a condo or co-op an HO-6 policy is often cheaper", "; para un condo o co-op una póliza HO-6 suele costar menos")
+                                                              if ("condo" in own or "co-op" in own) else "")),
+            ((L("Maintenance", "Mantenimiento") if (hi or {}).get("label") == "maintenance" else L("HOA / building fee", "HOA / cuota del edificio")), c.get("hoa_or_maintenance"),
+             (hoa_txt(hi) + " · " + hoa_src_txt(hi)) if hi else "")]
+    tot = sum(int(x[1] or 0) for x in rows)
+    mxs = kmoney(lp["max_price"])
+    body = "".join(f"<tr><td>{H.escape(a)}<span class='x'>{H.escape(str(sub))}</span></td><td class='n'>{money(v or 0)}</td></tr>" for a, v, sub in rows)
+    body += f"<tr class='t'><td>{L('Total a month', 'Total al mes')}</td><td class='n'>{money(tot)}</td></tr>"
+    body += (f"<tr><td>{L('Your approved monthly payment', 'Su pago mensual aprobado')}<span class='x'>"
+             f"{H.escape(L(f'at {mxs}, with the lender’s taxes and insurance, no HOA', f'a {mxs}, con los impuestos y seguro del banco, sin HOA'))}</span></td>"
+             f"<td class='n'>{money(apm['total'])}</td></tr>")
+    html(f"<table class='bz-bd'>{body}</table>")
+    md(L(f"**Cash to close (est.):** {money(ln.get('down_payment'))} down ({(ln.get('down_pct') or 0) * 100:.1f}%) + about {money(ln.get('closing_costs_est'))} closing costs "
+         f"({lp['closing_pct'] * 100:.1f}%, NJ/NY usually 3-4%) = **{money(ln.get('cash_to_close_est'))}**.",
+         f"**Efectivo para cerrar (est.):** {money(ln.get('down_payment'))} de inicial ({(ln.get('down_pct') or 0) * 100:.1f}%) + unos {money(ln.get('closing_costs_est'))} de gastos de cierre "
+         f"({lp['closing_pct'] * 100:.1f}%, en NJ/NY suele ser 3-4%) = **{money(ln.get('cash_to_close_est'))}**."))
+    st.caption(L("Change the loan in ⚙️ My settings. 'What you'd pay each month' below also counts utilities and a repairs reserve, and what a roommate or tenant brings in.",
+                 "Cambie el préstamo en ⚙️ Mis ajustes. 'Lo que pagaría cada mes' abajo también cuenta servicios y una reserva para arreglos, y lo que aporta un compañero o inquilino."))
+
+
 def show_property(r):
     ss = st.session_state
     f = r.get("facts") or {}
@@ -2155,10 +2420,12 @@ def show_property(r):
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
     if f.get("price"):
-        fl_ = " · ".join(x for x in [f"{f['beds']} {L('bd', 'hab')}" if f.get("beds") is not None else "", f"{_num_g(f['baths'])} {L('ba', 'baño' if float(f['baths']) == 1 else 'baños')}" if f.get("baths") else "",
-                                      L(f"fee {money(f['hoa_monthly'])}/mo", f"cuota {money(f['hoa_monthly'])}/mes") if f.get("hoa_monthly") else ""] if x)
+        fl_ = " · ".join(x for x in [f"{f['beds']} {L('bd', 'hab')}" if f.get("beds") is not None else "", f"{_num_g(f['baths'])} {L('ba', 'baño' if float(f['baths']) == 1 else 'baños')}" if f.get("baths") else ""] if x)
         html(f"<div class='bz-price'>{money(f['price'])}" + (f"<span class='f'>{H.escape(fl_)}</span>" if fl_ else "") + "</div>")
     p_addr = ss.get("prop_addr", r["address"])
+    hi_p = prop_hoa(r, p_addr)
+    if hi_p:
+        html(f"<div class='bz-3n' style='margin:.1rem 0 .5rem'>{H.escape(hoa_txt(hi_p))}</div>")
     lid = ((ss.get("gallery") or {}).get(p_addr.strip().lower()) or {}).get("id")
     sv_iid = find_home(p_addr, lid) or (saves.item_id("listing", lid) if lid else saves.item_id("address", p_addr))
     ss["_sv_stash_prop"] = (r, None, first, p_addr)
@@ -2197,7 +2464,7 @@ def show_property(r):
         with st.expander(L("What you'd pay each month", "Lo que pagaría cada mes"), key=f"pp_{sid}"):
             sel = sel_for(sid, base)
             out = C.compare(base, sel)
-            compare_strip(out, first, fha_loan_lbl(fa) if (conv or fa) else None)
+            compare_strip(out, first, L("my loan, ", "mi préstamo, ") + loan_kind_lbl(ln))
             skew_note(base, sel)
             lk = L("normal loan", "préstamo normal") if conv else "FHA"
             md(L(f"Same loan in every column: {lk} {ln['rate_pct']:.2f}%, {money(ln['down_payment'])} down + about {money(ln['closing_costs_est'])} fees = **{money(ln['cash_to_close_est'])} to close**.",
@@ -2242,15 +2509,27 @@ def show_property(r):
             places_block(lists_for_property(r, sel), r.get("str_rules") or {}, r.get("town"), (r.get("str") or {}).get("datasets") or [], ok_air, out.get("days30", 30), head=False)
         with st.expander(L("Busy vs slow months", "Meses de mucho y poco movimiento"), key=f"pss_{sid}"):
             season_block(C.seasonality((r.get("str") or {}).get("datasets")), r.get("town"), head=False)
-        # the three numbers, shown right under the price
-        live = C.labels(out, first)[0]
-        cells = [(live["pay"], L("a month to own and live there", "al mes por ser dueña y vivir allí") if live["pay_lbl"][0] == "You pay" else L("a month you'd earn", "al mes que ganaría")),
+        # the three numbers, shown right under the price: My loan's real monthly cost, the rent, the cash to close
+        c_ = o.get("costs") or {}
+        mtot = sum(int(c_.get(k) or 0) for k in ("principal_interest", "mortgage_insurance", "property_tax", "insurance", "hoa_or_maintenance"))
+        apm = approved_monthly()
+        tg = ML.tag(f.get("price"), mtot, loan_prof(), apm["total"])
+        cells = [(money(mtot), L("a month with my loan (with HOA, taxes, insurance)", "al mes con mi préstamo (con HOA, impuestos, seguro)")),
                  (money(rent_ref) if rent_ref else "—",
                   L("a month the other unit could rent for", "al mes podría rentar la otra unidad") if own == "multi-family" else L("a month it could rent for", "al mes podría rentarse")),
-                 (money(ln.get("cash_to_close_est")), L("cash needed to buy", "efectivo para comprar"))]
+                 (money(ln.get("cash_to_close_est")), L("cash needed to close (est.)", "efectivo para cerrar (est.)"))]
+        tt, tc = tag_txt(tg)
+        long_ = {"ok": L(f"Within your approval: price up to {kmoney(loan_prof()['max_price'])} and {money(mtot)}/mo is at or under your approved {money(apm['total'])}/mo.",
+                         f"Dentro de su aprobación: precio hasta {kmoney(loan_prof()['max_price'])} y {money(mtot)}/mes es igual o menor a su aprobado de {money(apm['total'])}/mes."),
+                 "monthly": L(f"Price OK, but {money(mtot)}/mo is higher than the {money(apm['total'])}/mo you were approved for. The HOA and taxes may push you over: ask your lender.",
+                              f"Precio OK, pero {money(mtot)}/mes es más que los {money(apm['total'])}/mes aprobados. La HOA y los impuestos pueden pasarla del límite: pregunte a su banco."),
+                 "over": L(f"Over your {kmoney(loan_prof()['max_price'])} approval.", f"Sobre su aprobación de {kmoney(loan_prof()['max_price'])}.")}.get(tg, "")
         with summ:
             html("<div class='bz-3'>" + "".join(f"<div><b>{H.escape(str(n))}</b><span>{H.escape(t)}</span></div>" for n, t in cells) + "</div>"
-                 + f"<div class='bz-3n'>{H.escape(L(f'With {fha_loan_lbl(fa)}. Tap a section below for the details.', f'Con {fha_loan_lbl(fa)}. Toque una sección abajo para ver los detalles.'))}</div>")
+                 + (f"<div class='bz-tag {tc}'>{H.escape(tt)}</div><div class='bz-3n'>{H.escape(long_)}</div>" if tg else "")
+                 + f"<div class='bz-3n'>{H.escape(L(f'My loan: {loan_kind_lbl(ln)}, {rate_lbl()}. Tap a section below for the details.', f'Mi préstamo: {loan_kind_lbl(ln)}, {rate_lbl()}. Toque una sección abajo para ver los detalles.'))}</div>")
+            with st.expander(L("Monthly cost with my loan", "Costo mensual con mi préstamo"), key=f"pml_{sid}"):
+                loan_breakdown(c_, ln, hi_p, f, r, own, apm)
         cv = report_cv(out, ex.get("drive"), first)
         ss["_sv_stash_prop"] = (r, out, first, p_addr)
         old = sv()["items"].get(sv_iid)
@@ -2324,8 +2603,7 @@ def _town_price_block(a, sid, first):
     if not price:
         html(f"<div class='bz-ask'>👆 {L('Tap a price to see what you would pay each month here. We never guess a home value for you.', 'Toque un precio para ver lo que pagaría al mes aquí. Nunca inventamos el valor de una casa.')}</div>")
     else:
-        d = ss.get("set_down", "usual")
-        base = C.base_from_town(a, int(price), size, None if d == "usual" else float(d) / 100)
+        base = C.base_from_town(a, int(price), size, loan=loan_prof())
         sel = sel_for(sid, base)
         out = C.compare(base, sel)
         compare_strip(out, first)
@@ -2336,8 +2614,8 @@ def _town_price_block(a, sid, first):
         ln = base["loan"]
         tx = (L(f"Taxes use {t}'s typical rate, {base['tax_rate']:.2%} of the price (NJ Treasury 2025 average bill ÷ average sale price)", f"Los impuestos usan la tasa típica de {t}, {base['tax_rate']:.2%} del precio (Tesoro de NJ 2025: factura promedio ÷ precio promedio)")
               if not base.get("tax_fallback") else L(f"Taxes use a {base['tax_rate']:.1%} estimate", f"Los impuestos usan un estimado de {base['tax_rate']:.1%}"))
-        md(L(f"At {money(price)} with FHA {ln['rate_pct']:.2f}%: {money(ln['cash_to_close_est'])} to close. {tx}; add any HOA fee on top.",
-             f"A {money(price)} con FHA {ln['rate_pct']:.2f}%: {money(ln['cash_to_close_est'])} para cerrar. {tx}; sume cualquier cuota HOA."))
+        md(L(f"At {money(price)} with my loan ({loan_kind_lbl(ln)}, {rate_lbl()}): {money(ln['cash_to_close_est'])} to close (est.). {tx}; add any HOA fee on top.",
+             f"A {money(price)} con mi préstamo ({loan_kind_lbl(ln)}, {rate_lbl()}): {money(ln['cash_to_close_est'])} para cerrar (est.). {tx}; sume cualquier cuota HOA."))
         q = out.get("qualify")
         if q:
             md(L(f"🏦 A lender can count about **{money(q['counted'])}/mo** of the other unit's rent (75%).", f"🏦 El banco puede contar unos **{money(q['counted'])}/mes** de la renta de la otra unidad (75%)."))
@@ -2759,15 +3037,23 @@ def feed_block(ts, drives, sid):
             _cap_msg()
         st.caption(L(f"Couldn't load homes for {', '.join(bad)} right now; showing the others.", f"No se pudieron cargar las casas de {', '.join(bad)} ahora; mostramos los demás."))
     # filters one tap away (summary in the label) so the first home card shows on the first screen
-    _mx0 = ss.get(f"hpx_{sid}_{status}", None if rent else 500_000)
+    _pmax = int(loan_prof()["max_price"])
+    _pdef = None if rent else (_pmax if _pmax in FEED_PRICE["for_sale"] else 300_000)
+    _mx0 = ss.get(f"hpx_{sid}_{status}", _pdef)
+    _ap0 = (not rent) and bool(ss.get(f"happ_{sid}", False))
     _bd0, _kd0, _srt0 = ss.get(f"hbd_{sid}", 0), ss.get(f"hkd_{sid}", "any"), ss.get(f"hsort_{sid}", "new")
     _fl = " · ".join([(L("any price", "cualquier precio") if _mx0 is None else L("up to ", "hasta ") + (money(_mx0) if rent else kmoney(_mx0))),
                       (L("any beds", "cualquier tamaño") if not _bd0 else L(f"{_bd0}+ bd", f"{_bd0}+ hab")),
-                      P(FEED_KIND.get(_kd0, FEED_KIND["any"])), P(FEED_SORT.get(_srt0, FEED_SORT["new"]))])
+                      P(FEED_KIND.get(_kd0, FEED_KIND["any"])), P(FEED_SORT.get(_srt0, FEED_SORT["new"]))]
+                     + ([L("approved only", "solo aprobadas")] if _ap0 else []))
     with st.expander(L(f"⚙️ Filters: {_fl}", f"⚙️ Filtros: {_fl}"), key=f"hflt_{sid}"):
         st.markdown(f"<div class='bz-lbl'>{L('Price up to', 'Precio hasta')}</div>", unsafe_allow_html=True)
-        mx = st.segmented_control(L("Top price", "Precio máximo"), FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=None if rent else 500_000, required=True, label_visibility="collapsed", width="stretch",
+        mx = st.segmented_control(L("Top price", "Precio máximo"), FEED_PRICE[status], key=f"hpx_{sid}_{status}", default=_pdef, required=True, label_visibility="collapsed", width="stretch",
                                   format_func=lambda v: L("Any", "Todo") if v is None else (money(v) if rent else kmoney(v)))
+        if not rent:
+            st.toggle(L("Only homes I'm approved for", "Solo casas para las que estoy aprobada"), key=f"happ_{sid}",
+                      help=L(f"Price up to {kmoney(_pmax)} and a monthly cost (with the HOA and taxes) at or under your approved {money(approved_monthly()['total'])}.",
+                             f"Precio hasta {kmoney(_pmax)} y un costo mensual (con HOA e impuestos) igual o menor a su aprobado de {money(approved_monthly()['total'])}."))
         c1, c2 = st.columns([2, 3])
         with c1:
             bd = st.segmented_control(L("Bedrooms", "Habitaciones"), [0, 1, 2, 3], key=f"hbd_{sid}", default=0, required=True, width="stretch",
@@ -2777,6 +3063,8 @@ def feed_block(ts, drives, sid):
         srt = st.segmented_control(L("Sort", "Ordenar"), list(FEED_SORT), key=f"hsort_{sid}", default="new", required=True, width="stretch", format_func=lambda k: P(FEED_SORT[k]))
     allrows = _dedupe([dict(r, town=r.get("town") or t, _t=t) for t, r_ in ok.items() for r in r_["rows"]])
     rows = _sort_rows(listings.filter_rows(allrows, None, mx, bd or None, kd), srt)
+    if not rent and ss.get(f"happ_{sid}"):
+        rows = [r for r in rows if (home_money(r) or {}).get("tag") == "ok"]
     shown = int(ss.get(f"hn_{sid}", 8))
     listings.prefetch_details([h.get("id") for h in rows[:shown]])      # Pro only: galleries for the cards on screen, on a side thread
     for i, h in enumerate(rows[:shown]):
@@ -2792,6 +3080,13 @@ def feed_block(ts, drives, sid):
                     st.link_button(L("realtor.com ↗", "realtor.com ↗"), h["url"], type="tertiary")
             else:
                 st.button(L("Details ›", "Ver ›"), key=f"ho_{sid}_{i}_{h['id']}", type="tertiary", on_click=_open_listing, args=(h,))
+        if not rent:
+            hm = home_money(h)
+            if hm:
+                tt, tc = tag_txt(hm["tag"])
+                html(f"<div class='bz-cm'><span class='tg {tc}'>{H.escape(tt)}</span> · <b>{money(hm['m']['total'])}{L('/mo', '/mes')}</b>"
+                     f"<div class='x'>{H.escape(hoa_txt(hm['hoa']))}"
+                     + (H.escape(L(' · taxes: lender figure', ' · impuestos: cifra del banco')) if hm['m']['tax_src'] == 'lender' else '') + "</div></div>")
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
@@ -2816,6 +3111,20 @@ def run_listing(h, where):
     with where, st.spinner(L("Getting the photos... ✨", "Trayendo las fotos... ✨")):
         d = listings.detail(h["id"]) if h.get("id") else {"ok": False}
     addr = h["address"]
+    hi = listings.hoa_info(h, d if d.get("ok") else None)
+    if hi["state"] in ("est", "unknown") and hi.get("kind") in HOA.HOA_KINDS and rentcast.available() and ss.get("set_rc", True):
+        try:                  # realtor.com has no fee for this condo/co-op: RentCast's copy of the listing sometimes does (1 lookup, cached 3 days;
+            if rentcast.remaining() > 3:              # the full check used to spend this same lookup)
+                rc_, _s = rentcast.sale_listing(addr)
+                fee = ((rc_ or {}).get("hoa") or {}).get("fee")
+                if fee and HOA.LO <= float(fee) <= HOA.HI:
+                    listings.add_hoa_obs(h.get("id"), h.get("town"), h.get("zip"), hi["kind"], fee, h.get("sqft"), h.get("beds"))
+                    if h.get("id"):
+                        listings.set_detail_hoa(str(h["id"]), fee, "RentCast sale listing")
+                    d = dict(d, hoa_monthly=int(fee), hoa_src="RentCast sale listing")
+                    ss.pop("_hm", None)
+        except Exception:
+            pass
     fo = facts_for(addr)
     fo.update(_listing_facts(h, d))
     hoa = fo.get("hoa")
@@ -2839,11 +3148,9 @@ def gallery_block(addr):
     if isinstance(dy, int):
         bits.append(L("listed today", "publicada hoy") if dy == 0 else L("listed 1 day ago", "publicada hace 1 día") if dy == 1 else
                     L(f"listed {dy} days ago", f"publicada hace {dy} días"))
-    if g.get("hoa") is not None:
-        bits.append(L(f"building fee {money(g['hoa'])}/mo", f"cuota {money(g['hoa'])}/mes"))
     if g.get("broker"):
         bits.append(L(f"listed by {g['broker']}", f"publicada por {g['broker']}"))
-    st.caption((" · ".join(bits) + ". " if bits else "") + L("Price and fee from the listing (realtor.com via Realty in US).", "Precio y cuota del anuncio (realtor.com vía Realty in US).")
+    st.caption((" · ".join(bits) + ". " if bits else "") + L("Price from the listing (realtor.com via Realty in US).", "Precio del anuncio (realtor.com vía Realty in US).")
                + (f" [realtor.com ↗]({g['url']})" if g.get("url") else ""))
 
 
@@ -3071,7 +3378,6 @@ def _towns_summary(ts, snaps, sale, first):
     size = st.segmented_control(L("Size", "Tamaño"), C.TOWN_SIZES, key="mt_size", default="2fam" if first else "2", required=True, width="stretch",
                                 format_func=lambda s_: L("2-family", "2 familias") if s_ == "2fam" else f"{s_} {L('bd', 'hab')}")
     cards, pay2 = [], {}
-    d_ = ss.get("set_down", "usual")
     for t in ts:
         a = snaps.get(t) or {}
         if not a.get("ok"):
@@ -3087,7 +3393,7 @@ def _towns_summary(ts, snaps, sale, first):
         body = ""
         if price:
             try:
-                base = C.base_from_town(a, int(price), size, None if d_ == "usual" else float(d_) / 100)
+                base = C.base_from_town(a, int(price), size, loan=loan_prof())
                 out = C.compare(base, C.default_sel(base))
                 ok_air = out.get("airbnb_allowed", ok_air)
                 for c in C.labels(out, first):
@@ -3396,8 +3702,10 @@ def _facts_line(beds, baths, sqft, type_lbl, hoa, rent=False):
         en.append(f"{int(sqft):,} ft²"), es.append(f"{int(sqft):,} ft²")
     if type_lbl:
         en.append(type_lbl[0]), es.append(type_lbl[1])
-    if hoa and not rent:
-        en.append(f"fee {money(hoa)}/mo"), es.append(f"cuota {money(hoa)}/mes")
+    if isinstance(hoa, dict) and not rent:
+        en.append(hoa_txt(hoa, True, False)), es.append(hoa_txt(hoa, True, True))
+    elif hoa and not rent:
+        en.append(f"HOA {money(hoa)}/mo"), es.append(f"HOA {money(hoa)}/mes")
     return " · ".join(en), " · ".join(es)
 
 
@@ -3420,11 +3728,18 @@ def _listing_facts(h, d=None):
     fo = {}
     if h.get("price"):
         fo["price"] = int(h["price"])
-    hoa = d.get("hoa_monthly") if d and d.get("ok") else h.get("hoa_monthly")
-    if hoa is not None:
-        fo["hoa"] = int(hoa)
-    elif h.get("kind") in ("2fam", "house"):
-        fo["hoa"] = 0
+    hi = listings.hoa_info(h, d if (d and d.get("ok")) else None)
+    if hi["state"] in ("real", "est", "none"):
+        fo["hoa"] = int(hi["fee"] or 0)
+        fo["hoa_src"] = hi["state"]
+        fo["hoa_info"] = hi
+        inc = hi.get("inc") or []
+        ui = [k for k in ("taxes", "parking", "internet") if k in inc] + (["heat"] if "heat/hot water" in inc else []) + (["water"] if "water" in inc else []) + \
+             (["electric", "gas"] if "utilities" in inc else [])
+        if hi.get("kind") == "coop" and hi["state"] in ("real", "est") and "taxes" not in ui:
+            ui.append("taxes")                  # NJ co-op maintenance pays the building's taxes: never count them twice
+        if ui:
+            fo["inc"] = ui
     if d and d.get("ok") and d.get("taxes_annual"):
         fo["taxes"] = int(d["taxes_annual"])
     if h.get("kind") in LISTING_TYPE:
@@ -3445,7 +3760,8 @@ def entry_from_feed(iid, h, rent):
         a = ss.town_cache[tk]
     first = ss.get("hmode", "first") == "first"
     tl = list(FEED_TYPE_LBL.get(h.get("kind"), FEED_TYPE_LBL["other"]))
-    fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, h.get("hoa_monthly"), rent)
+    hm_ = None if rent else home_money(h)
+    fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, (hm_ or {}).get("hoa") or h.get("hoa_monthly"), rent)
     e = _new_entry(iid, "home", h["address"])
     photos = [p_ for p_ in (h.get("photos") or []) if p_]
     e.update(addr=h["address"], town=h.get("town") or a.get("town"), price=h.get("price"), rent=bool(rent), beds=h.get("beds"), baths=h.get("baths"),
@@ -3455,9 +3771,9 @@ def entry_from_feed(iid, h, rent):
     if not rent and h.get("price") and a.get("ok"):
         try:
             size = "2fam" if h.get("kind") == "2fam" else str(min(max(int(h.get("beds") or 2), 1), 3))
-            d = ss.get("set_down", "usual")
-            base = C.base_from_town(a, int(h["price"]), size, None if d == "usual" else float(d) / 100)
-            hoa = float(h.get("hoa_monthly") or 0)
+            hm = home_money(h) or {}
+            hoa = float(((hm.get("hoa") or {}).get("fee")) or 0)
+            base = C.base_from_town(a, int(h["price"]), size, loan=loan_prof())
             base["total_cost"] += hoa
             base["piti"] = (base.get("piti") or 0) + hoa
             out = C.compare(base, C.default_sel(base))
@@ -3473,7 +3789,7 @@ def entry_from_property(iid, r, out, first, addr):
     own = (f.get("ownership") or "").lower()
     fo = dict(facts_for(addr))
     tl = list(UI_TYPES[fo["type"]]) if fo.get("type") in UI_TYPES else (list(TYPE_LBL[own]) if own in TYPE_LBL else None)
-    fl = _facts_line(f.get("beds"), f.get("baths"), f.get("sqft"), tl, f.get("hoa_monthly"))
+    fl = _facts_line(f.get("beds"), f.get("baths"), f.get("sqft"), tl, prop_hoa(r, addr) or f.get("hoa_monthly"))
     photos = [p_ for p_ in (g.get("photos") or []) if p_]
     e = _new_entry(iid, "home", r.get("address") or addr)
     e.update(addr=addr, town=r.get("town"), price=f.get("price"), rent=False, beds=f.get("beds"), baths=f.get("baths"), sqft=f.get("sqft"),

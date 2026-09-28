@@ -1,0 +1,155 @@
+{
+"9796546672": {
+"town": "Weehawken",
+"zip": "07086",
+"kind": "condo",
+"fee": 883,
+"sqft": 1125,
+"beds": 1,
+"src": "realtor.com detail"
+},
+"9088160468": {
+"town": "Union City",
+"zip": "07087",
+"kind": "condo",
+"fee": 459,
+"sqft": 1150,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"9647660827": {
+"town": "Fort Lee",
+"zip": "07024",
+"kind": "coop",
+"fee": 775,
+"sqft": 580,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"6629680819": {
+"town": "Hoboken",
+"zip": "07030",
+"kind": "condo",
+"fee": 400,
+"sqft": 715,
+"beds": 1,
+"src": "realtor.com detail"
+},
+"9326579938": {
+"town": "Fort Lee",
+"zip": "07024",
+"kind": "coop",
+"fee": 1555,
+"sqft": 865,
+"beds": 1,
+"src": "realtor.com detail"
+},
+"5503362950": {
+"town": "Kearny",
+"zip": "07032",
+"kind": "townhome",
+"fee": 365,
+"sqft": null,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"6411110992": {
+"town": "Secaucus",
+"zip": "07094",
+"kind": "condo",
+"fee": 759,
+"sqft": 19861,
+"beds": 3,
+"src": "realtor.com detail"
+},
+"9366614767": {
+"town": "Lyndhurst",
+"zip": "07071",
+"kind": "condo",
+"fee": 255,
+"sqft": null,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"9654064191": {
+"town": "West New York",
+"zip": "07093",
+"kind": "coop",
+"fee": 1146,
+"sqft": 650,
+"beds": 0,
+"src": "realtor.com detail"
+},
+"6038951249": {
+"town": "North Bergen",
+"zip": "07047",
+"kind": "condo",
+"fee": 679,
+"sqft": 1675,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"5065265021": {
+"town": "Union City",
+"zip": "07087",
+"kind": "condo",
+"fee": 525,
+"sqft": 957,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"5065907744": {
+"town": "Secaucus",
+"zip": "07094",
+"kind": "condo",
+"fee": 1578,
+"sqft": 1853,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"5951239815": {
+"town": "Secaucus",
+"zip": "07094",
+"kind": "condo",
+"fee": 1261,
+"sqft": 1481,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"6325916216": {
+"town": "Union City",
+"zip": "07087",
+"kind": "condo",
+"fee": 309,
+"sqft": 750,
+"beds": 2,
+"src": "realtor.com detail"
+},
+"6355301466": {
+"town": "Weehawken",
+"zip": "07086",
+"kind": "condo",
+"fee": 354,
+"sqft": 600,
+"beds": 1,
+"src": "realtor.com detail"
+},
+"6641721109": {
+"town": "Fort Lee",
+"zip": "07024",
+"kind": "condo",
+"fee": 753,
+"sqft": null,
+"beds": 1,
+"src": "realtor.com detail"
+},
+"6814340532": {
+"town": "West New York",
+"zip": "07093",
+"kind": "coop",
+"fee": 1965,
+"sqft": null,
+"beds": 2,
+"src": "RentCast sale listing"
+}
+}

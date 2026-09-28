@@ -365,7 +365,15 @@ def analyze_property(address, options=None):
     income_m = income_annual / 12 if income_annual else None
     if price:
         is_coop = fha_info.get("eligible") is False and "co-op" in own
-        if is_coop or o.get("loan_type") == "conv":       # co-op, or the FHA check says a normal (conventional) loan
+        ml = o.get("my_loan")
+        if ml:                                           # the buyer's own loan (My loan in the app): same numbers everywhere
+            from . import myloan
+            lc = myloan.loan_costs(price, ml.get("p"), rates["base"],
+                                   min_down_pct=max(ml.get("min_down_pct") or 0, A["financing"]["owner_conv_down_pct"] if is_coop else 0) or None)
+            conv_ = lc["kind"] == "conv"
+            label = ("Owner-occupied, my loan (normal loan) + roommates" if conv_ else "Owner-occupied, my loan (FHA) + roommates")
+            label_es = ("Vivienda propia, mi préstamo (normal) + compañeros de cuarto" if conv_ else "Vivienda propia, mi préstamo (FHA) + compañeros de cuarto")
+        elif is_coop or o.get("loan_type") == "conv":       # co-op, or the FHA check says a normal (conventional) loan
             lc = loan_costs(price, A["financing"]["owner_conv_down_pct"], rates["owner_conv"], A["financing"]["term_years"], A=A)
             lc["kind"] = "conv"
             label = "Owner-occupied (co-op share loan, FHA not available) + roommates" if is_coop else "Owner-occupied, normal (conventional) loan + roommates"

@@ -386,19 +386,28 @@ TOWN_SIZES = ["1", "2", "3", "2fam"]
 PRICE_CHIPS = [250_000, 300_000, 350_000, 400_000, 460_000]
 
 
-def base_from_town(snap, price, size, down_pct=None):
-    """Same compare inputs for a town, at the price the user tapped. Taxes use the fallback rate (flagged); HOA unknown (flagged)."""
+def base_from_town(snap, price, size, down_pct=None, loan=None, hoa=0):
+    """Same compare inputs for a town, at the price the user tapped. Taxes use the town's typical rate (else a fallback, flagged).
+    loan = the buyer's My loan profile (bellazu.myloan): its down payment, rate, PMI/MIP, insurance and fallback tax are used."""
     from .finance import loan_costs, carrying_costs
     A = fix_keys(snap["assumptions"])
     fi = A["financing"]
     rt = snap.get("rates") or {}
-    lc = loan_costs(price, down_pct if down_pct is not None else fi["fha_down_pct"], rt.get("fha", 6.5), fi["term_years"], fha=True, A=A)
+    if loan:
+        from . import myloan
+        lc = myloan.loan_costs(price, loan, rt.get("base") or rt.get("fha") or 6.5)
+        A["ownership_costs"]["ho6_insurance_monthly"] = myloan.prof(loan)["ins_m"]
+        A["financing"]["closing_cost_pct"] = myloan.prof(loan)["closing_pct"]
+    else:
+        lc = loan_costs(price, down_pct if down_pct is not None else fi["fha_down_pct"], rt.get("fha", 6.5), fi["term_years"], fha=True, A=A)
     two = size == "2fam"
     beds = 4 if two else int(size)
-    facts = {"price": price, "beds": beds, "ownership": "multi-family" if two else "single-family", "hoa_monthly": 0}
+    facts = {"price": price, "beds": beds, "ownership": "multi-family" if two else "single-family", "hoa_monthly": hoa or 0}
     trate = town_tax_rate(snap.get("town"))
     if trate:
         facts["taxes_annual"] = round(price * trate)
+    elif loan:
+        facts["taxes_annual"] = myloan.prof(loan)["tax_y"]
     cc, _ = carrying_costs(facts, A, "owner")
     costs = {"principal_interest": lc["principal_interest"], "mortgage_insurance": lc["mortgage_insurance"], **cc}
     bb = {int(k): v for k, v in (snap.get("by_beds") or {}).items()}
