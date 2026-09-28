@@ -1,23 +1,28 @@
 """'My loan': the buyer's own financing, used for every monthly number in the app.
 
-Defaults come from a lender pre-approval (loan numbers only): max price $300,000, 5% down ($15,000 minimum),
-loan $285,000, lender's qualifying figures: home insurance $1,200/yr and property taxes $4,000/yr. The letter gives no
-loan type, rate or term, so: 30-year fixed, conventional (5% down -> PMI), rate = Freddie Mac PMMS 30-yr average
-(labeled 'est. rate, confirm with lender'). All of it is editable in My settings and saved with the buyer's list.
+Defaults come from the buyer's pre-approval and the lender's confirmed terms (loan numbers only): FHA, 30-year fixed at 6.8%,
+max price $300,000, 5% down ($15,000 at the max price), lender's qualifying figures: home insurance $1,200/yr and property taxes
+$4,000/yr. FHA: 1.75% upfront MIP financed into the loan + 0.55%/yr annual MIP; 3.5% is the FHA minimum down (editable).
+A conventional loan (with PMI) stays available as a toggle. All of it is editable in My settings and saved with the buyer's list.
 """
 from .finance import pmt
 
-DEFAULT = {"kind": "conv", "down_pct": 0.05, "min_down": 15_000, "max_price": 300_000, "term": 30, "rate": None,
-           "pmi_pct": 0.0065,        # conventional PMI at 95% LTV: roughly 0.5-0.8%/yr of the loan by credit score; midpoint, est.
+DEFAULT = {"v": 2,                   # profiles saved before v2 (conventional + market rate) fall back to these defaults
+           "kind": "fha", "down_pct": 0.05, "min_down": 15_000, "max_price": 300_000, "term": 30,
+           "rate": 6.8, "rate_src": "lender",   # 'lender' = confirmed by the lender; 'you' = edited; None rate = market average (est.)
+           "pmi_pct": 0.0065,        # only for the conventional toggle: PMI at 95% LTV, roughly 0.5-0.8%/yr of the loan by credit score; midpoint, est.
            "closing_pct": 0.035,     # NJ/NY buyer closing costs ~3-4% of the price, est.
            "ins_m": 100,             # lender's figure: $1,200/yr
            "tax_y": 4_000}           # lender's figure, used only when a listing's real tax bill is unknown
-FHA = {"down_pct": 0.035, "ufmip": 0.0175, "mip": 0.0055}
+FHA = {"down_pct": 0.035, "ufmip": 0.0175, "mip": 0.0055}   # 3.5% = FHA minimum down; upfront MIP financed; annual MIP on the base loan
 
 
 def prof(p=None):
     d = dict(DEFAULT)
-    d.update({k: v for k, v in (p or {}).items() if k in DEFAULT and v is not None})
+    p = p or {}
+    if (p.get("v") or 0) < DEFAULT["v"]:
+        return d
+    d.update({k: v for k, v in p.items() if k in DEFAULT and (v is not None or k == "rate")})
     return d
 
 
@@ -28,9 +33,8 @@ def rate_of(p, market):
 
 def down_of(price, p):
     p = prof(p)
-    if p["kind"] == "fha":
-        return round(price * FHA["down_pct"])
-    return round(min(price, max(price * p["down_pct"], p["min_down"])))
+    pct = max(p["down_pct"], FHA["down_pct"]) if p["kind"] == "fha" else p["down_pct"]
+    return round(min(price, max(price * pct, p["min_down"])))
 
 
 def loan_costs(price, p, market_rate, min_down_pct=None):
@@ -69,10 +73,10 @@ def monthly(price, p, market_rate, taxes_annual=None, hoa=0, taxes_in_hoa=False,
 
 
 def approved(p, market_rate):
-    """The monthly payment the lender qualified: at the max price with the letter's terms (conventional, 5% / $15k down),
+    """The monthly payment the lender qualified: at the max price with the approved loan (FHA, the profile's down payment and rate),
     the lender's $4,000/yr taxes and $1,200/yr insurance, no HOA."""
     p = prof(p)
-    q = dict(p, kind="conv")
+    q = dict(p, kind=DEFAULT["kind"])
     return monthly(p["max_price"], q, market_rate, taxes_annual=p["tax_y"], hoa=0)
 
 

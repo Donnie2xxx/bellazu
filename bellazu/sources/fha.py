@@ -280,10 +280,11 @@ def badge(a):
         e = a.get("exp")
         return (f"✅ FHA approved building (until {e})" if e else "✅ FHA approved building", f"✅ Edificio aprobado por FHA (hasta {e})" if e else "✅ Edificio aprobado por FHA")
     if c == "condo_no":
-        return ("⚠️ Approval expired / not on FHA list: needs normal loan or single-unit approval, ask lender",
-                "⚠️ Aprobación vencida / no está en la lista FHA: necesita préstamo normal o aprobación de unidad individual, pregunte al banco")
+        return ("🚫 Not FHA-approved (the building's HUD approval lapsed) — loan may not work; ask lender about a single-unit approval",
+                "🚫 Sin aprobación FHA (la aprobación de HUD del edificio venció) — el préstamo puede no funcionar; pregunte al banco por una aprobación de unidad individual")
     if c == "condo_unknown":
-        return ("❓ Couldn't confirm the building: ask lender", "❓ No pudimos confirmar el edificio: pregunte al banco")
+        return ("🚫 Not FHA-approved (building not found on HUD's list) — loan may not work; ask lender",
+                "🚫 Sin aprobación FHA (el edificio no aparece en la lista de HUD) — el préstamo puede no funcionar; pregunte al banco")
     if c == "coop":
         return ("🚫 Co-op: no FHA · co-op loan, usually 10-20% down + board approval", "🚫 Co-op: sin FHA · préstamo de co-op, por lo general 10-20% inicial + aprobación de la junta")
     if c == "over_limit":
