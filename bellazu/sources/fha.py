@@ -11,7 +11,7 @@ CONDOS_F = DATA / "fha_condos_nj.json"
 SEARCH = "https://entp.hud.gov/idapp/html/condlook.cfm"
 RESULT = "https://entp.hud.gov/idapp/html/condo1.cfm"
 LIMITS_URL = "https://entp.hud.gov/idapp/html/hicostlook.cfm"
-FHA_DOWN, CONDO_CONV_DOWN, COOP_DOWN = 0.035, 0.10, 0.20
+FHA_DOWN, CONDO_CONV_DOWN, COOP_DOWN = 0.035, 0.10, 0.10   # co-op: modeled at the 10% minimum many boards accept (some ask 20%+)
 
 TOWN_COUNTY = {**{t: "HUDSON" for t in ("Bayonne", "Guttenberg", "Harrison", "Hoboken", "Jersey City", "Kearny", "North Bergen", "Secaucus", "Union City",
                                          "Weehawken", "West New York")},

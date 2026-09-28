@@ -1340,8 +1340,8 @@ def FHA_LONG(ff):
                        "single-unit approval; otherwise you'd need a normal loan, often 10% down. The numbers above still use your FHA terms.",
                        "Este edificio no está en la lista de condos aprobados por FHA de HUD (o su aprobación venció), así que su préstamo FHA puede no funcionar aquí. "
                        "Pregunte a su banco por una aprobación de unidad individual; si no, necesitaría un préstamo normal, a menudo con 10% inicial. Los números de arriba usan sus términos FHA."),
-            "coop": L("FHA doesn't lend on co-ops, so the numbers above use a co-op loan with at least 10% down and PMI (est.). The board also has to approve you.",
-                      "FHA no presta para co-ops, así que los números de arriba usan un préstamo de co-op con al menos 10% inicial y PMI (est.). La junta también tiene que aprobarla."),
+            "coop": L("FHA doesn't lend on co-ops, so the numbers above use a co-op loan with 10% down (some boards ask 20% or more) and PMI (est.). The board also has to approve you.",
+                      "FHA no presta para co-ops, así que los números de arriba usan un préstamo de co-op con 10% inicial (algunas juntas piden 20% o más) y PMI (est.). La junta también tiene que aprobarla."),
             "limit": L("The price is above the county FHA limit, so the numbers above use a normal loan.", "El precio está sobre el límite FHA del condado, así que los números usan un préstamo normal.")}.get(ff, "")
 
 
