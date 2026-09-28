@@ -1296,7 +1296,8 @@ def hoa_src_txt(hi):
         return L(f"estimate: median of {hi.get('n')} similar homes with a known fee ({where}); ask the agent for the real number",
                  f"estimado: mediana de {hi.get('n')} viviendas parecidas con cuota conocida ({where}); pida el número real al agente")
     if s_.startswith("listing description"):
-        return L("from the listing description ", "de la descripción del anuncio ") + s_[len("listing description"):].strip()
+        ph = re.sub(r"\s+", " ", re.sub(r"[()\[\]]", " ", s_[len("listing description"):])).strip().replace("“ ", "“").replace(" ”", "”")
+        return L("from the listing description ", "de la descripción del anuncio ") + ph
     return {"listing: HOA fee field": L("from the listing (HOA fee)", "del anuncio (cuota HOA)"),
             "listing: HOA section (monthly total)": L("from the listing's HOA section", "de la sección HOA del anuncio"),
             "listing: HOA section": L("from the listing's HOA section", "de la sección HOA del anuncio"),
@@ -2370,6 +2371,8 @@ def loan_breakdown(c, ln, hi, f, r, own, apm):
     fha = ln.get("kind") == "fha"
     inc = [x.lower() for x in (f.get("hoa_includes") or [])]
     tsrc = (r.get("fact_sources") or {}).get("taxes_annual")
+    if tsrc == "user input" and f.get("taxes_annual") and facts_for(st.session_state.get("prop_addr", r["address"])).get("taxes_listing") == int(f["taxes_annual"]):
+        tsrc = "listing"                          # the listing's tax figure is passed in like a user fact; label it by where it came from
     if "taxes" in inc:
         tx = L("included in the maintenance (co-op)", "incluidos en el mantenimiento (co-op)")
     elif f.get("taxes_annual"):
@@ -3741,7 +3744,7 @@ def _listing_facts(h, d=None):
         if ui:
             fo["inc"] = ui
     if d and d.get("ok") and d.get("taxes_annual"):
-        fo["taxes"] = int(d["taxes_annual"])
+        fo["taxes"] = fo["taxes_listing"] = int(d["taxes_annual"])
     if h.get("kind") in LISTING_TYPE:
         fo["type"] = "co-op" if h.get("type") == "coop" else LISTING_TYPE[h["kind"]]
     if h.get("beds") is not None:
