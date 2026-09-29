@@ -594,6 +594,9 @@ if "sv_sid" not in st.session_state:
         if _ts:
             st.session_state.tsel = _ts[:6]
             st.session_state.tsel_boot = True
+    _qh = re.sub(r"\D", "", str(st.query_params.get("home") or ""))[:14]        # ?home=<listing id> opens that listing's detail page (after the passcode)
+    if _qh:
+        st.session_state.home_boot = _qh
     st.session_state.setdefault("lang", "EN")
 
 
@@ -4376,6 +4379,16 @@ def main_page():
         else:
             ss.view = view = ("towns", tuple(tsel()))
     go = ss.pop("go", None)
+    _hb = ss.pop("home_boot", None)
+    if _hb and not go and not view:                              # deep link: ?home=<id> (the saved list of homes carries the town and the row)
+        _row = listings.find_row(_hb)
+        if _row:
+            _tn = towns.normalize(_row.get("town") or "")
+            if _tn.get("name") and _tn["name"] != "New York City":
+                ss.tsel = [_tn["name"]]
+            go = ("listing", dict(_row, _t=_tn.get("name") or _row.get("town")))
+        else:
+            st.caption(L("That home link isn't in the saved lists any more. Search the town to find it.", "Ese enlace ya no está en las listas guardadas. Busque el pueblo para encontrarla."))
     if ss.pop("auto_go", False):
         go = ("addr", ss.get("addr"))
     if go and go[0] == "addtown":
