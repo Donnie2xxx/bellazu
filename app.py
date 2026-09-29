@@ -2456,7 +2456,7 @@ def arv_section(r, sid, addr):
         st.caption(L("Not enough about this home to compare yet.", "Aún no hay suficientes datos de esta casa para comparar."))
         return
     subj = ARV.subject_of(addr, price, f.get("beds") if f.get("beds") is not None else row.get("beds"), f.get("baths") or row.get("baths"), sqft, typ, town,
-                          r.get("lat") or row.get("lat"), r.get("lon") or row.get("lon"), pid)
+                          row.get("lat") or r.get("lat"), row.get("lon") or r.get("lon"), pid)
     sold_res = listings.fetch_sold(town, allow_call=town in (ss.get("sold_load") or set())) if listings.available() else {"ok": False, "rows": []}
     sold_rows = sold_res.get("rows") or []
     active = listings.all_cached_rows("for_sale")
@@ -2500,6 +2500,9 @@ def arv_section(r, sid, addr):
                  f"<div><span>{L('Asking price now', 'Precio pedido ahora')}</span><b>{money(p)}</b>"
                  f"<div class='sm'>{L('gap before repair costs', 'diferencia antes de costos de reparación')}: <b style='font-size:.85rem'>{'+' if sp >= 0 else '−'}{money(abs(sp))}</b>"
                  f" ({'+' if res['spread_lo'] >= 0 else '−'}{money(abs(res['spread_lo']))} {L('to', 'a')} {'+' if res['spread_hi'] >= 0 else '−'}{money(abs(res['spread_hi']))})</div></div></div>")
+        if p and sp > 0.4 * p:
+            body += "<div class='cav'>" + H.escape(L("The asking price is far below what similar homes sold for. Find out why before trusting the gap: a co-op with board rules, a lease, a shared or unfinished unit, a small unit, or big hidden repairs can all explain it.",
+                                                       "El precio pedido está muy por debajo de lo que se vendieron casas parecidas. Averigüe por qué antes de confiar en la diferencia: una co-op con reglas de la junta, un contrato de alquiler, una unidad compartida o sin terminar, una unidad pequeña o reparaciones grandes ocultas pueden explicarlo.")) + "</div>"
         if sp < 0.05 * p:
             body += "<div class='cav'>" + H.escape(L("The top-quarter comps are about the same as (or below) this home's asking price, so there may be little room to add value here.",
                                                        "Los comparables del cuarto más alto están cerca (o por debajo) del precio pedido, así que quizá hay poco margen para agregar valor.")) + "</div>"
