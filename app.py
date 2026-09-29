@@ -136,6 +136,8 @@ from bellazu import keylock                                   # noqa: E402
 from bellazu import listings                                  # noqa: E402
 from bellazu import saves                                     # noqa: E402
 from bellazu import myloan as ML                              # noqa: E402
+from bellazu import arv as ARV                                # noqa: E402
+import datetime as dt                                         # noqa: E402
 from bellazu import hoa as HOA                                # noqa: E402
 
 st.set_page_config(page_title="BellaZu", page_icon="🏡", layout="centered", initial_sidebar_state="collapsed")
@@ -442,6 +444,14 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-rc .row > div {min-width:0}
 .bz-rc .ex {font-size:.78rem; color:#DADADA; margin-top:.45rem; border-top:1px solid var(--line); padding-top:.4rem}
 .bz-rc .src {font-size:.66rem; color:var(--mute); margin-top:.35rem}
+.bz-rc .g {font-size:.72rem; color:var(--rose2); text-transform:uppercase; letter-spacing:.05em; margin:.65rem 0 .1rem}
+.bz-rc .cue {font-size:.72rem; color:#9FE0B0} .bz-rc .cue.w {color:#FFB38A}
+.bz-rc .pill {display:inline-block; border-radius:100px; padding:.15rem .6rem; font-size:.72rem; font-weight:600; margin-top:.35rem}
+.bz-rc .pill.s {background:rgba(159,224,176,.14); color:#9FE0B0} .bz-rc .pill.a {background:rgba(245,211,122,.14); color:#F5D37A}
+.bz-rc .big {display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:.5rem 0 .3rem}
+.bz-rc .big div {background:var(--ink); border-radius:12px; padding:.4rem .55rem; min-width:0} .bz-rc .big span {display:block; font-size:.66rem; color:var(--mute); text-transform:uppercase; letter-spacing:.05em}
+.bz-rc .big b {font-size:1.05rem; color:var(--paper)} .bz-rc .big .sm {font-size:.72rem; color:#CFCFCF}
+.bz-rc .cav {font-size:.76rem; color:#FFE08A; margin-top:.5rem; line-height:1.35}
 .bz-home.nb {margin:0 0 .35rem; border-top:0; border-radius:0 0 22px 22px}
 [class*="st-key-hcard_"] {margin-top:.8rem; gap:0 !important}
 [class*="st-key-hcard_"] > div {width:100%}
@@ -2380,6 +2390,166 @@ def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est
                      f"Mostramos los 5 más cercanos de {len(m)}. Véalos todos en “En alquiler” en la lista de casas del pueblo."))
 
 
+ARV_KIND = {"condo": "condos", "co-op": "coop", "single-family": "single_family", "multi-family": "multi_family", "townhouse": "townhomes"}
+
+
+def _sqft_of(text):
+    m = re.search(r"(\d[\d,]{2,5})\s*(?:sq\.?\s?ft|sqft|square f|sf\b|s\.f\.)", str(text or ""), re.I)
+    try:
+        v = int(m.group(1).replace(",", "")) if m else None
+    except ValueError:
+        v = None
+    return v if v and 250 <= v <= 8000 else None
+
+
+def _load_sold(town):
+    """Button callback: the one sold-list call for this town (kept 30 days)."""
+    st.session_state.setdefault("sold_load", set()).add(town)
+
+
+def _arv_row(c, sold, es=False):
+    """One comp: photo, price (sold/asking), $/sqft, facts, address, distance, condition cues."""
+    ps = c.get("_ppsf")
+    d = c.get("sold_date")
+    if sold:
+        try:
+            dd = dt.date.fromisoformat(d)
+            when = L("sold ", "vendida ") + dd.strftime("%b %Y") if not ES() else "vendida " + ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"][dd.month - 1] + f" {dd.year}"
+        except Exception:
+            when = L("sold", "vendida")
+        pr = f"{money(c['price'])}"
+        sub = when
+    else:
+        pr = f"{money(c['price'])}"
+        sub = L("asking, not sold", "precio pedido, no vendida")
+    facts = " · ".join(x for x in [f"{c['beds']} {L('bd', 'hab')}" if c.get("beds") is not None else "",
+                                   f"{float(c['baths']):g} {L('ba', 'baño' if float(c['baths']) == 1 else 'baños')}" if c.get("baths") else "",
+                                   f"{int(c['sqft']):,} ft²" if c.get("sqft") else "", f"{money(ps)}/ft²" if ps else "",
+                                   f"{c['_mi']:.1f} mi" if c.get("_mi") is not None else ""] if x)
+    ck = c.get("_cues") or []
+    cues = ARV.cue_labels([k for k in ck if k != "work"], ES())
+    warn = ARV.cue_labels([k for k in ck if k == "work"], ES())
+    cu = (f"<div class='cue'>{H.escape(' · '.join(cues))}</div>" if cues else "") + (f"<div class='cue w'>{H.escape(' · '.join(warn))}</div>" if warn else "")
+    img = f"<img src='{H.escape(c['photo'])}' loading='lazy' alt=''>" if c.get("photo") else "<div class='ni'>🏠</div>"
+    a0, a1 = (f"<a href='{H.escape(c['url'])}' target='_blank' rel='noopener'>", "</a>") if c.get("url") else ("", "")
+    return (f"{a0}<div class='row'>{img}<div><b>{pr}</b> <span class='f'>{H.escape(sub)}</span><div class='f'>{H.escape(facts)}</div>"
+            f"<div class='f a'>{H.escape((c.get('address') or '').split(',')[0])}</div>{cu}</div></div>{a1}")
+
+
+def arv_section(r, sid, addr):
+    """'If I fix it up': what nicer units in the same building and nearby sold for (or ask), a rough after-repair value, and a rehab check."""
+    ss = st.session_state
+    f = r.get("facts") or {}
+    g = (ss.get("gallery") or {}).get(addr.strip().lower()) or {}
+    pid = g.get("id") or None
+    d = listings.detail_cached(str(pid)) if pid else None
+    d = d if (d and d.get("ok")) else {}
+    row = listings.find_row(pid) or {}
+    price = f.get("price") or g.get("price") or row.get("price")
+    text = d.get("text") or g.get("text") or ""
+    sqft = f.get("sqft") or d.get("sqft") or row.get("sqft") or _sqft_of(text)
+    own = (f.get("ownership") or "").lower()
+    typ = row.get("type") or d.get("type") or ARV_KIND.get(("co-op" if "co-op" in own else "condo" if "condo" in own else "multi-family" if "multi" in own
+                                                            else "townhouse" if "town" in own else "single-family"), "condos")
+    town = r.get("town") or row.get("town") or g.get("town")
+    if not (price and town):
+        st.caption(L("Not enough about this home to compare yet.", "Aún no hay suficientes datos de esta casa para comparar."))
+        return
+    subj = ARV.subject_of(addr, price, f.get("beds") if f.get("beds") is not None else row.get("beds"), f.get("baths") or row.get("baths"), sqft, typ, town,
+                          r.get("lat") or row.get("lat"), r.get("lon") or row.get("lon"), pid)
+    sold_res = listings.fetch_sold(town, allow_call=town in (ss.get("sold_load") or set())) if listings.available() else {"ok": False, "rows": []}
+    sold_rows = sold_res.get("rows") or []
+    active = listings.all_cached_rows("for_sale")
+    res = ARV.analyze(subj, sold_rows, active)
+    for grp in ("sold", "ask"):
+        if res.get(grp):
+            for c in res[grp]["bld"][:4] + res[grp]["near"][:6]:
+                dc = listings.detail_cached(str(c.get("id"))) if (grp == "ask" and c.get("id")) else None
+                c["_cues"] = ARV.cue_keys((dc or {}).get("text"))
+    head = L("🛠️ If I fix it up", "🛠️ Si la arreglo")
+    body = ""
+    basis = res["basis"]
+    ppsf = res["use_ppsf"]
+    sub_ = L("What nicer, fixed-up units cost in this building and nearby, to guess what this one could sell for after repairs.",
+             "Lo que cuestan unidades más bonitas y arregladas en este edificio y cerca, para calcular en cuánto podría venderse esta después de arreglarla.")
+    body += f"<div class='sub'>{H.escape(sub_)}</div>"
+    if basis:
+        gx = res[basis]
+        st_ = gx["stats"]
+        if basis == "sold":
+            since = gx.get("since")
+            pill = L(f"✔ Based on sold prices: real sales in the last 12 months{' (since ' + since[:7] + ')' if since else ''}", f"✔ Basado en precios de venta reales de los últimos 12 meses{' (desde ' + since[:7] + ')' if since else ''}")
+            body += f"<span class='pill s'>{H.escape(pill)}</span>"
+        else:
+            body += "<span class='pill a'>" + H.escape(L("⚠ Based on ASKING prices of homes listed now, not sold prices. Asking prices run higher than what homes sell for.",
+                                                         "⚠ Basado en PRECIOS PEDIDOS de casas publicadas ahora, no en precios de venta. Los precios pedidos suelen ser más altos que lo que se paga.")) + "</span>"
+        rad = gx["radius"]
+        rl = L("in the town", "en el pueblo") if rad == "town" else L(f"within {rad:g} mi", f"a menos de {rad:g} mi")
+        unit = L("price per sq ft", "precio por pie²") if ppsf else L("price (no size listed for this home)", "precio (esta casa no tiene tamaño)")
+        body += (f"<div class='sub' style='margin-top:.4rem'>{H.escape(L(f'{st_['n']} similar homes {rl}' + (f', {len(gx['bld'])} in this building' if gx['bld'] else ''), f'{st_['n']} casas parecidas {rl}' + (f', {len(gx['bld'])} en este edificio' if gx['bld'] else '')))}. "
+                 f"{H.escape(L('Top quarter by ', 'El cuarto más alto por '))}{H.escape(unit)}: {H.escape(L(str(st_['top_n']) + ' homes', str(st_['top_n']) + ' casas'))}.</div>")
+        cells = [(money(st_["p75"]) + "/ft²" if ppsf else money(st_["p75"]), L("top-quarter starts at", "el cuarto más alto empieza en")),
+                 (money(st_["med_top"]) + "/ft²" if ppsf else money(st_["med_top"]), L("typical of the top quarter", "típico del cuarto más alto"))]
+        body += "<div class='big'>" + "".join(f"<div><span>{H.escape(b)}</span><b>{H.escape(a)}</b></div>" for a, b in cells) + "</div>"
+        p = price
+        sp = res["spread"]
+        sq = f"{int(sqft):,} ft²" if ppsf else L("no size", "sin tamaño")
+        body += ("<div class='big'>"
+                 f"<div><span>{L('Estimated after-repair value', 'Valor estimado después de reparar')}</span><b>{money(res['mid'])}</b>"
+                 f"<div class='sm'>{L('range', 'rango')} {money(res['low'])} – {money(res['high'])}" + (f" · {sq}" if ppsf else "") + "</div></div>"
+                 f"<div><span>{L('Asking price now', 'Precio pedido ahora')}</span><b>{money(p)}</b>"
+                 f"<div class='sm'>{L('gap before repair costs', 'diferencia antes de costos de reparación')}: <b style='font-size:.85rem'>{'+' if sp >= 0 else '−'}{money(abs(sp))}</b>"
+                 f" ({'+' if res['spread_lo'] >= 0 else '−'}{money(abs(res['spread_lo']))} {L('to', 'a')} {'+' if res['spread_hi'] >= 0 else '−'}{money(abs(res['spread_hi']))})</div></div></div>")
+        if sp < 0.05 * p:
+            body += "<div class='cav'>" + H.escape(L("The top-quarter comps are about the same as (or below) this home's asking price, so there may be little room to add value here.",
+                                                       "Los comparables del cuarto más alto están cerca (o por debajo) del precio pedido, así que quizá hay poco margen para agregar valor.")) + "</div>"
+        grp_sold = basis == "sold"
+        if gx["bld"]:
+            body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio') + ' · ' + (L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')))}</div>"
+            body += "".join(_arv_row(c, grp_sold) for c in gx["bld"][:4])
+        else:
+            body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio'))}</div><div class='sub'>{H.escape(L('None found in this building in the saved data.', 'No se encontró ninguna en este edificio en los datos guardados.'))}</div>"
+        body += f"<div class='g'>{H.escape(L('Nearby, highest first', 'Cerca, de mayor a menor') + ' · ' + (L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')))}</div>"
+        body += "".join(_arv_row(c, grp_sold) for c in gx["near"][:5])
+        if grp_sold and (res.get("ask") or {}).get("bld"):
+            body += f"<div class='g'>{H.escape(L('Listed now in this building · asking, not sold', 'Publicadas ahora en este edificio · precio pedido, no vendidas'))}</div>"
+            body += "".join(_arv_row(c, False) for c in res["ask"]["bld"][:3])
+        if gx.get("far"):
+            body += "<div class='sub'>" + H.escape(L(f"Left out {gx['far']} much pricier homes (new luxury buildings) that don't say much about this one.",
+                                                    f"Se dejaron fuera {gx['far']} casas mucho más caras (edificios nuevos de lujo) que dicen poco de esta.")) + "</div>"
+        srcs = [L("Sold prices: realtor.com via Realty in US (sold list)", "Precios de venta: realtor.com vía Realty in US (lista de vendidas)") if grp_sold else "",
+                L("Asking prices: realtor.com via Realty in US (saved lists)", "Precios pedidos: realtor.com vía Realty in US (listas guardadas)") if (not grp_sold or (res.get('ask') or {}).get('bld')) else ""]
+        body += f"<div class='src'>{L('Sources', 'Fuentes')}: {H.escape('; '.join(x for x in srcs if x))}. " + \
+                H.escape(L("Condition words come from listing descriptions we have saved; sold comps have none, so “nicer” means a higher price per sq ft.",
+                           "Las palabras sobre el estado vienen de las descripciones guardadas; las ventas no tienen, así que “más bonita” significa mayor precio por pie².")) + "</div>"
+    else:
+        need = town not in (ss.get("sold_load") or set()) and not listings.sold_cached(town) and listings.available()
+        body += "<div class='sub' style='margin-top:.4rem'>" + H.escape(L("Not enough similar homes with a price per sq ft to estimate a value yet.", "Aún no hay suficientes casas parecidas para estimar un valor.")) + "</div>"
+        if need:
+            body += "<div class='sub'>" + H.escape(L("Recent sales in this town are not loaded yet.", "Las ventas recientes de este pueblo aún no se cargaron.")) + "</div>"
+    own_cues = ARV.cue_keys(text)
+    if own_cues:
+        body += ("<div class='sub' style='margin-top:.45rem'>" + H.escape(L("This listing's own description mentions: ", "La descripción de este anuncio menciona: "))
+                 + H.escape(", ".join(ARV.cue_labels(own_cues, ES()))) + ".</div>")
+    html(f"<div class='bz-rc'><div class='h'>{head}</div>{body}</div>")
+    if listings.available() and town not in (ss.get("sold_load") or set()) and not listings.sold_cached(town) and basis != "sold":
+        st.button(L(f"🔎 Load recent sales in {town} (1 lookup, kept 30 days)", f"🔎 Cargar ventas recientes en {town} (1 consulta, se guarda 30 días)"),
+                  key=f"sold_{sid}", width="stretch", on_click=_load_sold, args=(town,))
+    if basis and price:
+        c1, c2 = st.columns(2)
+        with c1:
+            rehab = st.number_input(L("Fix-up budget ($)", "Presupuesto de arreglos ($)"), 0, 2_000_000, step=5_000, key=f"arv_rehab_{sid}")
+        with c2:
+            sc = st.number_input(L("Selling costs (%)", "Costos de venta (%)"), 0.0, 15.0, value=ARV.SELL_COST * 100, step=0.5, key=f"arv_sell_{sid}")
+        rows_ = [(L("low", "bajo"), res["low"]), (L("middle", "medio"), res["mid"]), (L("high", "alto"), res["high"])]
+        pv_ = [(n, ARV.profit(v, price, rehab, sc / 100)) for n, v in rows_]
+        cells = "".join(f"<div><span>{H.escape(n)}</span><b>{'+' if x >= 0 else '−'}{money(abs(x))}</b></div>" for n, x in pv_)
+        html(f"<div class='bz-rc'><div class='sub'>{H.escape(L(f'Rough profit if it sells at the ARV: sale price − {sc:g}% selling costs − what you pay ({money(price)}) − your fix-up budget ({money(rehab)}).', f'Ganancia aproximada si se vende al valor estimado: precio de venta − {sc:g}% de costos de venta − lo que paga ({money(price)}) − su presupuesto de arreglos ({money(rehab)}).'))}</div>"
+             f"<div class='st' style='grid-template-columns:1fr 1fr 1fr'>{cells}</div></div>")
+    st.caption(L("⚠ A rough estimate, not an appraisal. It leaves out the fix-up cost (unless you enter it), closing costs to buy, HOA and taxes while you hold it, loan interest, and how long it takes. Ask an agent and a contractor before you count on it.",
+                 "⚠ Un estimado aproximado, no un avalúo. No incluye el costo de arreglos (salvo que lo ingrese), gastos de cierre al comprar, HOA e impuestos mientras la tiene, intereses del préstamo ni cuánto tarda. Pregunte a un agente y a un contratista antes de confiar en él."))
+
+
 def _est_lbl(b, lv):
     """'(2 bd, town typical from 14 listings)' — or HUD's fair rent when too few current listings."""
     n = int((lv or {}).get("n") or 0)
@@ -2577,6 +2747,11 @@ def show_property(r):
             _prop_comps(r, sel, base, own, rent, sid)
         with st.expander(L("Cash in, cash out", "Dinero que entra y sale"), key=f"pcc_{sid}"):
             cash_card(sid, out, rent_ref)
+    with st.expander(L("If I fix it up (after-repair value)", "Si la arreglo (valor después de reparar)"), key=f"parv_{sid}"):
+        try:
+            arv_section(r, sid, p_addr)
+        except Exception:
+            st.caption(L("Couldn't work out the after-repair value for this home right now.", "No se pudo calcular el valor después de reparar para esta casa ahora."))
     with st.expander(L("FHA and your loan", "FHA y su préstamo"), key=f"pfha_{sid}"):
         if fa:
             fha_card(fa, "p_" + sid, inline=True)

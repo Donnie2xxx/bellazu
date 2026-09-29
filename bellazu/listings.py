@@ -239,6 +239,72 @@ def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False):
     return out
 
 
+SOLD_TTL_H = 30 * 24          # recent sales change slowly: one list call per town, kept 30 days
+SOLD_MIN_LEFT = 60            # never start a sold-list call when fewer than this many calls are left in the month
+
+
+def _norm_sold(x):
+    r = _norm(x, "sold")
+    r["list_price"] = r.get("price")
+    r["price"] = x.get("last_sold_price")
+    r["sold_date"] = str(x.get("last_sold_date") or "")[:10] or None
+    return r
+
+
+def sold_cached(town):
+    """The saved sold list for a town (any age up to the TTL), or None. Never calls the API."""
+    return read_cache(town, "sold", SOLD_TTL_H)
+
+
+def fetch_sold(town, allow_call=True):
+    """Recent SALES in a town (Realty in US sold list, 200 newest by sale date, all home types), cached 30 days. One API call when not cached,
+    and only when plenty of calls are left. Returns {"ok", "rows", "fetched", "town"} or {"ok": False, "error"}."""
+    p = _cpath(f"{town}_sold_0_v2")
+    got = sold_cached(town)
+    if got:
+        return got
+    if not allow_call:
+        return {"ok": False, "error": "not loaded", "rows": []}
+    if usage()["left"] < SOLD_MIN_LEFT:
+        return {"ok": False, "error": "cap", "rows": []}
+    body = {"limit": 200, "offset": 0, "city": town, "state_code": "NJ", "status": ["sold"], "sort": {"direction": "desc", "field": "sold_date"}}
+    d, err = _call("POST", "/properties/v3/list", json=body)
+    if err:
+        return {"ok": False, "error": err, "rows": []}
+    res = (((d or {}).get("data") or {}).get("home_search") or {}).get("results") or []
+    rows = [_norm_sold(x) for x in res]
+    rows = [r for r in rows if r["type"] != "land" and r.get("price") and r.get("sold_date")]
+    out = {"ok": True, "rows": rows, "total": len(rows), "fetched": dt.datetime.now().strftime("%Y-%m-%d %H:%M"), "town": town, "status": "sold"}
+    p.write_text(json.dumps(out))
+    return out
+
+
+def all_cached_rows(status="for_sale"):
+    """Every saved list of one status across towns (no API calls), de-duplicated by property id."""
+    out, seen = [], set()
+    for f in sorted(_DIR.glob(f"*_{status}_0_v2.json")) if _DIR.exists() else []:
+        try:
+            for r in json.loads(f.read_text()).get("rows") or []:
+                k = r.get("id") or r.get("address")
+                if k in seen:
+                    continue
+                seen.add(k)
+                out.append(r)
+        except Exception:
+            continue
+    return out
+
+
+def find_row(pid):
+    """One saved for-sale row by property id (no API call), or None."""
+    if not pid:
+        return None
+    for r in all_cached_rows("for_sale"):
+        if str(r.get("id")) == str(pid):
+            return r
+    return None
+
+
 def filter_rows(rows, min_price=None, max_price=None, beds=None, kind="any"):
     out, seen = [], set()
     for r in rows:
