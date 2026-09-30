@@ -470,10 +470,31 @@ def add_hoa_obs(pid, town, zip_, kind, fee, sqft=None, beds=None):
     _OBS["t"] = 0
 
 
+OVR = pathlib.Path(__file__).resolve().parent.parent / "data" / "listing_overrides.json"
+_OVR = {"t": 0, "d": {}}
+
+
+def overrides():
+    """Facts confirmed by a listing agent (data/listing_overrides.json, by listing id); re-read at most once a minute."""
+    if time.time() - _OVR["t"] > 60:
+        try:
+            d = json.loads(OVR.read_text())
+        except Exception:
+            d = {}
+        _OVR.update(t=time.time(), d={str(k): v for k, v in d.items() if isinstance(v, dict) and not str(k).startswith("_")})
+    return _OVR["d"]
+
+
 def hoa_info(row, d=None):
     """What to show for the monthly fee of one listing, from what is already on disk (never calls the API):
     {"state": "real"|"none"|"est"|"unknown", "fee", "label": "hoa"|"maintenance", "src", "inc", "n", "where", "kind"}."""
     row = row or {}
+    ov = overrides().get(str(row.get("id"))) if row.get("id") else None
+    if ov and ov.get("fee"):                       # confirmed by the listing agent: exact, beats any listing field or estimate
+        k_ = ov.get("kind") or "other"
+        return {"state": "real", "fee": int(ov["fee"]), "label": "maintenance" if k_ == "coop" else "hoa", "src": ov.get("src") or "confirmed by the listing agent (exact)",
+                "inc": list(ov.get("inc") or []), "kind": k_, "exact": bool(ov.get("exact")), "capital_assessment": ov.get("capital_assessment"),
+                "move_in_fee": ov.get("move_in_fee"), "move_in_plus": bool(ov.get("move_in_plus"))}
     if d is None and row.get("id"):
         d = detail_cached(str(row["id"]))
     d = d if (d and d.get("ok")) else {}

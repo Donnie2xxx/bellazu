@@ -1,0 +1,13 @@
+{
+"_about": "Exact facts confirmed by a listing agent, keyed by listing id. They win over anything read from the listing or estimated.",
+"9325574826": {
+"kind": "coop",
+"fee": 2996,
+"exact": true,
+"inc": ["taxes", "utilities", "internet", "parking"],
+"capital_assessment": 543.75,
+"move_in_fee": 800,
+"move_in_plus": true,
+"src": "confirmed by the listing agent (exact)"
+}
+}

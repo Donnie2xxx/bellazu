@@ -438,6 +438,9 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-rc .st b {font-size:.92rem; color:var(--paper); white-space:nowrap}
 .bz-rc .cmp {font-size:.86rem; color:var(--rose2); margin:.35rem 0 .45rem}
 .bz-rc a {text-decoration:none !important; color:inherit !important}
+.bz-rc.plain {border:0; background:transparent; padding:0; margin:0}
+[class*="st-key-arvbox_"] {border:1px solid var(--rose); border-radius:20px; background:var(--ink2); padding:.75rem .85rem .6rem; margin:.7rem 0 .4rem; gap:0}
+[class*="st-key-arvbox_"] [data-testid="stElementContainer"] {margin:0}
 .bz-rc .row {display:grid; grid-template-columns:64px 1fr; gap:.6rem; align-items:center; padding:.35rem 0; border-top:1px solid var(--line)}
 .bz-rc .row img, .bz-rc .row .ni {width:64px; height:48px; object-fit:cover; border-radius:10px; background:#222; display:flex; align-items:center; justify-content:center}
 .bz-rc .row b {font-size:.92rem; color:var(--paper)} .bz-rc .row .f {font-size:.76rem; color:#CFCFCF} .bz-rc .row .f.a {color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -714,6 +717,7 @@ def _sv_process():
         stored = None
     ss.sv = saves.merge(stored, sv()) if stored else saves.normalize(sv())
     ss.sv_loaded = True
+    _seed_picks()                                 # the shared picked-homes list joins every device's saved homes (removals stay removed)
     if saves.cloud_available():
         saves.cloud_put(_sv_secret(), ss.sv)      # fetch + merge + push only if something is new, in the background
         m = saves.cloud_merged()                  # whatever already came back; the rest arrives via _sv_poll (no waiting here)
@@ -723,6 +727,67 @@ def _sv_process():
     _lang_from_prefs(ss.sv)
     if not saves.same(ss.sv, stored or saves.empty()):
         ss.sv_ver = int(ss.get("sv_ver", 0)) + 1  # write the merged list back to this browser
+
+
+PICKS_FILE = ROOT / "data" / "bella_picks.json"      # readable copy (source tree only)
+PICKS_LOCK = ROOT / "data" / "bella_picks.lock"      # what ships: the same list, encrypted with the app passcode (keeps addresses out of the public repo)
+_PICKS_MEMO = {}
+
+
+def _picks_entries():
+    """Saved-home entries for the shared picked list (data/bella_picks.json): built from saved listing snapshots, no API calls."""
+    d = None
+    try:
+        if PICKS_FILE.exists():
+            d = json.loads(PICKS_FILE.read_text())
+        elif PICKS_LOCK.exists():
+            pc = _sv_secret()
+            if pc not in _PICKS_MEMO:
+                t_ = keylock.unlock(PICKS_LOCK, pc)
+                _PICKS_MEMO[pc] = json.loads(t_) if t_ else None
+            d = _PICKS_MEMO[pc]
+    except Exception:
+        d = None
+    if not d:
+        return []
+    out = []
+    for h in d.get("homes") or []:
+        try:
+            if not h.get("id") or not h.get("address"):
+                continue
+            hm = home_money(h) or {}
+            tl = list(FEED_TYPE_LBL.get(h.get("kind"), FEED_TYPE_LBL["other"]))
+            if hm.get("coop"):
+                tl = ["Co-op", "Co-op"]
+            fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, hm.get("hoa") or h.get("hoa_monthly"))
+            ms = int(d.get("saved_ms") or saves.now_ms())
+            photos = [p_ for p_ in (h.get("photos") or []) if p_]
+            e = {"id": saves.item_id("listing", h["id"]), "kind": "home", "title": h["address"], "saved": d.get("saved") or _today(), "saved_ms": ms,
+                 "updated": ms, "status": "interested", "note": "", "pick": True}
+            e.update(addr=h["address"], town=h.get("town"), price=h.get("price"), rent=False, beds=h.get("beds"), baths=h.get("baths"), sqft=h.get("sqft"),
+                     hoa=h.get("hoa_monthly"), type_lbl=tl, facts_line_en=fl[0], facts_line_es=fl[1], photo=h.get("photo") or _thumb(photos[0] if photos else None),
+                     photos=photos[:8], url=h.get("url"), listing_id=str(h["id"]), broker=h.get("broker"), facts_over=_listing_facts(h),
+                     safety=_caution(h.get("town")))
+            out.append(e)
+        except Exception:
+            continue
+    return out
+
+
+def _seed_picks():
+    """Merge the shared picked homes into this session's list. A home that was removed (tombstone) or is already saved is not re-added."""
+    ss = st.session_state
+    try:
+        have = {str(x.get("listing_id")) for x in sv()["items"].values() if x.get("listing_id")} | {_norm_addr(x.get("addr")) for x in sv()["items"].values()}
+        seed = saves.empty()
+        for e in _picks_entries():
+            if e["listing_id"] in have or _norm_addr(e["addr"]) in have:
+                continue
+            seed["items"][e["id"]] = e
+        if seed["items"]:
+            ss.sv = saves.merge(ss.sv, seed)
+    except Exception:
+        pass
 
 
 def _lang_changed():
@@ -1301,7 +1366,8 @@ def hoa_txt(hi, short=False, es=None):
     st_, fee, mt = hi.get("state"), hi.get("fee"), hi.get("label") == "maintenance"
     tx = L(" (includes taxes)", " (incluye impuestos)") if "taxes" in (hi.get("inc") or []) else L(" (may include taxes)", " (puede incluir impuestos)")
     if st_ == "real":
-        return (L(f"Maintenance {money(fee)}/mo", f"Mantenimiento {money(fee)}/mes") + ("" if short else tx)) if mt else L(f"HOA {money(fee)}/mo", f"HOA {money(fee)}/mes")
+        ex_ = "" if not hi.get("exact") else L(" · confirmed", " · confirmada")
+        return (L(f"Maintenance {money(fee)}/mo", f"Mantenimiento {money(fee)}/mes") + ex_ + ("" if short else tx)) if mt else L(f"HOA {money(fee)}/mo", f"HOA {money(fee)}/mes") + ex_
     if st_ == "est":
         return (L(f"Maintenance est. ~{money(fee)}/mo", f"Mantenimiento est. ~{money(fee)}/mes") + ("" if short else tx)) if mt else \
             L(f"HOA est. ~{money(fee)}/mo", f"HOA est. ~{money(fee)}/mes")
@@ -1309,6 +1375,29 @@ def hoa_txt(hi, short=False, es=None):
         return L("No HOA (listing says none)", "Sin HOA (según el anuncio)") if hi.get("src") == "listing says no association" else \
             L("No HOA (typical for houses)", "Sin HOA (normal en casas)")
     return L("HOA unknown", "HOA desconocida")
+
+
+def hoa_extra_note(hi):
+    """Extra confirmed costs on a listing: a capital assessment inside the fee and a one-time move-in board charge (or '')."""
+    hi = hi or {}
+    bits_en, bits_es = [], []
+    if hi.get("capital_assessment"):
+        bits_en.append(f"the fee includes a {money2(hi['capital_assessment'])}/mo capital assessment (building project)")
+        bits_es.append(f"la cuota incluye una asignación de capital de {money2(hi['capital_assessment'])}/mes (proyecto del edificio)")
+    if hi.get("move_in_fee"):
+        pl = "+" if hi.get("move_in_plus") else ""
+        bits_en.append(f"plus a one-time board charge at move-in of {money(hi['move_in_fee'])}{pl} (not in the monthly)")
+        bits_es.append(f"más un cargo único de la junta al mudarse de {money(hi['move_in_fee'])}{pl} (no está en el pago mensual)")
+    if not bits_en:
+        return ""
+    return L("Confirmed by the agent: ", "Confirmado por el agente: ") + L("; ".join(bits_en) + ".", "; ".join(bits_es) + ".")
+
+
+def money2(v):
+    try:
+        return f"${float(v):,.2f}"
+    except Exception:
+        return ""
 
 
 def hoa_src_txt(hi):
@@ -1329,6 +1418,7 @@ def hoa_src_txt(hi):
             "RentCast sale listing": L("from RentCast's copy of the listing", "de la copia del anuncio en RentCast"),
             "typical for houses": L("houses and 2-4 family homes usually have no HOA", "las casas y de 2 a 4 familias normalmente no tienen HOA"),
             "listing says no association": L("the listing says there is no association", "el anuncio dice que no hay asociación"),
+            "confirmed by the listing agent (exact)": L("confirmed by the listing agent (exact)", "confirmada por el agente del anuncio (exacta)"),
             "user input": L("you entered it", "usted lo ingresó")}.get(s_, s_)
 
 
@@ -2434,9 +2524,71 @@ def _arv_row(c, sold, es=False):
     warn = ARV.cue_labels([k for k in ck if k == "work"], ES())
     cu = (f"<div class='cue'>{H.escape(' · '.join(cues))}</div>" if cues else "") + (f"<div class='cue w'>{H.escape(' · '.join(warn))}</div>" if warn else "")
     img = f"<img src='{H.escape(c['photo'])}' loading='lazy' alt=''>" if c.get("photo") else "<div class='ni'>🏠</div>"
-    a0, a1 = (f"<a href='{H.escape(c['url'])}' target='_blank' rel='noopener'>", "</a>") if c.get("url") else ("", "")
-    return (f"{a0}<div class='row'>{img}<div><b>{pr}</b> <span class='f'>{H.escape(sub)}</span><div class='f'>{H.escape(facts)}</div>"
-            f"<div class='f a'>{H.escape((c.get('address') or '').split(',')[0])}</div>{cu}</div></div>{a1}")
+    return (f"<div class='row'>{img}<div><b>{pr}</b> <span class='f'>{H.escape(sub)}</span><div class='f'>{H.escape(facts)}</div>"
+            f"<div class='f a'>{H.escape((c.get('address') or '').split(',')[0])}</div>{cu}</div></div>")
+
+
+_ARV_TOK = "\x00COMP%d\x00"
+
+
+def _comp_app_row(c):
+    """The app's own saved listing for a comp (so it opens inside BellaZu), or None. Never calls the API."""
+    if c.get("id"):
+        r = listings.find_row(c["id"])
+        if r:
+            return r
+    if not c.get("_sold") and c.get("id") and c.get("address") and c.get("price"):
+        return c                                          # an active comp is already a listing row from the saved lists
+    na = _norm_addr(c.get("address"))
+    if na:
+        for r in listings.all_cached_rows("for_sale"):    # a sold home that is listed again now
+            if _norm_addr(r.get("address")) == na:
+                return r
+    return None
+
+
+def _open_comp(row, cur_id, cur_addr):
+    """Open a comp inside BellaZu; remember where we came from so there is a way back."""
+    ss = st.session_state
+    tr = list(ss.get("arv_trail") or [])
+    if cur_addr and (not tr or tr[-1][1] != cur_addr):
+        tr.append((str(cur_id or ""), cur_addr))
+    ss.arv_trail = tr[-8:]
+    tn = towns.normalize(row.get("town") or "")
+    ss.go = ("listing", dict(row, _t=tn.get("name") or row.get("town")))
+    ss._full = True
+
+
+def _arv_back():
+    ss = st.session_state
+    tr = list(ss.get("arv_trail") or [])
+    if not tr:
+        return
+    pid, addr = tr.pop()
+    ss.arv_trail = tr
+    row = listings.find_row(pid) if pid else None
+    if row:
+        tn = towns.normalize(row.get("town") or "")
+        ss.go = ("listing", dict(row, _t=tn.get("name") or row.get("town")))
+    else:
+        ss.go = ("addr", addr, "keep")
+    ss._full = True
+
+
+def arv_back_button(addr):
+    tr = st.session_state.get("arv_trail") or []
+    if tr and tr[-1][1] != addr:
+        lbl = tr[-1][1].split(",")[0]
+        st.button(L(f"← Back to {lbl}", f"← Volver a {lbl}"), key="arv_back_btn", type="tertiary", on_click=_arv_back)
+
+
+def _arv_comps_render(c, sold, sid, tag, cur_id, cur_addr):
+    """A comp row with its own button: 'Open in BellaZu' when we have it saved, else a clearly labeled outside link."""
+    app = _comp_app_row(c)
+    if app:
+        st.button(L("Open in BellaZu ›", "Abrir en BellaZu ›"), key=f"arvo_{sid}_{tag}", type="tertiary", on_click=_open_comp, args=(app, cur_id, cur_addr))
+    elif str(c.get("url") or "").startswith("http"):
+        st.link_button(L("Not saved in BellaZu: see on realtor.com ↗", "No está guardada en BellaZu: ver en realtor.com ↗"), c["url"], type="tertiary")
 
 
 def arv_section(r, sid, addr):
@@ -2471,6 +2623,11 @@ def arv_section(r, sid, addr):
                 c["_cues"] = ARV.cue_keys((dc or {}).get("text"))
     head = L("🛠️ If I fix it up", "🛠️ Si la arreglo")
     body = ""
+    comps = []
+
+    def _arv_tok(c, sold_, acc):
+        acc.append((c, sold_))
+        return _ARV_TOK % (len(acc) - 1)
     basis = res["basis"]
     ppsf = res["use_ppsf"]
     sub_ = L("What nicer, fixed-up units cost in this building and nearby, to guess what this one could sell for after repairs.",
@@ -2512,14 +2669,14 @@ def arv_section(r, sid, addr):
         grp_sold = basis == "sold"
         if gx["bld"]:
             body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio') + ' · ' + (L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')))}</div>"
-            body += "".join(_arv_row(c, grp_sold) for c in gx["bld"][:4])
+            body += "".join(_arv_tok(c, grp_sold, comps) for c in gx["bld"][:4])
         else:
             body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio'))}</div><div class='sub'>{H.escape(L('None found in this building in the saved data.', 'No se encontró ninguna en este edificio en los datos guardados.'))}</div>"
         body += f"<div class='g'>{H.escape(L('Nearby, highest first', 'Cerca, de mayor a menor') + ' · ' + (L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')))}</div>"
-        body += "".join(_arv_row(c, grp_sold) for c in gx["near"][:5])
+        body += "".join(_arv_tok(c, grp_sold, comps) for c in gx["near"][:5])
         if grp_sold and (res.get("ask") or {}).get("bld"):
             body += f"<div class='g'>{H.escape(L('Listed now in this building · asking, not sold', 'Publicadas ahora en este edificio · precio pedido, no vendidas'))}</div>"
-            body += "".join(_arv_row(c, False) for c in res["ask"]["bld"][:3])
+            body += "".join(_arv_tok(c, False, comps) for c in res["ask"]["bld"][:3])
         if gx.get("far"):
             body += "<div class='sub'>" + H.escape(L(f"Left out {gx['far']} much pricier homes (new luxury buildings) that don't say much about this one.",
                                                     f"Se dejaron fuera {gx['far']} casas mucho más caras (edificios nuevos de lujo) que dicen poco de esta.")) + "</div>"
@@ -2537,7 +2694,16 @@ def arv_section(r, sid, addr):
     if own_cues:
         body += ("<div class='sub' style='margin-top:.45rem'>" + H.escape(L("This listing's own description mentions: ", "La descripción de este anuncio menciona: "))
                  + H.escape(", ".join(ARV.cue_labels(own_cues, ES()))) + ".</div>")
-    html(f"<div class='bz-rc'><div class='h'>{head}</div>{body}</div>")
+    with st.container(key=f"arvbox_{sid}"):
+        segs = re.split("\x00COMP(\\d+)\x00", f"<div class='h'>{head}</div>{body}")
+        for j, seg in enumerate(segs):
+            if j % 2 == 0:
+                if seg:
+                    html(f"<div class='bz-rc plain'>{seg}</div>")
+            else:
+                c_, sold_ = comps[int(seg)]
+                html(f"<div class='bz-rc plain'>{_arv_row(c_, sold_)}</div>")
+                _arv_comps_render(c_, sold_, sid, seg, pid, addr)
     if listings.available() and town not in (ss.get("sold_load") or set()) and not listings.sold_cached(town) and basis != "sold":
         st.button(L(f"🔎 Load recent sales in {town} (1 lookup, kept 30 days)", f"🔎 Cargar ventas recientes en {town} (1 consulta, se guarda 30 días)"),
                   key=f"sold_{sid}", width="stretch", on_click=_load_sold, args=(town,))
@@ -2658,6 +2824,8 @@ def loan_breakdown(c, ln, hi, f, r, own, apm):
              f"{H.escape(L(f'{apk} at {mxs}, {apd} down, with the lender’s taxes and insurance, no HOA', f'{apk_es} a {mxs}, {apd} de inicial, con los impuestos y seguro del banco, sin HOA'))}</span></td>"
              f"<td class='n'>{money(apm['total'])}</td></tr>")
     html(f"<table class='bz-bd'>{body}</table>")
+    if hoa_extra_note(hi):
+        cap(hoa_extra_note(hi))
     md(L(f"**Cash to close (est.):** {money(ln.get('down_payment'))} down ({(ln.get('down_pct') or 0) * 100:.1f}%) + about {money(ln.get('closing_costs_est'))} closing costs "
          f"({lp['closing_pct'] * 100:.1f}%, NJ/NY usually 3-4%) = **{money(ln.get('cash_to_close_est'))}**.",
          f"**Efectivo para cerrar (est.):** {money(ln.get('down_payment'))} de inicial ({(ln.get('down_pct') or 0) * 100:.1f}%) + unos {money(ln.get('closing_costs_est'))} de gastos de cierre "
@@ -2677,6 +2845,7 @@ def show_property(r):
     first = ss.get("hmode", "first") == "first"
     ex = r.get("extra") or {}
     # 1) the essentials first: photo, address, price, beds/baths, heart, then three numbers. Everything else is tucked into tap-to-open sections.
+    arv_back_button(ss.get("prop_addr", r["address"]))
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
     if f.get("price"):
@@ -2686,6 +2855,8 @@ def show_property(r):
     hi_p = prop_hoa(r, p_addr)
     if hi_p:
         html(f"<div class='bz-3n' style='margin:.1rem 0 .5rem'>{H.escape(hoa_txt(hi_p))}</div>")
+        if hoa_extra_note(hi_p):
+            html(f"<div class='bz-3n' style='margin:-.3rem 0 .5rem'>{H.escape(hoa_extra_note(hi_p))}</div>")
     lid = ((ss.get("gallery") or {}).get(p_addr.strip().lower()) or {}).get("id")
     sv_iid = find_home(p_addr, lid) or (saves.item_id("listing", lid) if lid else saves.item_id("address", p_addr))
     ss["_sv_stash_prop"] = (r, None, first, p_addr)
@@ -3023,6 +3194,7 @@ def _open_listing(row):
     if v and v[0] == "towns":
         ss.from_towns = tuple(v[1])          # a "back to your towns" button on the home page
     ss.go = ("listing", row)
+    ss.pop("arv_trail", None)
     ss._full = True
 
 
@@ -3356,7 +3528,8 @@ def feed_block(ts, drives, sid):
                      f"<div class='x'>{H.escape(hoa_txt(hm['hoa']))}"
                      + (H.escape(L(' · taxes: lender figure', ' · impuestos: cifra del banco')) if hm['m']['tax_src'] == 'lender' else '') + "</div>"
                      + (f"<div class='ff'>{H.escape(L(*FHA_FLAG[hm['fha']]))}</div>" if hm.get("fha") else
-                        f"<div class='cn'>{H.escape(L(*COOP_NOTE))}</div>" if hm.get("coop") else "") + "</div>")
+                        f"<div class='cn'>{H.escape(L(*COOP_NOTE))}</div>" if hm.get("coop") else "")
+                     + (f"<div class='x'>{H.escape(hoa_extra_note(hm['hoa']))}</div>" if hoa_extra_note(hm['hoa']) else "") + "</div>")
     if len(rows) > shown:
         st.button(L(f"Show more ({len(rows) - shown} more)", f"Ver más ({len(rows) - shown} más)"), key=f"hmore_{sid}", width="stretch",
                   on_click=lambda: ss.update({f"hn_{sid}": shown + 8}))
@@ -4403,6 +4576,7 @@ def main_page():
         ss.view = go
         if not keep:
             ss.pop("from_towns", None)
+            ss.pop("arv_trail", None)
             if go[0] == "town":
                 tn_ = towns.normalize(go[1])
                 ss.tsel = [tn_["name"] or go[1]] if tn_.get("match") in ("exact", "alias", "fuzzy") else []
