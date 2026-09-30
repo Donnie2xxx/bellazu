@@ -717,7 +717,6 @@ def _sv_process():
         stored = None
     ss.sv = saves.merge(stored, sv()) if stored else saves.normalize(sv())
     ss.sv_loaded = True
-    _seed_picks()                                 # the shared picked-homes list joins every device's saved homes (removals stay removed)
     if saves.cloud_available():
         saves.cloud_put(_sv_secret(), ss.sv)      # fetch + merge + push only if something is new, in the background
         m = saves.cloud_merged()                  # whatever already came back; the rest arrives via _sv_poll (no waiting here)
@@ -4632,6 +4631,12 @@ def main_page():
 
 # ------------------------------------------------------------------ page
 settings_defaults()
+if st.session_state.get("authed") and st.session_state.get("sv_loaded") and not st.session_state.get("picks_seeded"):
+    st.session_state.picks_seeded = True           # once per session, after the browser + online copies merged: the shared picked homes join the list
+    _n0 = len(sv()["items"])
+    _seed_picks()
+    if len(sv()["items"]) != _n0:
+        _sv_touch()                                # write to this browser and the online copy
 if st.session_state.get("page") == "saved":
     saved_page()
 else:
