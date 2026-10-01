@@ -423,6 +423,8 @@ iframe[title*="searchbox"] {min-height:58px}
 [data-testid="stLayoutWrapper"]:has(> .st-key-townbar) {position:sticky; top:0; z-index:90}   /* the wrapper is the element that can stick */
 .st-key-townbar {background:var(--ink); padding:.45rem 0 .5rem; border-bottom:1px solid var(--line2)}
 .st-key-townbar button {min-height:2.6rem}
+.st-key-back_saved {flex:1 1 100%}
+.st-key-back_saved button {min-height:2.6rem; border-color:var(--rose) !important; color:var(--rose) !important; background:var(--ink2) !important; font-weight:700; justify-content:flex-start}
 [class*="st-key-tbx_"] button {border-radius:100px !important; background:var(--ink2) !important; border:1px solid var(--rose) !important; color:var(--paper) !important; text-transform:none !important; letter-spacing:0 !important}
 .st-key-tb_change {flex:1 1 9rem}
 .st-key-tpicker {background:var(--ink2)}
@@ -1605,6 +1607,27 @@ def settings_defaults():
             ss[k] = ss[k]
 
 
+_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt)$")
+_KEEP_MAIN = re.compile(r"^(hmode|pk_mode|rank_price|mt_price|mt_size|tchips_.+|hst_.+|hpx_.+|happ_.+|hbd_.+|hkd_.+|hsort_.+|tp_.+|tpo_.+|ts_.+|ro_.+|ub_.+|un_.+|rm_.+|lv_.+|own_.+|cc_.+|g_.+|arv_rehab_.+|arv_sell_.+)$")
+
+
+def _keep_ui():
+    """Streamlit forgets a widget's value on any run that doesn't draw it. The Saved homes list (sort, filter) is kept always; what the user chose on the
+    main page (mode, town picks, price/size, feed filters, rent-out choices) is kept while in in Saved homes or in a home opened from there,
+    and for the one run after that, which draws those widgets again."""
+    ss = st.session_state
+    away = ss.get("page") == "saved" or bool(ss.get("sv_chain"))
+    pats = [_KEEP_SAVED] + ([_KEEP_MAIN] if (away or ss.pop("_kept_main", False)) else [])
+    if away:
+        ss._kept_main = True
+    for k in list(ss.keys()):
+        if isinstance(k, str) and any(p.match(k) for p in pats):
+            try:
+                ss[k] = ss[k]
+            except Exception:
+                pass
+
+
 def _inc_chip():
     v = st.session_state.get("inc_chip")
     if v is not None:
@@ -2555,6 +2578,7 @@ def _open_comp(row, cur_id, cur_addr):
     ss.arv_trail = tr[-8:]
     tn = towns.normalize(row.get("town") or "")
     ss.go = ("listing", dict(row, _t=tn.get("name") or row.get("town")))
+    ss._keep_chain = True
     ss._full = True
 
 
@@ -2565,6 +2589,7 @@ def _arv_back():
         return
     pid, addr = tr.pop()
     ss.arv_trail = tr
+    ss._keep_chain = True
     row = listings.find_row(pid) if pid else None
     if row:
         tn = towns.normalize(row.get("town") or "")
@@ -3932,7 +3957,13 @@ export default function(component) {
   let g = w.__bznav;
   if (!g) {
     g = w.__bznav = { seq: null, vkey: null, pos: {}, pushed: 0, ignore: 0, busy: 0, stop: false, cur: 0 };
-    document.addEventListener('scroll', () => { if (g.vkey && !g.busy) g.pos[g.vkey] = where(); }, { capture: true, passive: true });
+    // remember the scroll place of the view: on a real scroll (finger / wheel / keys), and at every tap (just before the page changes).
+    // A scroll that nobody did (the page getting shorter while a new view loads) is not recorded.
+    g.inp = 0; g.frozen = false;
+    document.addEventListener('scroll', () => { if (g.vkey && !g.busy && !g.frozen && Date.now() - g.inp < 2500) g.pos[g.vkey] = where(); }, { capture: true, passive: true });
+    ['touchmove', 'wheel', 'keydown'].forEach(ev => document.addEventListener(ev, () => { g.inp = Date.now(); g.frozen = false; }, { capture: true, passive: true }));
+    // a tap: keep the place as it is right now and ignore the page resizing while it redraws (until the user scrolls again or the view changes)
+    ['click', 'pointerdown'].forEach(ev => document.addEventListener(ev, () => { if (g.vkey && !g.busy && !g.frozen) { g.pos[g.vkey] = where(); g.frozen = true; } }, { capture: true, passive: true }));
     ['touchstart', 'wheel', 'mousedown'].forEach(ev => document.addEventListener(ev, () => { g.stop = true; }, { capture: true, passive: true }));
     w.addEventListener('popstate', (e) => {
       const s = (e.state && typeof e.state.bz === 'number') ? e.state.bz : 0;
@@ -3950,15 +3981,15 @@ export default function(component) {
   const anc = () => { const a = d.anchor && !d.restore ? document.querySelector('.bz-restop') : null;   // top of the results, just under the search box
                       return a ? Math.max(0, Math.round(a.getBoundingClientRect().top + where() - 6)) : null; };
   let y = d.restore ? (g.pos[d.vkey] || 0) : 0;
-  g.vkey = d.vkey;
+  g.vkey = d.vkey; g.frozen = false;
   if (d.push) { try { history.pushState({ bz: d.seq }, ''); g.pushed++; g.cur = d.seq; } catch (e) {} }
-  if (d.pyback && g.pushed > 0) { g.pushed--; g.ignore++; try { history.back(); } catch (e) { g.ignore--; } }
+  if (d.pyback && g.pushed > 0) { const n = Math.min(Number(d.pyback) || 1, g.pushed); g.pushed -= n; g.ignore++; try { history.go(-n); } catch (e) { g.ignore--; } }
   g.stop = false; g.busy = 1;
   const t0 = Date.now();
   const again = () => { if (g.stop && Date.now() - t0 > 150) { g.busy = 0; return; }
                         const ay = anc(); if (ay !== null) y = ay;
                         go(y);
-                        if (Date.now() - t0 < (d.anchor ? 3000 : 1400)) setTimeout(again, 200); else g.busy = 0; };
+                        if (Date.now() - t0 < (d.anchor || d.restore ? 3000 : 1400)) setTimeout(again, 200); else g.busy = 0; };
   again();
 }
 """
@@ -3973,13 +4004,18 @@ def _vkey(v):
 def nav_mount():
     """Count view changes (new town selection, opened listing, back). Only then does the page jump: to the top, or back to the saved place."""
     ss = st.session_state
-    v = ss.get("view")
+    v = ("saved",) if ss.get("page") == "saved" else ss.get("view")      # the Saved homes list counts as a view: own history entry and own scroll place
     k = _vkey(v)
-    push = pyback = False
+    if ss.get("go") and ss.get("nav_k") == _vkey(("saved",)) and ss.get("page") != "saved":
+        k = ss.nav_k                                  # opening a home from Saved homes: the next run (the home itself) counts as the one change
+    push = False
+    pyback = 0
     if k != ss.get("nav_k"):
+        if not (v and v[0] in ("addr", "town", "saved")):
+            ss.pop("sv_chain", None)                 # left the home/town that was opened from Saved homes
         if "nav_k" in ss:
             if ss.pop("nav_isback", False):
-                pyback = ss.pop("nav_pyback", False)
+                pyback = int(ss.pop("nav_pyback", 0) or 0)
             else:
                 ss.setdefault("vstack", []).append(ss.get("nav_v"))
                 ss.vstack = ss.vstack[-20:]
@@ -3989,7 +4025,7 @@ def nav_mount():
         ss.nav_rs = bool(ss.pop("nav_restore", False))
         ss.nav_push, ss.nav_pb = push, pyback
     _NAV(key="bz_nav", data={"seq": ss.get("nav_seq", 0), "vkey": k, "restore": ss.get("nav_rs", False), "push": ss.get("nav_push", False),
-                             "pyback": ss.get("nav_pb", False), "anchor": bool(v) and v[0] in ("town", "towns", "addr")}, on_back_change=lambda: nav_back(False))
+                             "pyback": ss.get("nav_pb", 0), "anchor": bool(v) and v[0] in ("town", "towns", "addr")}, on_back_change=lambda: nav_back(False))
 
 
 def nav_back(from_button=True):
@@ -3999,12 +4035,26 @@ def nav_back(from_button=True):
     if not stk:
         return
     prev = stk.pop()
-    ss.nav_isback, ss.nav_restore, ss.nav_pyback = True, True, bool(from_button)
+    was_saved = ss.get("page") == "saved"
+    ss.nav_isback, ss.nav_restore, ss.nav_pyback = True, True, (1 if from_button else 0)
     ss.tpick_open = False
+    if prev and prev[0] == "saved":                    # phone Back from a home that was opened from Saved homes: the list again, as it was
+        ss.page = "saved"
+        _restore_sel()
+        ss.pop("arv_trail", None)
+        return
+    ss.page = "main"
+    ss._keep_chain = True
     if not prev:
         ss.view = None
         return
     prev = tuple(prev)
+    if was_saved and ss.get("view") and tuple(ss.view) == prev:       # leaving Saved homes for the view the user was on: it is still there
+        return
+    tr = list(ss.get("arv_trail") or [])
+    if prev[0] == "addr" and tr and tr[-1][1] == prev[1]:      # phone Back inside a chain of comps: the "← Back to ..." button follows
+        tr.pop()
+        ss.arv_trail = tr
     if prev[0] == "towns":
         ss.tsel = list(prev[1])
         _tsel_url()
@@ -4029,6 +4079,60 @@ def back_link():
     st.button(lbl, key="back_res", type="tertiary", on_click=nav_back)
 
 
+def _saved_idx():
+    """Index in the view stack of the Saved homes entry we came from, or None."""
+    stk = st.session_state.get("vstack") or []
+    for i in range(len(stk) - 1, -1, -1):
+        if stk[i] and stk[i][0] == "saved":
+            return i
+    return None
+
+
+def _restore_sel():
+    """Opening a saved town/home replaces the town selection; coming back to Saved homes puts the user's own selection back."""
+    ss = st.session_state
+    snap = ss.pop("sv_prev_sel", None)
+    if snap is not None:
+        ss.tsel = list(snap.get("tsel") or [])
+        _tsel_url()
+        if snap.get("from_towns"):
+            ss.from_towns = tuple(snap["from_towns"])
+
+
+def from_saved():
+    """True while the open home/town was opened from Saved homes (also after hopping to comps from it)."""
+    ss = st.session_state
+    v = ss.get("view")
+    return bool(ss.get("sv_chain")) and ss.get("page") != "saved" and bool(v) and v[0] in ("addr", "town") and _saved_idx() is not None
+
+
+def back_to_saved():
+    """Back to the Saved homes list in one tap, however many comps were opened since. The list comes back as it was left
+    (scroll place, sort, filter, open sections: kept by _keep_ui + bz_nav) and nothing the user chose on the main page is touched."""
+    ss = st.session_state
+    stk = list(ss.get("vstack") or [])
+    i = _saved_idx()
+    n = (len(stk) - i) if i is not None else 0
+    if i is not None:
+        ss.vstack = stk[:i]
+    ss.nav_isback, ss.nav_restore, ss.nav_pyback = True, True, n
+    ss.tpick_open = False
+    ss.pop("arv_trail", None)
+    ss.pop("sv_chain", None)
+    _restore_sel()
+    ss.page = "saved"
+
+
+def back_to_search():
+    """'← Back to search' on the Saved page: one step back in the app's own history (the view the user was on), else the home page."""
+    ss = st.session_state
+    stk = ss.get("vstack") or []
+    if stk and not (stk[-1] and stk[-1][0] == "saved"):
+        nav_back()
+    else:
+        ss.page = "main"
+
+
 def _remove_town(t):
     _set_tsel([x for x in tsel() if x != t])
 
@@ -4040,6 +4144,8 @@ def town_bar(view, here=None):
     st.markdown("<div class='bz-restop'></div>", unsafe_allow_html=True)
     back_link()
     with st.container(key="townbar", horizontal=True, vertical_alignment="center", gap="small"):
+        if from_saved():
+            st.button(L("← Back to Saved homes", "← Volver a Saved homes"), key="back_saved", width="stretch", on_click=back_to_saved)
         s_ = tsel() if view[0] in ("town", "towns") else []
         if s_:
             for t in s_:
@@ -4333,6 +4439,8 @@ def _sv_open(iid):
     if not x:
         return
     ss.page = "main"
+    ss.sv_chain, ss._keep_chain = iid, True            # the detail view gets a "← Back to Saved homes" button
+    ss.sv_prev_sel = {"tsel": list(tsel()), "from_towns": list(ss.get("from_towns") or [])}
     if x.get("kind") == "town":
         sid = "t_" + safe_name(x["town"])[:24]
         if x.get("price") in C.PRICE_CHIPS:
@@ -4361,6 +4469,19 @@ def _cmp_html(cols, extra_cls=""):
     return f"<div class='bz-cmp {extra_cls}'>{cells}</div>" if cells else ""
 
 
+def _sv_exp_changed(key):
+    ss = st.session_state
+    ss.setdefault("sv_exp", {})[key] = bool(ss.get(key))
+
+
+def _sv_expander(label, key):
+    """An expander on a saved card that remembers if it was open, so the list comes back the way it was left after the user opens a home."""
+    ss = st.session_state
+    if key not in ss and ss.get("sv_exp", {}).get(key):
+        ss[key] = True
+    return st.expander(label, key=key, on_change=_sv_exp_changed, args=(key,))
+
+
 @timed('saved_card')
 def saved_card(x):
     """Calm saved card: photo carousel with the price on it, one facts line, then tap-to-open details and notes."""
@@ -4379,7 +4500,7 @@ def saved_card(x):
         elif price:
             html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
         html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
-        with st.expander(L("Details", "Detalles"), key=f"svdt_{k}"):
+        with _sv_expander(L("Details", "Detalles"), f"svdt_{k}"):
             st.caption(f"♥ {L('Saved', 'Guardada')} {_date_txt(x.get('saved'))}" + (f" · {src}" if src and x.get("cols") else ""))
             if x.get("cols"):
                 html(f"<div class='bz-lbl' style='margin-top:.3rem'>{L('Each month, when saved', 'Cada mes, al guardarla')}</div>" + _cmp_html(x["cols"], "bz-sv-nums"))
@@ -4399,7 +4520,7 @@ def saved_card(x):
                 tk = (x.get("type_lbl") or [""])[0].lower()
                 rent_comps_box("sv_" + k, x["town"], b, "condo" if tk in ("condo", "co-op") else "house" if tk == "house" else None, None, None,
                                None, None, _hud_for(x["town"], b), None, None, None, None)
-        with st.expander(L("My status and notes", "Mi estado y notas"), key=f"svnx_{k}"):
+        with _sv_expander(L("My status and notes", "Mi estado y notas"), f"svnx_{k}"):
             st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
                      format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
             st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
@@ -4486,7 +4607,8 @@ def backup_block():
 @timed('saved_page')
 def saved_page():
     ss = st.session_state
-    st.button(L("← Back to search", "← Volver a buscar"), key="sv_back", type="tertiary", on_click=lambda: ss.update(page="main"))
+    nav_mount()
+    st.button(L("← Back to search", "← Volver a buscar"), key="sv_back", type="tertiary", on_click=back_to_search)
     html(f"<div class='bz-hello'>{L('My saved homes', 'Mis casas guardadas')}</div>")
     m = ss.get("sv_msg")
     if m and time.time() - ss.get("sv_msg_t", 0) < 12:
@@ -4551,6 +4673,9 @@ def main_page():
         else:
             ss.view = view = ("towns", tuple(tsel()))
     go = ss.pop("go", None)
+    keep_chain = ss.pop("_keep_chain", False)
+    if go and not keep_chain:
+        ss.pop("sv_chain", None)                                 # a new search / town / listing: no longer "opened from Saved homes"
     _hb = ss.pop("home_boot", None)
     if _hb and not go and not view:                              # deep link: ?home=<id> (the saved list of homes carries the town and the row)
         _row = listings.find_row(_hb)
@@ -4631,6 +4756,7 @@ def main_page():
 
 # ------------------------------------------------------------------ page
 settings_defaults()
+_keep_ui()
 if st.session_state.get("authed") and st.session_state.get("sv_loaded") and not st.session_state.get("picks_seeded"):
     st.session_state.picks_seeded = True           # once per session, after the browser + online copies merged: the shared picked homes join the list
     _n0 = len(sv()["items"])
