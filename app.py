@@ -137,6 +137,7 @@ from bellazu import listings                                  # noqa: E402
 from bellazu import saves                                     # noqa: E402
 from bellazu import myloan as ML                              # noqa: E402
 from bellazu import nyc as NYC                                # noqa: E402
+from bellazu import rooms as ROOMS                            # noqa: E402
 from bellazu import arv as ARV                                # noqa: E402
 import datetime as dt                                         # noqa: E402
 from bellazu import hoa as HOA                                # noqa: E402
@@ -581,6 +582,7 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; t
 .nyc-fl {font-size:.85rem; line-height:1.4; margin:.05rem 0 .15rem; color:#C9C9C9} .nyc-fl.restrict {color:#FFB38A} .nyc-fl.ask {color:#FFE08A} .nyc-fl.ok {color:#9FE0B0}
 .nyc-fill {display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:.12rem .5rem; border-radius:100px; background:rgba(255,224,138,.14); color:#FFE08A; margin-left:.3rem}
 .bz-tag {display:inline-block; border-radius:100px; padding:.3rem .8rem; font-weight:600; font-size:.9rem; margin:.1rem 0 .5rem}
+.bz-tag.m {background:rgba(201,201,201,.12); color:#C9C9C9} .rm-ns {font-size:.8rem; color:var(--mute); line-height:1.35}
 .bz-tag.g {background:rgba(159,224,176,.14); color:#9FE0B0} .bz-tag.y {background:rgba(245,211,122,.14); color:#F5D37A} .bz-tag.r {background:rgba(242,139,139,.14); color:#F28B8B}
 .bz-bd {width:100%; border-collapse:collapse; font-size:.92rem; margin:.2rem 0 .4rem}
 .bz-bd td {padding:.28rem 0; vertical-align:top} .bz-bd td.n {text-align:right; white-space:nowrap; font-weight:600; padding-left:.6rem}
@@ -1619,7 +1621,7 @@ def settings_defaults():
             ss[k] = ss[k]
 
 
-_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+)$")
+_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+|rooms_.+)$")
 _KEEP_MAIN = re.compile(r"^(hmode|pk_mode|rank_price|mt_price|mt_size|tchips_.+|hst_.+|hpx_.+|happ_.+|hbd_.+|hkd_.+|hsort_.+|tp_.+|tpo_.+|ts_.+|ro_.+|ub_.+|un_.+|rm_.+|lv_.+|own_.+|cc_.+|g_.+|arv_rehab_.+|arv_sell_.+)$")
 
 
@@ -3008,6 +3010,12 @@ def show_property(r):
                  + f"<div class='bz-3n'>{H.escape(L(f'My loan: {loan_kind_lbl(ln)}, {rate_lbl()}. Tap a section below for the details.', f'Mi préstamo: {loan_kind_lbl(ln)}, {rate_lbl()}. Toque una sección abajo para ver los detalles.'))}</div>")
             with st.expander(L("Monthly cost with my loan", "Costo mensual con mi préstamo"), key=f"pml_{sid}"):
                 loan_breakdown(c_, ln, hi_p, f, r, own, apm)
+            with st.expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), key=f"prr_{sid}"):
+                _bt = tg if (tg in ("over", "monthly") or (hi_p or {}).get("state") in ("real", "none")) else "unk"
+                if _bt == "ok" and not str(f.get("taxes_annual") or ""):
+                    _bt = "unk"
+                rooms_block(_sv_key(sv_iid)[-30:] or sid, mtot, _bt, r.get("zip") or am.get("zip"), f.get("beds"), p_addr)
+            rooms_info("p_" + sid)
         cv = report_cv(out, ex.get("drive"), first)
         ss["_sv_stash_prop"] = (r, out, first, p_addr)
         old = sv()["items"].get(sv_iid)
@@ -4341,6 +4349,13 @@ def entry_from_feed(iid, h, rent):
     fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, (hm_ or {}).get("hoa") or h.get("hoa_monthly"), rent)
     e = _new_entry(iid, "home", h["address"])
     photos = [p_ for p_ in (h.get("photos") or []) if p_]
+    if len(photos) <= 1 and h.get("id"):                         # the detail is already on disk: keep the whole gallery with the saved home (no API call)
+        try:
+            dd = listings.detail_cached(str(h["id"]))
+            if dd and dd.get("ok") and dd.get("photos"):
+                photos = [_thumb(u_) for u_ in dd["photos"] if u_][:20]
+        except Exception:
+            pass
     e.update(addr=h["address"], town=h.get("town") or a.get("town"), price=h.get("price"), rent=bool(rent), beds=h.get("beds"), baths=h.get("baths"),
              sqft=h.get("sqft"), hoa=h.get("hoa_monthly"), type_lbl=tl, facts_line_en=fl[0], facts_line_es=fl[1], photo=h.get("photo") or _thumb(photos[0] if photos else None),
              photos=photos[:8], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"),
@@ -4483,7 +4498,12 @@ def _sv_open(iid):
     if x.get("facts_over"):
         facts_for(addr).update({k: v for k, v in x["facts_over"].items() if v is not None})
     if x.get("photos") or x.get("url"):
-        ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": x.get("photos") or [], "url": x.get("url"), "broker": x.get("broker"),
+        ph_ = x.get("photos") or []
+        if len(ph_) < 20 and x.get("listing_id"):               # an older saved entry with only the cover: use the cached detail photos (no API call)
+            dd_ = listings.detail_cached(str(x["listing_id"]))
+            if dd_ and dd_.get("ok") and len(dd_.get("photos") or []) > len(ph_):
+                ph_ = list(dd_["photos"])[:40]
+        ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": ph_, "url": x.get("url"), "broker": x.get("broker"),
                                                               "price": x.get("price"), "hoa": x.get("hoa"), "id": x.get("listing_id")}
     ss.go = ("addr", addr)
 
@@ -4524,7 +4544,7 @@ def saved_card(x):
         if x.get("kind") == "home" and phs:
             h = {"id": x.get("listing_id") or "", "photo": phs[0], "photos": phs, "photo_count": len(phs), "price": x.get("price"),
                  "url": x.get("url"), "new": False, "price_cut": None}
-            carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=(lambda i=x["id"]: _sv_open(i)), more_ok=False)
+            carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=(lambda i=x["id"]: _sv_open(i)), more_ok=bool(x.get("nyc")))
         elif price:
             html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
         html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
@@ -4554,6 +4574,14 @@ def saved_card(x):
                 tk = (x.get("type_lbl") or [""])[0].lower()
                 rent_comps_box("sv_" + k, x["town"], b, "condo" if tk in ("condo", "co-op") else "house" if tk == "house" else None, None, None,
                                None, None, _hud_for(x["town"], b), None, None, None, None)
+        if x.get("kind") == "home" and not x.get("rent"):
+            with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"svrr_{k}"):
+                h_, hm_ = saved_hm(x)
+                if hm_:
+                    rooms_block(k, hm_["m"]["total"], rooms_base_tag(h_, hm_), h_.get("zip"), x.get("beds") if x.get("beds") is not None else h_.get("beds"), x.get("addr"),
+                                flag=NYC.rent_note(h_, hm_.get("hoa")) if h_.get("_nyc") else None)
+                else:
+                    st.caption(L("Open my numbers first: this saved home has no monthly total to work from.", "Abra primero sus números: esta casa guardada no tiene un total mensual para calcular."))
         with _sv_expander(L("My status and notes", "Mi estado y notas"), f"svnx_{k}"):
             st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
                      format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
@@ -4682,6 +4710,8 @@ def saved_page():
             saved_card(x)
         st.caption(L("Numbers are a snapshot from the day you saved. Prices and rules can change; open the home again for today's numbers.",
                      "Los números son una foto del día en que guardó. Los precios y las reglas pueden cambiar; abra la casa otra vez para ver los números de hoy."))
+    if items:
+        rooms_info("sv")
     backup_block()
 
 
@@ -4757,28 +4787,220 @@ def _nyc_open(row):
     _open_listing(row)
 
 
+
+# ------------------------------------------------------------------ Rent rooms (house-hacking by the room)
+ROOM_TAG = {"ok": (("✓ Within your approval even with no room income", "✓ Dentro de su aprobación aun sin ingreso de cuartos"), "g"),
+            "rooms_only": (("Under your approval only if the rooms rent (lenders won't count it)", "Bajo su aprobación solo si se alquilan los cuartos (el banco no lo cuenta)"), "y"),
+            "monthly": (("Still above your approval, even with room income", "Sigue sobre su aprobación, aun con ingreso de cuartos"), "y"),
+            "over": (("Price is over your approval", "El precio está sobre su aprobación"), "r"),
+            "unk": (("Not confirmed: the fee or taxes are missing", "Sin confirmar: faltan la cuota o los impuestos"), "m")}
+
+
+def rooms_base_tag(h, hm):
+    """The home's tag WITHOUT room income (never green unless the fee and taxes are real and the total is at or under the benchmark)."""
+    return NYC.nyc_tag(h, hm, approved_monthly()["total"], loan_prof()["max_price"])
+
+
+def rooms_block(k, total, base_tag, zip_, beds, addr, flag=None):
+    """The Rent rooms model for one home. total = the home's monthly total with My loan; room income is an estimate and is NEVER counted by the lender."""
+    ss = st.session_state
+    ap = approved_monthly()["total"]
+    try:
+        nb = int(beds) if beds is not None else 0
+    except Exception:
+        nb = 0
+    spare = max(nb - 1, 0)
+    ny_ = bool(re.search(r",\s*NY\b", str(addr or "")))
+    nj_ = bool(re.search(r",\s*NJ\b", str(addr or "")))
+    cap(L("Room income is an ESTIMATE and a lender will NOT count it to qualify. FHA also needs you to live in the home for at least 12 months (not 1). Read the full list in \"Renting rooms: read this first\".",
+                 "El ingreso de cuartos es un ESTIMADO y el banco NO lo cuenta para calificar. FHA también exige que usted viva en la casa al menos 12 meses (no 1). Lea la lista completa en \"Alquilar cuartos: lea esto primero\"."))
+    if flag and flag[0] == "restrict":
+        html(f"<div class='nyc-fl restrict'>🚫 {H.escape(L(flag[1], flag[2]))} {H.escape(L('Roommates are likely not allowed without board approval.', 'Probablemente no se permiten compañeros de cuarto sin aprobación de la junta.'))}</div>")
+    elif flag and flag[0] == "ask":
+        html(f"<div class='nyc-fl ask'>❓ {H.escape(L('Co-op or unclear building: ask the board in writing if roommates or room rentals are allowed.', 'Co-op o edificio poco claro: pregunte por escrito a la junta si se permiten compañeros o alquilar cuartos.'))}</div>")
+    if ny_:
+        cap(L("New York: a roomer who has lived there 30 days can only be removed through the court (lock changes are a crime). Under 30 days, the host must live in the home (NYC Local Law 18).",
+                     "Nueva York: quien lleva 30 días en un cuarto solo se puede sacar por la corte (cambiar cerraduras es delito). Menos de 30 días, el anfitrión debe vivir en la casa (Ley Local 18 de NYC)."))
+    elif nj_:
+        cap(L("New Jersey: lock-outs are illegal; ask the town about landlord registration and the lead-paint rule (homes built before 1978).",
+                     "Nueva Jersey: sacar a alguien cambiando cerraduras es ilegal; pregunte al municipio por el registro de propietarios y la regla de plomo (casas de antes de 1978)."))
+    if spare < 1:
+        st.info(L("This home has no spare bedroom (you keep the only one), so there is no room to rent in this model.", "Esta casa no tiene un cuarto extra (usted se queda con el único), así que no hay cuarto para alquilar en este modelo."))
+        return
+    est = ROOMS.room_rent(zip_, nb, _nyc_hud)
+    rm = st.segmented_control(L("Rooms I rent", "Cuartos que alquilo"), list(range(0, min(spare, 4) + 1)), key=f"rooms_n_{k}", default=min(spare, 4), required=True, width="stretch",
+                              format_func=lambda v: str(v))
+    rent = st.number_input(L("Rent per room, a month ($) · estimate", "Renta por cuarto al mes ($) · estimado"), min_value=300, max_value=5000, step=25, value=int(est["rent"]), key=f"rooms_rent_{k}")
+    a_ = est["area"]
+    nm = P(a_["name"])
+    why = L(f"Estimate {money(est['rent'])}: {nm} average room rent {money(a_['avg'])} ({a_['src']}) less 12% because rooms in the owner's home rent for less" +
+            (f", capped at HUD's FY2026 fair rent for {nb} bd in this ZIP shared by bedroom ({money(est['hud_share'])})." if est["capped"] else
+             f". HUD's fair rent for the ZIP shared by bedroom would be {money(est['hud_share'])}, so this stays under it." if est["hud_share"] else "."),
+            f"Estimado {money(est['rent'])}: renta promedio de un cuarto en {nm} {money(a_['avg'])} ({a_['src']}) menos 12% porque los cuartos en la casa del dueño cuestan menos" +
+            (f", con tope de la renta justa HUD FY2026 de {nb} hab en este ZIP repartida por cuarto ({money(est['hud_share'])})." if est["capped"] else
+             f". La renta justa HUD del ZIP repartida por cuarto sería {money(est['hud_share'])}, así que este valor queda por debajo." if est["hud_share"] else "."))
+    cap(why + " " + L("Asking rents, not what tenants actually pay; ask what similar rooms in your block go for.", "Son rentas pedidas, no lo que realmente pagan; pregunte cuánto cuestan cuartos parecidos en su cuadra."))
+    c1, c2 = st.columns(2)
+    with c1:
+        vac = st.slider(L("Empty time (vacancy) %", "Tiempo vacío (vacancia) %"), 0, 50, ROOMS.DEFAULTS["vac"], 5, key=f"rooms_vac_{k}")
+    with c2:
+        plat = st.selectbox(L("How I find and collect", "Cómo busco y cobro"), ROOMS.PLAT_ORDER, key=f"rooms_plat_{k}", index=0, format_func=lambda v: P(ROOMS.PLAT[v]["n"]))
+    c3, c4, c5 = st.columns(3)
+    with c3:
+        ut = st.number_input(L("Utilities / room ($)", "Servicios / cuarto ($)"), 0, 400, ROOMS.DEFAULTS["util"], 5, key=f"rooms_ut_{k}")
+    with c4:
+        fu = st.number_input(L("Furnishing / room ($)", "Muebles / cuarto ($)"), 0, 400, ROOMS.DEFAULTS["furn"], 5, key=f"rooms_fu_{k}")
+    with c5:
+        ins = st.number_input(L("Insurance add-on ($)", "Seguro extra ($)"), 0, 200, ROOMS.DEFAULTS["ins"], 5, key=f"rooms_in_{k}")
+    c = ROOMS.calc(total, ap, rm, rent, vac, plat, ut, fu, ins, base_tag)
+    tt, tc = ROOM_TAG[c["tag"]] if c["tag"] in ROOM_TAG else ROOM_TAG["unk"]
+    sign = lambda v: ("−" if v > 0 else "+") + money(abs(v))
+    body = (f"<tr><td>{H.escape(L('My monthly total today (what a lender sees)', 'Mi total mensual hoy (lo que ve el banco)'))}</td><td class='n'>{money(c['total'])}</td></tr>"
+            f"<tr><td>{H.escape(L(f'Room rent, {c['rooms']} × {money(rent)}', f'Renta de cuartos, {c['rooms']} × {money(rent)}'))}</td><td class='n'>−{money(c['gross'])}</td></tr>"
+            f"<tr><td>{H.escape(L(f'Empty time ({vac}%)', f'Tiempo vacío ({vac}%)'))}</td><td class='n'>+{money(c['vacancy'])}</td></tr>"
+            f"<tr><td>{H.escape(L('Platform / listing cost', 'Costo de plataforma / anuncio'))}</td><td class='n'>+{money(c['fee'])}</td></tr>"
+            f"<tr><td>{H.escape(L('Utilities, furnishing, insurance add-on', 'Servicios, muebles, seguro extra'))}</td><td class='n'>+{money(c['adds'])}</td></tr>"
+            f"<tr class='t'><td>{H.escape(L('My monthly after room income (estimate)', 'Mi mensual con ingreso de cuartos (estimado)'))}</td><td class='n'>{money(c['after'])}</td></tr>")
+    html(f"<table class='bz-bd'>{body}</table>")
+    gap = c["gap"]
+    gl = L(f"{money(abs(gap))} under your {money(ap)} benchmark", f"{money(abs(gap))} bajo su referencia de {money(ap)}") if gap <= 0 else \
+        L(f"{money(gap)} OVER your {money(ap)} benchmark", f"{money(gap)} SOBRE su referencia de {money(ap)}")
+    html(f"<div class='bz-tag {tc}'>{H.escape(L(*tt))}</div>")
+    html(f"<div class='bz-3n'><b>{H.escape(L(f'Room income helps by about {money(c['net'])} a month: ', f'El ingreso de cuartos ayuda unos {money(c['net'])} al mes: '))}</b>{H.escape(gl)}.</div>")
+    if c["rooms"] and total > ap + 0.5:
+        be = ROOMS.break_even(total, ap, c["rooms"], vac, plat, ut, fu, ins)
+        if be:
+            cap(L(f"To get down to the benchmark, each room would need to rent for about {money(be)} a month (an estimate; compare with {money(rent)} above).",
+                         f"Para llegar a la referencia, cada cuarto tendría que rentarse en unos {money(be)} al mes (estimado; compare con {money(rent)} arriba)."))
+    if c["tag"] == "rooms_only" or (c["rooms"] and total > ap + 0.5):
+        cap(L("Yellow on purpose: the home alone is above your approval, and a lender counts room rent only after 12 months of documented history.",
+                     "Amarillo a propósito: la casa sola está sobre su aprobación, y el banco cuenta la renta de cuartos solo después de 12 meses de historial documentado."))
+    cap(L("Before income tax. Platform costs are rough: SpareRoom/Roommates plans are about $14 a month per room when you pay for a boost; Furnished Finder $199 a year; PadSplit 8% + the first 10 days of each new member; Airbnb 15.5%.",
+                 "Antes de impuestos. Los costos de plataforma son aproximados: los planes de SpareRoom/Roommates cuestan unos $14 al mes por cuarto si paga un impulso; Furnished Finder $199 al año; PadSplit 8% + los primeros 10 días de cada miembro nuevo; Airbnb 15.5%."))
+
+
+def rooms_info(key):
+    """Two top-level expanders (never inside another expander): the warnings and the platform guide."""
+    with st.expander(L("⚠️ Renting rooms: read this first", "⚠️ Alquilar cuartos: lea esto primero"), key=f"rooms_warn_{key}"):
+        for en, es, url in ROOMS.WARN:
+            md("- " + L(en, es) + (f" [source ↗]({url})" if url and not ES() else f" [fuente ↗]({url})" if url else ""))
+        cap(L("This is general information from public sources checked on Oct 1, 2026, not legal, tax or lending advice. Check with your lender, the building, your insurer and a NY/NJ housing lawyer or HUD-approved counselor.",
+                     "Esto es información general de fuentes públicas revisadas el 1 de oct de 2026, no es asesoría legal, de impuestos ni de préstamos. Consulte con su banco, el edificio, su aseguradora y un abogado de vivienda de NY/NJ o un consejero aprobado por HUD."))
+    with st.expander(L("📱 Where to find roommates and get paid", "📱 Dónde encontrar compañeros y cobrar"), key=f"rooms_apps_{key}"):
+        cap(L("Checked Oct 1, 2026 from each company's own pages. Only PadSplit, Airbnb, Zillow, Apartments.com and Avail move the money for you; the rest only list rooms.",
+                     "Revisado el 1 de oct de 2026 en las páginas de cada empresa. Solo PadSplit, Airbnb, Zillow, Apartments.com y Avail mueven el dinero por usted; las demás solo publican cuartos."))
+        for nm, pay_en, pay_es, fee_en, fee_es, nt_en, nt_es, url in ROOMS.PLATFORMS:
+            html(f"<div class='bz-sv-b' style='margin:.6rem 0 .1rem'><b>{H.escape(nm)}</b></div>"
+                 f"<div class='bz-sv-b'>💵 {H.escape(L(pay_en, pay_es))}</div><div class='bz-sv-b'>🏷️ {H.escape(L(fee_en, fee_es))}</div>"
+                 f"<div class='bz-sv-b'>📝 {H.escape(L(nt_en, nt_es))}</div><div class='bz-sv-b'><a href='{H.escape(url)}' target='_blank' rel='noopener'>{H.escape(L('source', 'fuente'))} ↗</a></div>")
+
+
+def saved_hm(x):
+    """(h, hm) for a saved home from what is on disk (no API call), or (None, None)."""
+    try:
+        if x.get("kind") != "home" or x.get("rent") or not x.get("price"):
+            return None, None
+        h = None
+        lid = str(x.get("listing_id") or "")
+        d = nyc_data() or {}
+        for r in d.get("rows") or []:
+            if lid and str(r.get("id")) == lid:
+                h = dict(r, _nyc=True)
+                break
+        if h is None:
+            h = listings.find_row(lid) if lid else None
+        if h is None:
+            h = {"id": lid or None, "price": x["price"], "beds": x.get("beds"), "address": x.get("addr"), "town": x.get("town"), "zip": None,
+                 "hoa_monthly": x.get("hoa"), "type": None, "kind": "other"}
+        h = dict(h)
+        h["price"] = h.get("price") or x["price"]
+        if not h.get("zip"):
+            mz = re.search(r"\b(\d{5})\b\s*$", str(x.get("addr") or ""))
+            h["zip"] = mz.group(1) if mz else None
+        hm = home_money(h)
+        if not hm:
+            return None, None
+        return h, hm
+    except Exception:
+        return None, None
+
+
+def _nyc_line(h, hm):
+    tl = NYC.type_label(h, (hm or {}).get("hoa"))
+    return " · ".join(x for x in [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None,
+                                  f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
+                                  f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, P(tl), h.get("town"), f"{h.get('mi', 0):.1f} mi"] if x)
+
+
+def nyc_card(h, hm, i, tab, ap, rank=None, fill=False, why=None):
+    """One NYC home in the SAME card as Saved homes: photo carousel (price on it), title + facts, tag + monthly, Details, Rent rooms, status and notes,
+    then Save / Open my numbers / Listing. Photos come from the cached detail (no call); swiping past the last one loads the rest with one cached call."""
+    ss = st.session_state
+    h = dict(h, _nyc=True)
+    iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
+    k = _sv_key(iid)
+    x = sv()["items"].get(iid)
+    tg = _nyc_tag(h, hm)
+    with st.container(key=f"svcard_ny{tab}_{i}_{k[-20:]}"):
+        carousel(h, f"nycz_{tab}_{i}_{h['id']}", False, None, more_ok=True,
+                 on_open=(lambda i_=iid, h_=h: _sv_open(i_) if i_ in sv()["items"] else _nyc_open(h_)))
+        pre = f"<b>#{rank}</b> · " if rank else ""
+        fl = H.escape(L("Closest option, not 2 bd", "Opción cercana, no es de 2 hab")) if fill else ""
+        sm = L(" · small for 2 bd, check the layout", " · pequeña para 2 hab, revise el plano") if NYC.small_flag(h) else ""
+        html(f"<div class='bz-svh'>{pre}{H.escape(h['address'])}<br><span class='x'>{H.escape(_nyc_line(h, hm))}{H.escape(sm)}</span>"
+             + (f" <span class='nyc-fill'>{fl}</span>" if fl else "") + "</div>")
+        lv_ = NYC.rent_short(h, hm.get("hoa"))[0]
+        html(_nyc_money_html(h, hm, (f"<div class='nyc-why nyc-fl {lv_}'>💡 {H.escape(P(why))}</div>" if why else ""), flag=not why))
+        with _sv_expander(L("Details", "Detalles"), f"nyd_{tab}_{k}"):
+            m = hm["m"]
+            rows = [(L("Loan payment (principal + interest)", "Pago del préstamo (capital + interés)"), m["pi"]), (L("Mortgage insurance", "Seguro hipotecario"), m["mi"]),
+                    (L("Taxes", "Impuestos") + (L(" (lender figure)", " (cifra del banco)") if m["tax_src"] == "lender" and not hm.get("coop") else ""), m["tax"]),
+                    (L("Home insurance", "Seguro de la casa"), m["ins"]), (L("HOA / maintenance", "HOA / mantenimiento"), m["hoa"])]
+            body = "".join(f"<tr><td>{H.escape(a_)}</td><td class='n'>{money(v)}</td></tr>" for a_, v in rows if v or a_.startswith(L("Loan", "Pago")))
+            html(f"<table class='bz-bd'>{body}<tr class='t'><td>{H.escape(L('Total a month, my loan', 'Total al mes, mi préstamo'))}</td><td class='n'>{money(m['total'])}</td></tr></table>")
+            rn = NYC.rent_note(h, hm.get("hoa"))
+            html(f"<div class='bz-sv-b'>🔑 {H.escape(L(rn[1], rn[2]))}</div>")
+            hud = _nyc_hud(h.get("zip"), h.get("beds"))
+            if hud:
+                nb_, zp_ = h.get("beds"), h.get("zip")
+                html("<div class='bz-sv-b'>" + H.escape(L(f"HUD fair rent for {nb_} bd in ZIP {zp_}: about {money(hud)}/mo (a guide for what the whole home could rent for, not a promise).",
+                                                          f"Renta justa HUD para {nb_} hab en el ZIP {zp_}: unos {money(hud)}/mes (una guía de lo que podría rentar la casa entera, no una promesa).")) + "</div>")
+            bits = []
+            if isinstance(h.get("days"), int):
+                bits.append(L(f"listed {h['days']} days ago", f"publicada hace {h['days']} días"))
+            if h.get("broker"):
+                bits.append(L(f"by {h['broker']}", f"por {h['broker']}"))
+            if bits:
+                st.caption(" · ".join(bits))
+        with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"nyr_{tab}_{k}"):
+            rn = NYC.rent_note(h, hm.get("hoa"))
+            rooms_block(k, hm["m"]["total"], tg, h.get("zip"), h.get("beds"), h.get("address"), flag=rn)
+        with _sv_expander(L("My status and notes", "Mi estado y notas"), f"nyn_{tab}_{k}"):
+            if x:
+                st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
+                         format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
+                st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
+                             placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
+                             on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
+            else:
+                st.caption(L("Tap ♡ Save first, then you can add a status and notes here.", "Toque ♡ Guardar primero y aquí podrá poner un estado y notas."))
+        with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"nyrow_{tab}_{i}_{k[-20:]}"):
+            heart(iid, f"nyc_{tab}_{i}_{k[-12:]}", entry_from_feed, (h, False))
+            if x:
+                st.button(L("Open my numbers", "Abrir mis números"), key=f"nyop_{tab}_{i}_{k[-12:]}", type="tertiary", on_click=_sv_open, args=(iid,))
+            else:
+                st.button(L("Open my numbers", "Abrir mis números"), key=f"nyop_{tab}_{i}_{k[-12:]}", type="tertiary", on_click=_nyc_open, args=(h,))
+            if str(h.get("url") or "").startswith("http"):
+                st.link_button("realtor.com ↗", h["url"], type="tertiary")
+
+
 def _nyc_pick_card(x, i, ap):
-    """One ranked pick: rank, photo, price, facts, tag + monthly, one-line reason, rent flag, save + details + link."""
     h = dict(x["h"], _nyc=True)
     hm = x["hm"]
     tg = _nyc_tag(h, hm)
     rs = NYC.reason(h, hm, ap, _nyc_hud(h.get("zip"), h.get("beds")), tg)
     h["_why"], h["_rank"], h["_fill"] = list(rs), x["rank"], x["fill"]
-    tl = NYC.type_label(h, hm.get("hoa"))
-    img = f"<img src='{H.escape(h['photo'])}' loading='lazy' alt=''>" if str(h.get("photo") or "").startswith("https://") else "<div style='width:4.6rem'></div>"
-    fill = f"<span class='nyc-fill'>{H.escape(L('Closest option, not 2 bd', 'Opción cercana, no es de 2 hab'))}</span>" if x["fill"] else ""
-    sz = f" · {int(h['sqft']):,} ft²" if h.get("sqft") else ""
-    small = f" · {L('small for 2 bd, check the layout', 'pequeña para 2 hab, revise el plano')}" if NYC.small_flag(h) else ""
-    html(f"<div class='nyc-pk'><div class='rk{' f' if x['fill'] else ''}'>{x['rank']}</div>{img}<div class='tx'><b>{money(h['price'])}</b> · {h.get('beds')} {L('bd', 'hab')}"
-         f" · {float(h.get('baths') or 0):g} {L('ba', 'baño' if float(h.get('baths') or 0) == 1 else 'baños')}{sz} · {H.escape(P(tl))}{fill}<div class='a'>{H.escape(h['address'])} · {h.get('mi', 0):.1f} mi{H.escape(small)}</div></div></div>")
-    lv_ = NYC.rent_short(h, hm.get("hoa"))[0]
-    html(_nyc_money_html(h, hm, f"<div class='nyc-why nyc-fl {lv_}'>💡 {H.escape(P(h['_why']))}</div>", flag=False))
-    iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
-    with st.container(horizontal=True, vertical_alignment="center", key=f"nycrow_{i}", gap="small"):
-        heart(iid, f"nyc_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (h, False))
-        st.button(L("Details ›", "Ver ›"), key=f"nycop_{i}_{h['id']}", type="tertiary", on_click=_nyc_open, args=(h,))
-        if h.get("url"):
-            st.link_button("realtor.com ↗", h["url"], type="tertiary")
+    nyc_card(h, hm, i, "t", ap, rank=x["rank"], fill=x["fill"], why=rs)
 
 
 FEED_NYC_SORT = {"near": ("Closest to Midtown", "Más cerca de Midtown"), "low": ("Price ↑", "Precio ↑"), "high": ("Price ↓", "Precio ↓"), "new": ("Newest", "Más nuevas")}
@@ -4819,6 +5041,7 @@ def nyc_box():
         _nyc_all(rows, ap, built)
     else:
         _nyc_top(rows, ap, built)
+    rooms_info("nyc")
     u = listings.usage()
     st.caption(L("Listing data from realtor.com via Realty in US. Prices, fees and rules can change; check with the agent. HUD fair rent is a rent guide from the ZIP code, not a promise.",
                  "Datos de anuncios de realtor.com vía Realty in US. Los precios, cuotas y reglas pueden cambiar; confirme con el agente. La renta justa de HUD es una guía por código postal, no una promesa."))
@@ -4869,19 +5092,8 @@ def _nyc_all(rows, ap, built):
     shown = int(ss.get("nycf_n", 8))
     for i, h in enumerate(sel[:shown]):
         hm = home_money(h)
-        with st.container(key=f"nyccard_{i}_{h['id']}", gap=None):
-            carousel(h, f"nyc_cz_{i}_{h['id']}", False, None, more_ok=False)
-        iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
-        tl = NYC.type_label(h, (hm or {}).get("hoa"))
-        line = " · ".join(x for x in [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None,
-                                      f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
-                                      f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, P(tl), h.get("town"), f"{h.get('mi', 0):.1f} mi"] if x)
-        with st.container(horizontal=True, vertical_alignment="center", key=f"nycr_{i}", gap="small"):
-            st.markdown(f"<div class='bz-hl'>{H.escape(line)}</div>", unsafe_allow_html=True, width="stretch")
-            heart(iid, f"nyca_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (dict(h, _nyc=True), False))
-            st.button(L("Details ›", "Ver ›"), key=f"nycao_{i}_{h['id']}", type="tertiary", on_click=_nyc_open, args=(h,))
         if hm:
-            html(_nyc_money_html(h, hm))
+            nyc_card(h, hm, i, "a", ap)
     if len(sel) > shown:
         st.button(L(f"Show more ({len(sel) - shown} more)", f"Ver más ({len(sel) - shown} más)"), key="nycf_more", width="stretch", on_click=lambda: ss.update({"nycf_n": shown + 8}))
     if not sel:
