@@ -17,7 +17,7 @@ import json, pathlib, re, statistics, threading, time
 
 HOA_KINDS = {"condo", "coop", "townhome"}
 KIND_OF = {"condos": "condo", "condo": "condo", "condo_townhome": "condo", "condo_townhome_rowhome_coop": "condo", "apartment": "condo",
-           "coop": "coop", "co-op": "coop", "cooperative": "coop", "townhomes": "townhome", "townhouse": "townhome", "townhome": "townhome",
+           "coop": "coop", "condop": "coop", "co-op": "coop", "cooperative": "coop", "townhomes": "townhome", "townhouse": "townhome", "townhome": "townhome",
            "single_family": "house", "single-family": "house", "house": "house", "multi_family": "multi", "multi-family": "multi",
            "duplex_triplex": "multi", "2fam": "multi", "2-family": "multi", "3-4-family": "multi"}
 LO, HI = 25, 6000          # a monthly fee outside this is a parsing mistake (or a yearly number)

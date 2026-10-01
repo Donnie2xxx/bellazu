@@ -30,7 +30,7 @@ _KEY = None
 _LOCK = threading.Lock()
 SOURCE = "realtor.com via Realty in US (RapidAPI)"
 KIND = {"condos": "condo", "condo_townhome": "condo", "condo_townhome_rowhome_coop": "condo", "coop": "condo", "townhomes": "condo",
-        "multi_family": "2fam", "single_family": "house", "apartment": "condo", "duplex_triplex": "2fam"}
+        "multi_family": "2fam", "single_family": "house", "apartment": "condo", "duplex_triplex": "2fam", "condop": "condo"}
 
 
 def set_key(k):
@@ -170,7 +170,7 @@ def _norm(x, status):
     price, beds, pfrom = x.get("list_price"), de.get("beds"), False
     if status == "for_rent" and not price and x.get("list_price_min") and de.get("beds_min") is not None and de.get("beds_min") == de.get("beds_max"):
         price, beds, pfrom = x.get("list_price_min"), de.get("beds_min"), True     # one-size building: its lowest asking rent
-    return {"id": str(x.get("property_id") or ""), "address": f"{loc.get('line') or ''}, {loc.get('city') or ''}, NJ {loc.get('postal_code') or ''}".strip(" ,"),
+    return {"id": str(x.get("property_id") or ""), "address": f"{loc.get('line') or ''}, {loc.get('city') or ''}, {loc.get('state_code') or 'NJ'} {loc.get('postal_code') or ''}".strip(" ,"),
             "town": loc.get("city"), "zip": loc.get("postal_code"), "price": price, "beds": beds, "baths": baths, "price_from": pfrom,
             "sqft": de.get("sqft"), "type": t, "kind": KIND.get(t, "other"), "hoa_monthly": (x.get("hoa") or {}).get("fee") if isinstance(x.get("hoa"), dict) else None,
             "photo": photo_url(ph, "card"), "photos": [photo_url(ph, "big")] if ph else [], "photo_count": x.get("photo_count") or 0,
@@ -508,11 +508,14 @@ def hoa_info(row, d=None):
         return {"state": "real", "fee": int(d["hoa_monthly"]), "label": label, "src": d.get("hoa_src") or "listing", "inc": d.get("hoa_inc") or [], "kind": kind}
     if row.get("hoa_monthly"):
         return {"state": "real", "fee": int(row["hoa_monthly"]), "label": label, "src": "listing", "inc": [], "kind": kind}
-    if kind in ("house", "multi") or d.get("hoa_none"):
+    ny_ = bool(re.search(r",\s*NY\b", str(row.get("address") or "")))
+    if kind in ("house", "multi") or (d.get("hoa_none") and not (ny_ and kind in _hoa.HOA_KINDS)):      # a NY condo/co-op "no HOA" is a missing fee, not a free building
         return {"state": "none", "fee": 0, "label": "hoa", "src": "listing says no association" if d.get("hoa_none") else "typical for houses",
                 "inc": [], "kind": kind}
     if kind in _hoa.HOA_KINDS:
         e = _hoa.estimate(hoa_obs(), row.get("town") or d.get("town"), row.get("zip") or d.get("zip"), kind, row.get("sqft") or d.get("sqft"))
+        if e and re.search(r",\s*NY\b", str(row.get("address") or "")):
+            e = None                    # no estimate for New York homes (too few fees seen, and every co-op differs): the fee shows as unknown
         if e:
             return {"state": "est", "fee": e["fee"], "label": label, "src": f"median of {e['n']} similar homes", "n": e["n"], "where": e["where"],
                     "inc": d.get("hoa_inc") or [], "kind": kind}

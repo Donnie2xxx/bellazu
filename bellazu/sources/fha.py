@@ -254,6 +254,8 @@ def assess(kind, price=None, town=None, address=None, zipcode=None, text=None, f
     res = {"flags": fl, "limit": lim, "county": county, "units": units or u, "match": None, "how": None, "exp": None}
     if "coop" in k or "co-op" in k:
         return dict(res, code="coop", loan="conv", down=COOP_DOWN)
+    if re.search(r",\s*NY\b", str(address or "")):       # the FHA data here is NJ only (county limits, HUD condo list): say so instead of "not approved"
+        return dict(res, code="unknown", loan="fha", down=FHA_DOWN, ny=True, limit=None)
     if "cash" in fl:
         res["cash_only"] = True
     if price and lim and float(price) * (1 - FHA_DOWN) > lim:
@@ -274,6 +276,8 @@ def assess(kind, price=None, town=None, address=None, zipcode=None, text=None, f
 def badge(a):
     """(en, es) one-line badge for an assess() result."""
     c = a.get("code")
+    if a.get("ny"):
+        return ("❓ New York home: FHA building approval not checked here, ask your lender", "❓ Casa en Nueva York: la aprobación FHA del edificio no se revisó aquí, pregunte a su banco")
     if c == "ok":
         return ("✅ FHA OK · 3.5% down (you live there + it passes the FHA appraisal)", "✅ FHA sí · 3.5% inicial (usted vive allí + pasa el avalúo FHA)")
     if c == "condo_ok":

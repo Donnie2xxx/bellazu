@@ -37,6 +37,8 @@ def rows_for(town, state="nj", zipcode=None, allow_call=True):
     if not listings.available() and not listings.read_cache(town, "for_rent", STALE_MAX_H):
         return {"ok": False, "rows": [], "url": url, "n": 0, "note": "no RapidAPI key"}
     note = "cached list"
+    if str(state or "nj").lower() != "nj" and not listings.cached(town, "for_rent"):
+        return {"ok": False, "rows": [], "url": url, "n": 0, "note": "for-rent lists are only loaded for NJ towns"}   # the list call is NJ-only: never spend one on a NY town
     if listings.cached(town, "for_rent"):
         res = listings.fetch_town(town, "for_rent", zip_code=zipcode)
     elif allow_call and listings.available() and listings.usage()["left"] > reserve():

@@ -136,6 +136,7 @@ from bellazu import keylock                                   # noqa: E402
 from bellazu import listings                                  # noqa: E402
 from bellazu import saves                                     # noqa: E402
 from bellazu import myloan as ML                              # noqa: E402
+from bellazu import nyc as NYC                                # noqa: E402
 from bellazu import arv as ARV                                # noqa: E402
 import datetime as dt                                         # noqa: E402
 from bellazu import hoa as HOA                                # noqa: E402
@@ -569,7 +570,16 @@ h1, h2, h3, h4, [data-testid="stHeading"] {font-family:var(--body) !important; t
 .bz-cm .x {color:var(--mute); font-size:.85rem}
 .bz-cm .ff {color:#FFB38A; font-size:.85rem; font-weight:600}
 .bz-cm .cn {color:#FFE08A; font-size:.85rem}
-.tg {font-weight:600} .tg.g {color:#9FE0B0} .tg.y {color:#F5D37A} .tg.r {color:#F28B8B}
+.tg {font-weight:600} .tg.g {color:#9FE0B0} .tg.y {color:#F5D37A} .tg.r {color:#F28B8B} .tg.m {color:#C9C9C9}
+.nyc-pk {display:flex; gap:.6rem; align-items:flex-start; margin:.9rem 0 .15rem}
+.nyc-pk .rk {flex:0 0 auto; width:2rem; height:2rem; border-radius:50%; background:var(--rose,#F4A7BB); color:#111; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:.95rem}
+.nyc-pk .rk.f {background:#555; color:#eee}
+.nyc-pk img {flex:0 0 auto; width:4.6rem; height:3.4rem; object-fit:cover; border-radius:10px; background:#1c1c1c}
+.nyc-pk .tx {min-width:0; font-size:.95rem; line-height:1.35; color:var(--paper)}
+.nyc-pk .tx .a {color:var(--mute); font-size:.85rem; overflow-wrap:anywhere}
+.nyc-why {font-size:.88rem; color:var(--paper); line-height:1.4; margin:.1rem 0 .15rem}
+.nyc-fl {font-size:.85rem; line-height:1.4; margin:.05rem 0 .15rem; color:#C9C9C9} .nyc-fl.restrict {color:#FFB38A} .nyc-fl.ask {color:#FFE08A} .nyc-fl.ok {color:#9FE0B0}
+.nyc-fill {display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:.12rem .5rem; border-radius:100px; background:rgba(255,224,138,.14); color:#FFE08A; margin-left:.3rem}
 .bz-tag {display:inline-block; border-radius:100px; padding:.3rem .8rem; font-weight:600; font-size:.9rem; margin:.1rem 0 .5rem}
 .bz-tag.g {background:rgba(159,224,176,.14); color:#9FE0B0} .bz-tag.y {background:rgba(245,211,122,.14); color:#F5D37A} .bz-tag.r {background:rgba(242,139,139,.14); color:#F28B8B}
 .bz-bd {width:100%; border-collapse:collapse; font-size:.92rem; margin:.2rem 0 .4rem}
@@ -599,6 +609,8 @@ if "sv_sid" not in st.session_state:
         if _ts:
             st.session_state.tsel = _ts[:6]
             st.session_state.tsel_boot = True
+    if str(st.query_params.get("nyc") or "") == "1":                # ?nyc=1 opens the NYC box
+        st.session_state.nyc_boot = True
     _qh = re.sub(r"\D", "", str(st.query_params.get("home") or ""))[:14]        # ?home=<listing id> opens that listing's detail page (after the passcode)
     if _qh:
         st.session_state.home_boot = _qh
@@ -1607,7 +1619,7 @@ def settings_defaults():
             ss[k] = ss[k]
 
 
-_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt)$")
+_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+)$")
 _KEEP_MAIN = re.compile(r"^(hmode|pk_mode|rank_price|mt_price|mt_size|tchips_.+|hst_.+|hpx_.+|happ_.+|hbd_.+|hkd_.+|hsort_.+|tp_.+|tpo_.+|ts_.+|ro_.+|ub_.+|un_.+|rm_.+|lv_.+|own_.+|cc_.+|g_.+|arv_rehab_.+|arv_sell_.+)$")
 
 
@@ -1674,7 +1686,8 @@ def home_opts(addr):
     aov["financing"] = {"closing_cost_pct": lp["closing_pct"], "term_years": lp["term"], "pmi_annual_pct_if_lt20": lp["pmi_pct"]}
     aov["ownership_costs"] = {"ho6_insurance_monthly": lp["ins_m"], "property_tax_fallback_annual": lp["tax_y"]}
     g = (ss.get("gallery") or {}).get(addr.strip().lower()) or {}
-    return {"overrides": {k: v for k, v in ov.items() if v is not None}, "income_annual": int(ss.get("set_income") or 0) or None,
+    ny = {"state": "ny"} if re.search(r",\s*NY\b", str(addr or ""), re.I) else {}      # a New York home: its comps come from NY datasets, not NJ
+    return {**ny, "overrides": {k: v for k, v in ov.items() if v is not None}, "income_annual": int(ss.get("set_income") or 0) or None,
             "loan_type": "conv" if conv else None, "listing_text": g.get("text") or None,
             "units_total": 3 if fo.get("type") == "3-4-family" else 2,
             "building_policy": bp, "use_rentcast": bool(ss.get("set_rc")) and rentcast.available(), "assumption_overrides": aov,
@@ -2431,6 +2444,8 @@ def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est
     ss = st.session_state
     b = int(beds) if beds is not None else None
     rows, src, res = [], None, None
+    if town and _is_ny_town(town):
+        calls_ok = False                    # the for-rent list call is New Jersey only: never spend one on a New York town
     if town and listings.available():
         if listings.cached(town, "for_rent") or (calls_ok and town in (ss.get("rc_load") or set())):
             res = feed(town, "for_rent")
@@ -4051,6 +4066,10 @@ def nav_back(from_button=True):
     prev = tuple(prev)
     if was_saved and ss.get("view") and tuple(ss.view) == prev:       # leaving Saved homes for the view the user was on: it is still there
         return
+    if prev[0] == "nyc":
+        ss.view = ("nyc",)
+        ss.pop("arv_trail", None)
+        return
     tr = list(ss.get("arv_trail") or [])
     if prev[0] == "addr" and tr and tr[-1][1] == prev[1]:      # phone Back inside a chain of comps: the "← Back to ..." button follows
         tr.pop()
@@ -4072,9 +4091,10 @@ def back_link():
     ss = st.session_state
     stk = ss.get("vstack") or []
     prev = tuple(stk[-1]) if stk and stk[-1] else None
-    if not prev or prev[0] not in ("town", "towns"):
+    if not prev or prev[0] not in ("town", "towns", "nyc"):
         return
     lbl = L(f"← Back to your {len(prev[1])} towns", f"← Volver a sus {len(prev[1])} pueblos") if prev[0] == "towns" else \
+        L("← Back to NYC homes", "← Volver a casas de NYC") if prev[0] == "nyc" else \
         L(f"← Back to results · {prev[1]}", f"← Volver a los resultados · {prev[1]}")
     st.button(lbl, key="back_res", type="tertiary", on_click=nav_back)
 
@@ -4311,16 +4331,24 @@ def entry_from_feed(iid, h, rent):
     tk = str(h.get("_t") or h.get("town") or "").lower()
     if tk and (ss.get("town_cache") or {}).get(tk):          # combined feed: use the card's own town
         a = ss.town_cache[tk]
+    if h.get("_nyc"):
+        a = {}                                                   # NYC box homes: never borrow the numbers of whatever NJ town was open
     first = ss.get("hmode", "first") == "first"
     tl = list(FEED_TYPE_LBL.get(h.get("kind"), FEED_TYPE_LBL["other"]))
     hm_ = None if rent else home_money(h)
+    if h.get("_nyc"):
+        tl = list(NYC.type_label(h, (hm_ or {}).get("hoa")))
     fl = _facts_line(h.get("beds"), h.get("baths"), h.get("sqft"), tl, (hm_ or {}).get("hoa") or h.get("hoa_monthly"), rent)
     e = _new_entry(iid, "home", h["address"])
     photos = [p_ for p_ in (h.get("photos") or []) if p_]
     e.update(addr=h["address"], town=h.get("town") or a.get("town"), price=h.get("price"), rent=bool(rent), beds=h.get("beds"), baths=h.get("baths"),
              sqft=h.get("sqft"), hoa=h.get("hoa_monthly"), type_lbl=tl, facts_line_en=fl[0], facts_line_es=fl[1], photo=h.get("photo") or _thumb(photos[0] if photos else None),
-             photos=photos[:8], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"), facts_over=_listing_facts(h),
+             photos=photos[:8], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"),
+             facts_over=_listing_facts(h, listings.detail_cached(str(h["id"])) if h.get("_nyc") and h.get("id") else None),
              safety=_caution(h.get("town") or a.get("town")))
+    if h.get("_nyc"):
+        rn = NYC.rent_note(h, (hm_ or {}).get("hoa"))
+        e["nyc"] = {"rent": list(rn), "why": list(h.get("_why") or []), "rank": h.get("_rank"), "fill": bool(h.get("_fill"))}
     if not rent and h.get("price") and a.get("ok"):
         try:
             size = "2fam" if h.get("kind") == "2fam" else str(min(max(int(h.get("beds") or 2), 1), 3))
@@ -4508,6 +4536,12 @@ def saved_card(x):
                 html(f"<div class='bz-sv-b'>{H.escape(P(x['legal']))}</div>")
             if x.get("safety"):
                 html(f"<div class='bz-sv-b'>ℹ️ {H.escape(P(x['safety']))}</div>")
+            if x.get("nyc"):
+                nx = x["nyc"]
+                if nx.get("why"):
+                    html(f"<div class='bz-sv-b'>{L('NYC pick' + (' #' + str(nx['rank']) if nx.get('rank') else ''), 'Selección NYC' + (' #' + str(nx['rank']) if nx.get('rank') else ''))}: {H.escape(P(nx['why']))}</div>")
+                if nx.get("rent"):
+                    html(f"<div class='bz-sv-b'>🔑 {H.escape(P(nx['rent'][1:]))}</div>")
             if x.get("kind") == "home" and not x.get("rent"):
                 fa = fha_for_saved(x)
                 if fa:
@@ -4654,6 +4688,245 @@ def saved_page():
 
 
 
+
+# ------------------------------------------------------------------ NYC box: homes near Manhattan up to $300K + a curated top 15 of 2-bedrooms
+@st.cache_resource(ttl=6 * 3600, show_spinner=False)
+def _nyc_load(pc):
+    d = NYC.load(pc)
+    if d:
+        NYC.seed_details(d, listings._cpath)      # the shortlisted homes' real fees/taxes/text join the detail cache (no API call)      # the shortlisted homes' real fees/taxes/text join the detail cache (no API call)
+    return d
+
+
+def nyc_data():
+    return _nyc_load(_sv_secret())
+
+
+def _is_ny_town(t):
+    try:
+        return str(t or "").strip().lower() in NYC.ny_towns(nyc_data() or {})
+    except Exception:
+        return False
+
+
+@st.cache_data(show_spinner=False)
+def _nyc_hud(zip_, beds):
+    try:
+        from bellazu.sources import hud as _hud
+        return (_hud.safmr(zip_) or {}).get(f"{min(max(int(beds), 0), 4)}br") if zip_ and beds is not None else None
+    except Exception:
+        return None
+
+
+NYC_TAG_TXT = {"ok": (("✓ Within your approval · fee and taxes confirmed", "✓ Dentro de su aprobación · cuota e impuestos confirmados"), "g"),
+               "unk": (("ⓘ Fee or taxes not confirmed: can't call it within approval", "ⓘ Cuota o impuestos sin confirmar: no se puede decir que cabe en su aprobación"), "m")}
+
+
+def _nyc_tag(h, hm):
+    return NYC.nyc_tag(h, hm, approved_monthly()["total"], loan_prof()["max_price"])
+
+
+def _nyc_tag_txt(tg):
+    if tg in NYC_TAG_TXT:
+        (en, es), c = NYC_TAG_TXT[tg]
+        return L(en, es), c
+    return tag_txt(tg)
+
+
+def _nyc_money_html(h, hm, extra="", flag=True):
+    """Approval tag + monthly total + fee + the rent-out flag, for one NYC box card. Never green over the benchmark or on an unconfirmed fee."""
+    tg = _nyc_tag(h, hm)
+    tt, tc = _nyc_tag_txt(tg)
+    hi = hm.get("hoa") or {}
+    sure = tg in ("ok", "monthly", "over")
+    tot = money(hm["m"]["total"]) + L("/mo", "/mes")
+    if not NYC.confirmed(h, hm) and tg != "monthly":
+        tot = L("about ", "unos ") + tot + L(" (rough)", " (aproximado)")
+    lv, en, es = NYC.rent_short(h, hi)
+    tax = L(" · taxes: lender figure", " · impuestos: cifra del banco") if hm["m"]["tax_src"] == "lender" and not hm.get("coop") else ""
+    return (f"<div class='bz-cm'><span class='tg {tc}'>{H.escape(tt)}</span> · <b>{H.escape(tot)}</b>"
+            f"<div class='x'>{H.escape(hoa_txt(hi))}{H.escape(tax)}</div>"
+            + (f"<div class='ff'>{H.escape(L(*FHA_FLAG[hm['fha']]))}</div>" if hm.get("fha") else
+               f"<div class='cn'>{H.escape(L(*COOP_NOTE))}</div>" if hm.get("coop") else "")
+            + (f"<div class='x'>{H.escape(hoa_extra_note(hi))}</div>" if hoa_extra_note(hi) else "")
+            + "</div>" + (f"<div class='nyc-fl {lv}'>🔑 {H.escape(L(en, es))}</div>" if flag else "") + extra)
+
+
+def _nyc_open(row):
+    """Details from the NYC box: the normal home view; its back button comes back here."""
+    _open_listing(row)
+
+
+def _nyc_pick_card(x, i, ap):
+    """One ranked pick: rank, photo, price, facts, tag + monthly, one-line reason, rent flag, save + details + link."""
+    h = dict(x["h"], _nyc=True)
+    hm = x["hm"]
+    tg = _nyc_tag(h, hm)
+    rs = NYC.reason(h, hm, ap, _nyc_hud(h.get("zip"), h.get("beds")), tg)
+    h["_why"], h["_rank"], h["_fill"] = list(rs), x["rank"], x["fill"]
+    tl = NYC.type_label(h, hm.get("hoa"))
+    img = f"<img src='{H.escape(h['photo'])}' loading='lazy' alt=''>" if str(h.get("photo") or "").startswith("https://") else "<div style='width:4.6rem'></div>"
+    fill = f"<span class='nyc-fill'>{H.escape(L('Closest option, not 2 bd', 'Opción cercana, no es de 2 hab'))}</span>" if x["fill"] else ""
+    sz = f" · {int(h['sqft']):,} ft²" if h.get("sqft") else ""
+    small = f" · {L('small for 2 bd, check the layout', 'pequeña para 2 hab, revise el plano')}" if NYC.small_flag(h) else ""
+    html(f"<div class='nyc-pk'><div class='rk{' f' if x['fill'] else ''}'>{x['rank']}</div>{img}<div class='tx'><b>{money(h['price'])}</b> · {h.get('beds')} {L('bd', 'hab')}"
+         f" · {float(h.get('baths') or 0):g} {L('ba', 'baño' if float(h.get('baths') or 0) == 1 else 'baños')}{sz} · {H.escape(P(tl))}{fill}<div class='a'>{H.escape(h['address'])} · {h.get('mi', 0):.1f} mi{H.escape(small)}</div></div></div>")
+    lv_ = NYC.rent_short(h, hm.get("hoa"))[0]
+    html(_nyc_money_html(h, hm, f"<div class='nyc-why nyc-fl {lv_}'>💡 {H.escape(P(h['_why']))}</div>", flag=False))
+    iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
+    with st.container(horizontal=True, vertical_alignment="center", key=f"nycrow_{i}", gap="small"):
+        heart(iid, f"nyc_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (h, False))
+        st.button(L("Details ›", "Ver ›"), key=f"nycop_{i}_{h['id']}", type="tertiary", on_click=_nyc_open, args=(h,))
+        if h.get("url"):
+            st.link_button("realtor.com ↗", h["url"], type="tertiary")
+
+
+FEED_NYC_SORT = {"near": ("Closest to Midtown", "Más cerca de Midtown"), "low": ("Price ↑", "Precio ↑"), "high": ("Price ↓", "Precio ↓"), "new": ("Newest", "Más nuevas")}
+
+
+@st.fragment
+@timed('nyc_box')
+def nyc_box():
+    ss = st.session_state
+    if ss.get("_full"):                       # a tap in here changed something outside the box (saved a home, opened one): redraw the page
+        st.rerun(scope="app")
+    d = nyc_data()
+    html(f"<div class='bz-fh'>{H.escape(L('🗽 NYC & near Manhattan', '🗽 NYC y cerca de Manhattan'))}</div>")
+    if not d or not d.get("rows"):
+        st.caption(L("The NYC list isn't available right now.", "La lista de NYC no está disponible ahora."))
+        return
+    rows = [dict(r, _nyc=True, _t="NYC") for r in d["rows"]]
+    ap = approved_monthly()["total"]
+    mx = loan_prof()["max_price"]
+    built = str(d.get("built") or "")
+    html(f"<div class='bz-3n' style='margin:.1rem 0 .3rem'>{H.escape(L(f'Homes up to {kmoney(mx)} in Manhattan and within about 10 miles of Times Square: the Bronx, Brooklyn, Queens and the Hudson River towns of NJ (Hoboken-side, Union City, Fort Lee and more). Compared with your ' + money(ap) + '/mo approval.', f'Casas hasta {kmoney(mx)} en Manhattan y a unas 10 millas de Times Square: el Bronx, Brooklyn, Queens y los pueblos de NJ junto al río Hudson (Union City, Fort Lee y más). Comparadas con su aprobado de ' + money(ap) + '/mes.'))}</div>")
+    with st.expander(L("⚠️ Read this first (co-ops, renting out, FHA)", "⚠️ Lea esto primero (co-ops, alquilar, FHA)"), key="nycf_warn"):
+        md(L("- **Most Manhattan homes under $300K are co-ops**, often studios or 1-bedrooms. A co-op board approves the buyer and **many limit or ban renting it out** (a typical rule: you must live there 1-2 years first, then sublet only with board approval and a fee, and only for a few years). Ask for the sublet policy in writing before you bid.\n"
+             "- **FHA doesn't lend on co-ops.** Co-op numbers here use a co-op loan with 10% down (est.). Co-op **maintenance often breaks the monthly approval**, so those homes show ⚠ yellow, never green.\n"
+             "- **Green means:** the monthly total is at or under your approval **and** the listing gives a real fee and real taxes. If the fee or taxes are missing, the tag is gray (not confirmed). Over your approval is never green.\n"
+             "- Condos (mostly in the NJ towns across the river) are usually free to rent out, but ask for the bylaws.\n"
+             "- A few Manhattan \"2 bedroom\" listings near 2 E 55th St are fractional timeshare units (weeks per year): they are left out of the picks.\n"
+             f"- FHA condo-building approval isn't checked for New York homes: ask your lender. This is a snapshot from {built}, not live; open a home for today's price.",
+             "- **La mayoría de las casas de Manhattan por menos de $300K son co-ops**, a menudo estudios o de 1 habitación. La junta del co-op aprueba al comprador y **muchas limitan o prohíben alquilarla** (regla típica: vivir allí 1-2 años primero, luego subarrendar solo con aprobación de la junta y un cargo, y solo por unos años). Pida la política de subarriendo por escrito antes de ofertar.\n"
+             "- **FHA no presta para co-ops.** Los números de co-op aquí usan un préstamo de co-op con 10% inicial (est.). El **mantenimiento del co-op muchas veces rompe el pago mensual aprobado**, por eso esas casas salen ⚠ amarillas, nunca verdes.\n"
+             "- **Verde significa:** el total mensual está igual o por debajo de su aprobado **y** el anuncio da una cuota real e impuestos reales. Si faltan la cuota o los impuestos, la etiqueta es gris (sin confirmar). Sobre su aprobado nunca es verde.\n"
+             "- Los condos (sobre todo en los pueblos de NJ al otro lado del río) normalmente se pueden alquilar, pero pida los estatutos.\n"
+             "- Algunos anuncios de \"2 habitaciones\" en Manhattan cerca de 2 E 55th St son unidades de tiempo compartido fraccionado (semanas al año): se dejan fuera de las selecciones.\n"
+             f"- La aprobación FHA del edificio no se revisa para casas de Nueva York: pregunte a su banco. Esto es una foto del {built}, no en vivo; abra una casa para ver el precio de hoy."))
+    tab = st.segmented_control(L("NYC box", "Caja NYC"), ["top", "all"], key="nycf_tab", default="top", required=True, label_visibility="collapsed", width="stretch",
+                               format_func=lambda k: L("⭐ Top 15 two-bedrooms", "⭐ Los 15 mejores de 2 hab") if k == "top" else L(f"🏙️ All homes ({len(rows)})", f"🏙️ Todas ({len(rows)})"))
+    if tab == "all":
+        _nyc_all(rows, ap, built)
+    else:
+        _nyc_top(rows, ap, built)
+    u = listings.usage()
+    st.caption(L("Listing data from realtor.com via Realty in US. Prices, fees and rules can change; check with the agent. HUD fair rent is a rent guide from the ZIP code, not a promise.",
+                 "Datos de anuncios de realtor.com vía Realty in US. Los precios, cuotas y reglas pueden cambiar; confirme con el agente. La renta justa de HUD es una guía por código postal, no una promesa."))
+
+
+def _nyc_top(rows, ap, built):
+    ss = st.session_state
+    two = [r for r in rows if r.get("beds") == 2 and not r.get("pending") and not (r.get("nyc") or {}).get("fractional")]
+    picks, n_true = NYC.pick_top(rows, home_money, _nyc_hud, ap)
+    nbuild = len({NYC.building(r.get("address")) for r in two})
+    if n_true >= NYC.TOP_N:
+        html(f"<div class='bz-3n' style='margin:.2rem 0 .3rem'>{H.escape(L(f'{len(two)} true 2-bedroom homes up to {kmoney(loan_prof()['max_price'])} found in {nbuild} buildings. Here are the best {NYC.TOP_N}, best first (no more than {NYC.PER_BUILDING} per building). Ranked by: rent-friendly building, monthly total vs your {money(ap)}/mo, and resale/rental demand (HUD rent vs cost, distance to Midtown).', f'{len(two)} casas de 2 habitaciones de verdad hasta {kmoney(loan_prof()['max_price'])} en {nbuild} edificios. Aquí están las {NYC.TOP_N} mejores, la mejor primero (máx. {NYC.PER_BUILDING} por edificio). Orden: edificio fácil de alquilar, total mensual vs sus {money(ap)}/mes, y demanda de reventa/alquiler (renta HUD vs costo, distancia a Midtown).'))}</div>")
+    else:
+        html(f"<div class='bz-3n' style='margin:.2rem 0 .3rem'><b>{H.escape(L(f'Only {n_true} true 2-bedroom homes fit.', f'Solo {n_true} casas de 2 habitaciones de verdad caben.'))}</b> "
+             f"{H.escape(L(f'The other {len(picks) - n_true} are the closest options (1 or 3 bedrooms) and are labeled.', f'Las otras {len(picks) - n_true} son las opciones más cercanas (1 o 3 habitaciones) y están marcadas.'))}</div>")
+    ngreen = sum(1 for x in picks if _nyc_tag(x["h"], x["hm"]) == "ok")
+    nover = sum(1 for x in picks if _nyc_tag(x["h"], x["hm"]) == "monthly")
+    st.caption(L(f"Of these {len(picks)}: {ngreen} confirmed within your approval, {nover} above it, {len(picks) - ngreen - nover} not confirmed (fee or taxes missing).",
+                 f"De estas {len(picks)}: {ngreen} confirmadas dentro de su aprobado, {nover} por encima, {len(picks) - ngreen - nover} sin confirmar (faltan cuota o impuestos)."))
+    for i, x in enumerate(picks):
+        _nyc_pick_card(x, i, ap)
+    with st.expander(L("How the ranking works", "Cómo se ordena"), key="nycf_how"):
+        md(L("Points (best first): **monthly total** up to 40 (only with a confirmed fee and taxes and at or under your approval; over it loses points), **easy to rent out** up to 25 "
+             "(condo +25, co-op that needs board approval +8, HDFC/income-restricted or timeshare -25), **rent vs cost** up to 15 (HUD fair rent for the size in that ZIP vs the monthly cost), "
+             "**closeness to Midtown** up to 10, **fresh listing** up to 5. Small units (under 500 ft² for 2 bedrooms) and listings over a year old lose a few points. "
+             "No pending, basement or timeshare listings.", "Puntos (de mayor a menor): **total mensual** hasta 40 (solo con cuota e impuestos confirmados y igual o bajo su aprobado; sobre eso pierde puntos), **fácil de alquilar** hasta 25 "
+             "(condo +25, co-op que necesita junta +8, HDFC/con tope de ingresos o tiempo compartido -25), **renta vs costo** hasta 15 (renta justa HUD del tamaño en ese ZIP vs el costo mensual), "
+             "**cerca de Midtown** hasta 10, **anuncio reciente** hasta 5. Las unidades pequeñas (menos de 500 ft² en 2 hab) y los anuncios de más de un año pierden unos puntos. "
+             "Sin anuncios pendientes, de sótano ni de tiempo compartido."))
+
+
+def _nyc_all(rows, ap, built):
+    ss = st.session_state
+    _a0, _b0, _k0, _s0 = ss.get("nycf_area", "all"), ss.get("nycf_bd"), ss.get("nycf_kd", "any"), ss.get("nycf_sort", "near")
+    _fl = " · ".join([P(NYC.AREAS[_a0]), L("any beds", "cualquier tamaño") if _b0 is None else (L("studio", "estudio") if _b0 == 0 else f"{_b0}{'+' if _b0 == 3 else ''} {L('bd', 'hab')}"),
+                      {"any": L("all types", "todos los tipos"), "condo": "Condo", "coop": "Co-op"}[_k0], P(FEED_NYC_SORT[_s0])])
+    with st.expander(L(f"⚙️ Filters: {_fl}", f"⚙️ Filtros: {_fl}"), key="nycf_flt"):
+        st.segmented_control(L("Area", "Zona"), list(NYC.AREAS), key="nycf_area", default="all", required=True, width="stretch", format_func=lambda k: P(NYC.AREAS[k]))
+        st.segmented_control(L("Bedrooms", "Habitaciones"), [None, 0, 1, 2, 3], key="nycf_bd", default=None, width="stretch",
+                             format_func=lambda b: L("Any", "Todas") if b is None else (L("Studio", "Estudio") if b == 0 else f"{b}{'+' if b == 3 else ''}"))
+        st.segmented_control(L("Type", "Tipo"), ["any", "condo", "coop"], key="nycf_kd", default="any", required=True, width="stretch",
+                             format_func=lambda k: {"any": L("All", "Todas"), "condo": "Condo", "coop": "Co-op"}[k])
+        st.segmented_control(L("Sort", "Ordenar"), list(FEED_NYC_SORT), key="nycf_sort", default="near", required=True, width="stretch", format_func=lambda k: P(FEED_NYC_SORT[k]))
+    sel = NYC.filter_rows(rows, ss.get("nycf_area", "all"), ss.get("nycf_bd"), ss.get("nycf_kd", "any"))
+    srt = ss.get("nycf_sort", "near")
+    sel = sorted(sel, key=(lambda r: r.get("mi") or 99) if srt == "near" else (lambda r: (r.get("days") is None, r.get("days") or 0)) if srt == "new" else
+                 (lambda r: (r.get("price") or 0) * (1 if srt == "low" else -1)))
+    shown = int(ss.get("nycf_n", 8))
+    for i, h in enumerate(sel[:shown]):
+        hm = home_money(h)
+        with st.container(key=f"nyccard_{i}_{h['id']}", gap=None):
+            carousel(h, f"nyc_cz_{i}_{h['id']}", False, None, more_ok=False)
+        iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
+        tl = NYC.type_label(h, (hm or {}).get("hoa"))
+        line = " · ".join(x for x in [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None,
+                                      f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
+                                      f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, P(tl), h.get("town"), f"{h.get('mi', 0):.1f} mi"] if x)
+        with st.container(horizontal=True, vertical_alignment="center", key=f"nycr_{i}", gap="small"):
+            st.markdown(f"<div class='bz-hl'>{H.escape(line)}</div>", unsafe_allow_html=True, width="stretch")
+            heart(iid, f"nyca_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (dict(h, _nyc=True), False))
+            st.button(L("Details ›", "Ver ›"), key=f"nycao_{i}_{h['id']}", type="tertiary", on_click=_nyc_open, args=(h,))
+        if hm:
+            html(_nyc_money_html(h, hm))
+    if len(sel) > shown:
+        st.button(L(f"Show more ({len(sel) - shown} more)", f"Ver más ({len(sel) - shown} más)"), key="nycf_more", width="stretch", on_click=lambda: ss.update({"nycf_n": shown + 8}))
+    if not sel:
+        st.caption(L("No homes match. Try another area, size or type.", "Ninguna casa coincide. Pruebe otra zona, tamaño o tipo."))
+    st.caption(L(f"{len(sel)} of {len(rows)} homes match (snapshot {built}; each search shows at most 200 homes, so this is a sample, not every listing).",
+                 f"{len(sel)} de {len(rows)} casas coinciden (foto del {built}; cada búsqueda muestra máximo 200 casas, así que es una muestra, no todos los anuncios)."))
+
+
+def nyc_view():
+    """The NYC view: a back button, then the box."""
+    st.markdown("<div class='bz-restop'></div>", unsafe_allow_html=True)
+    back_link()
+    st.button(L("← Back", "← Volver"), key="nyc_back", on_click=_nyc_back)
+    nyc_box()
+
+
+def _nyc_back():
+    ss = st.session_state
+    if ss.get("vstack"):
+        nav_back()
+    else:
+        ss.view = None
+
+
+def _nyc_open_view():
+    ss = st.session_state
+    for k in ("sv_chain", "arv_trail", "from_towns"):
+        ss.pop(k, None)
+    ss.page = "main"
+    ss.view = ("nyc",)
+    ss._full = True
+
+
+def nyc_teaser():
+    """Home page: the NYC box entry, right under the search."""
+    d = nyc_data()
+    if not d or not d.get("rows"):
+        return
+    n2 = sum(1 for r in d["rows"] if r.get("beds") == 2)
+    html(f"<div class='bz-lbl'>{L('Near Manhattan', 'Cerca de Manhattan')}</div>")
+    st.button(L(f"🗽 NYC homes up to {kmoney(loan_prof()['max_price'])} · top 15 two-bedrooms ›", f"🗽 Casas NYC hasta {kmoney(loan_prof()['max_price'])} · las 15 mejores de 2 hab ›"),
+              key="nyc_open", width="stretch", type="primary", on_click=_nyc_open_view)
+    st.caption(L(f"{len(d['rows'])} homes in Manhattan and nearby, flagged for co-ops and renting rules.", f"{len(d['rows'])} casas en Manhattan y cerca, con aviso de co-ops y reglas para alquilar."))
+
+
 # ------------------------------------------------------------------ the one page
 @timed('main')
 def main_page():
@@ -4667,6 +4940,8 @@ def main_page():
         header_hero()
     search_block()
     res_box = st.container()
+    if ss.pop("nyc_boot", False) and not view and not ss.get("go"):        # opened with ?nyc=1
+        ss.view = view = ("nyc",)
     if ss.pop("tsel_boot", False) and not view and tsel():      # opened with ?towns=...
         if len(tsel()) == 1:
             ss.go = ("town", tsel()[0])
@@ -4718,7 +4993,9 @@ def main_page():
     with res_box:
         if view and view[0] in ("addr", "town", "towns"):
             town_bar(view, here=(ss.get("prop") or {}).get("town") if view[0] == "addr" else None)
-        if view and view[0] == "towns":
+        if view and view[0] == "nyc":
+            nyc_view()
+        elif view and view[0] == "towns":
             show_towns_view(list(view[1]))
         elif view and view[0] == "addr":
             r = ss.get("prop")
@@ -4736,6 +5013,8 @@ def main_page():
         st.divider()
     if not view:
         ss.tpick_open = False
+    if not view and not ss.get("tpick_open"):
+        nyc_teaser()
     if not ss.get("tpick_open"):
         town_chips(hm)
     rec = ss.get("recent", [])[:3]
@@ -4757,6 +5036,8 @@ def main_page():
 # ------------------------------------------------------------------ page
 settings_defaults()
 _keep_ui()
+if st.session_state.get("authed"):
+    nyc_data()                                     # loads the NYC snapshot once per server run and seeds its details BEFORE any card's numbers are computed
 if st.session_state.get("authed") and st.session_state.get("sv_loaded") and not st.session_state.get("picks_seeded"):
     st.session_state.picks_seeded = True           # once per session, after the browser + online copies merged: the shared picked homes join the list
     _n0 = len(sv()["items"])
