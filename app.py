@@ -3590,7 +3590,7 @@ def feed_block(ts, drives, sid):
         _nx = next((p_ for p_ in FEED_PRICE[status] if p_ is not None and _lo and p_ >= _lo[0] and (mx is None or p_ > mx)), None) if _lo and mx is not None and _lo[0] > mx else None
         if _lo and mx is not None and _lo[0] > mx:
             st.info(L(f"Nothing here is up to {kmoney(mx)} right now: the cheapest of the {len(allrows)} newest homes is {kmoney(_lo[0])}.",
-                      f"Ahora no hay nada hasta {kmoney(mx)}: la más barata de las {len(allrows)} casas más nuevas cuesta {kmoney(_lo[0])}."), icon="🌷")
+                      f"Ahora no hay nada hasta {kmoney(mx)}: la más barata de las {len(allrows)} casas más nuevas cuesta {kmoney(_lo[0])}.").replace("$", "\\$"), icon="🌷")
             st.button(L(f"Show homes up to {kmoney(_nx)}", f"Ver casas hasta {kmoney(_nx)}") if _nx else L("Show all prices", "Ver todos los precios"), key=f"hwiden_{sid}", width="stretch",
                       on_click=lambda v_=_nx: ss.update({f"hpx_{sid}_{status}": v_}))
         else:
@@ -3665,6 +3665,8 @@ def omni_search(term):
     out = []
     low = t.lower()
     cur = st.session_state.get("tsel") or []
+    if nyc_text(t) and not any(n == towns.NYC and low in n.lower() for n in towns.names()):
+        out.append((L("🗽 NYC & near Manhattan · top 15 + all homes", "🗽 NYC y cerca de Manhattan · top 15 + todas"), f"T|{towns.NYC}"))
     for n in [n for n in towns.names() if low in n.lower()][:4]:
         out.append((f"🏙️ {n} · {L('town view', 'ver pueblo')}", f"T|{n}"))
         if cur and n not in cur and n != "New York City":
@@ -3679,6 +3681,27 @@ def omni_search(term):
     return out
 
 
+_NYC_WORDS = re.compile(r"\b(manhattan|nyc|new york city|new york ny|brooklyn|queens|bronx|staten island|harlem|midtown|uptown|downtown manhattan|tribeca|soho|noho|chelsea|astoria|"
+                        r"williamsburg|flushing|bushwick|greenpoint|park slope|long island city|(upper|lower) (east|west) side|east village|west village|greenwich village|"
+                        r"financial district|battery park|murray hill|gramercy|kips bay|washington heights|inwood|hell'?s kitchen|times square)\b")
+
+
+def nyc_text(text):
+    """True when what was typed means 'New York City / Manhattan / a borough or neighborhood' and is NOT a street address (no street number; a ZIP alone is fine).
+    Those open the NYC box: the town feed only knows New Jersey, so a typed Manhattan/Harlem/Brooklyn used to land on a 1-home list or on a 'couldn't find the price' page."""
+    t = re.sub(r"\b\d{5}(-\d{4})?\b", " ", str(text or "")).lower().replace("’", "'")
+    t = re.sub(r"\s+", " ", t).strip()
+    if not t or re.search(r"\d", t) or "west new york" in t or "new york ave" in t:
+        return False
+    if _NYC_WORDS.search(t):
+        return True
+    tn = towns.normalize(t)
+    if tn.get("name") == towns.NYC and tn.get("match") in ("exact", "alias", "fuzzy"):
+        return True
+    import difflib
+    return any(difflib.SequenceMatcher(None, w, "manhattan").ratio() >= 0.85 for w in re.findall(r"[a-z]{6,}", t))     # manhatan, manhatten
+
+
 def resolve(val):
     v = str(val or "").strip()
     kind, text = (v[0], v[2:]) if len(v) > 2 and v[1] == "|" else ("?", v)
@@ -3686,6 +3709,8 @@ def resolve(val):
         tn = towns.normalize(text)
         if not re.search(r"\d", text) and tn["match"] in ("exact", "alias", "fuzzy"):
             return ("town", tn["name"])
+        if nyc_text(text):
+            return ("town", towns.NYC)
         return ("addr", text)
     return ("town" if kind == "T" else "addtown" if kind == "M" else "addr", text)
 
@@ -4571,11 +4596,14 @@ def saved_card(x, top=None):
             pre = f"<b>#{top['rank']}</b> · " if top.get("rank") else ""
             chip = f" <span class='nyc-fill'>{H.escape(L('Closest option, not 2 bd', 'Opción cercana, no es de 2 hab'))}</span>" if top.get("fill") else ""
             sm_ = L(" · small for 2 bd, check the layout", " · pequeña para 2 hab, revise el plano") if NYC.small_flag(top["h"]) else ""
-            html(f"<div class='bz-svh'>{pre}{H.escape(title)}<br><span class='x'>{H.escape(fl)}{H.escape(sm_)}</span>{chip}</div>")
+            loc_ = " · ".join(x_ for x_ in [str(top["h"].get("town") or ""), f"{float(top['h']['mi']):.1f} mi" if top["h"].get("mi") is not None else ""] if x_)      # borough / town + miles to Times Square, as before
+            html(f"<div class='bz-svh'>{pre}{H.escape(title)}<br><span class='x'>{H.escape(fl)}{H.escape(' · ' + loc_ if loc_ and fl else loc_)}{H.escape(sm_)}</span>{chip}</div>")
         else:
             html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
         if top:          # NYC box only: the approval tag + monthly total under the facts line (the HOA is already in the facts line). Saved homes pages are unchanged.
-            html(_nyc_money_html(top["h"], top["hm"], "", flag=False, hoa_line=False))
+            _why = top.get("why")          # Top 15: the one-line reason (💡) as before; All homes: the 🔑 renting-out flag (co-op: ask the board, condo: confirm bylaws...)
+            _lv = NYC.rent_short(top["h"], top["hm"].get("hoa"))[0]
+            html(_nyc_money_html(top["h"], top["hm"], (f"<div class='nyc-why nyc-fl {_lv}'>💡 {H.escape(P(_why))}</div>" if _why else ""), flag=not _why, hoa_line=False))
         with _sv_expander(L("Details", "Detalles"), f"svdt_{k}"):
             if sx:
                 st.caption(f"♥ {L('Saved', 'Guardada')} {_date_txt(sx.get('saved'))}" + (f" · {src}" if src and x.get("cols") else ""))
@@ -4981,6 +5009,8 @@ def _nyc_details(h, hm):
             (L("Home insurance", "Seguro de la casa"), m["ins"]), (L("HOA / maintenance", "HOA / mantenimiento"), m["hoa"])]
     body = "".join(f"<tr><td>{H.escape(a_)}</td><td class='n'>{money(v)}</td></tr>" for a_, v in rows if v or a_.startswith(L("Loan", "Pago")))
     html(f"<table class='bz-bd'>{body}<tr class='t'><td>{H.escape(L('Total a month, my loan', 'Total al mes, mi préstamo'))}</td><td class='n'>{money(m['total'])}</td></tr></table>")
+    rn = NYC.rent_note(h, hm.get("hoa"))
+    html(f"<div class='bz-sv-b'>🔑 {H.escape(L(rn[1], rn[2]))}</div>")
     hud = _nyc_hud(h.get("zip"), h.get("beds"))
     if hud:
         nb_, zp_ = h.get("beds"), h.get("zip")
@@ -5003,7 +5033,7 @@ def nyc_card(h, hm, i, tab, ap, rank=None, fill=False, why=None):
     h = dict(h, _nyc=True)
     iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
     x = entry_from_feed(iid, h, False)                    # same snapshot a heart tap would save (no API call)
-    saved_card(x, top={"h": h, "hm": hm, "rank": rank, "fill": fill})
+    saved_card(x, top={"h": h, "hm": hm, "rank": rank, "fill": fill, "why": why})
 
 
 def _nyc_pick_card(x, i, ap):
@@ -5208,6 +5238,8 @@ def main_page():
             ss.prop_addr = go[1]
             run_home(go[1], res_box)
         elif go[0] == "town" and towns.normalize(go[1]).get("name") == towns.NYC and towns.normalize(go[1]).get("match") in ("exact", "alias", "fuzzy") and (nyc_data() or {}).get("rows"):
+            ss.tsel = []
+            _tsel_url()
             _nyc_open_view()                  # Manhattan / NYC / a borough typed as a town: the town feed only knows NJ (state_code NJ), so show the NYC box (478 homes up to $300K) instead of a 1-home NJ list
         else:
             run_town(go[1], res_box)
