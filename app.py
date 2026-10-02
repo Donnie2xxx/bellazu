@@ -5086,19 +5086,40 @@ def _nyc_top(rows, ap, built):
              "Sin anuncios pendientes, de sótano ni de tiempo compartido."))
 
 
+def _jc_note(hood, sel):
+    """Jersey City area view: the city-wide safety caution stays in view (never hidden), plus what the area means and the distance. PATH minutes are not in our data."""
+    safety_note("Jersey City")
+    ti = C.town_info("Jersey City") or {}
+    path = P(ti["transit"]) if ti.get("transit") else ""
+    inc = P(NYC.JC_HOODS[hood][3]) if hood in NYC.JC_HOODS else "; ".join(P(v[3]) for v in NYC.JC_HOODS.values())
+    mi = [r["mi"] for r in sel if r.get("mi") is not None]
+    dist = L(f" Straight-line distance to Times Square: {min(mi):.1f}-{max(mi):.1f} mi.", f" Distancia en línea recta a Times Square: {min(mi):.1f}-{max(mi):.1f} mi.") if mi else ""
+    st.caption(L(f"Areas are set by ZIP code (the listings have no neighborhood field; a block can cross a ZIP line): {inc}. The safety note covers the whole city, not each neighborhood.",
+                 f"Las zonas se asignan por código postal (los anuncios no traen el barrio; una cuadra puede cruzar el límite del ZIP): {inc}. La nota de seguridad es de toda la ciudad, no de cada barrio.")
+               + (f" 🚆 {path}." if path else "") + dist)
+
+
 def _nyc_all(rows, ap, built):
     ss = st.session_state
     _a0, _b0, _k0, _s0 = ss.get("nycf_area", "all"), ss.get("nycf_bd"), ss.get("nycf_kd", "any"), ss.get("nycf_sort", "near")
-    _fl = " · ".join([P(NYC.AREAS[_a0]), L("any beds", "cualquier tamaño") if _b0 is None else (L("studio", "estudio") if _b0 == 0 else f"{_b0}{'+' if _b0 == 3 else ''} {L('bd', 'hab')}"),
+    _h0 = ss.get("nycf_hood") if _a0 == "jc" else None
+    _fl = " · ".join([P(NYC.AREAS[_a0]) + (f" ({P(NYC.JC_HOODS[_h0][:2])})" if _h0 in NYC.JC_HOODS else ""), L("any beds", "cualquier tamaño") if _b0 is None else (L("studio", "estudio") if _b0 == 0 else f"{_b0}{'+' if _b0 == 3 else ''} {L('bd', 'hab')}"),
                       {"any": L("all types", "todos los tipos"), "condo": "Condo", "coop": "Co-op"}[_k0], P(FEED_NYC_SORT[_s0])])
     with st.expander(L(f"⚙️ Filters: {_fl}", f"⚙️ Filtros: {_fl}"), key="nycf_flt"):
         st.segmented_control(L("Area", "Zona"), list(NYC.AREAS), key="nycf_area", default="all", required=True, width="stretch", format_func=lambda k: P(NYC.AREAS[k]))
+        if _a0 == "jc":                         # Jersey City areas (by ZIP): chips with how many homes each has under the other filters below
+            _jc = NYC.filter_rows(rows, "jc", ss.get("nycf_bd"), ss.get("nycf_kd", "any"))
+            _jn = {k: sum(1 for r in _jc if NYC.jc_hood(r) == k) for k in NYC.JC_HOODS}
+            st.pills(L("Jersey City area", "Zona de Jersey City"), [None] + list(NYC.JC_HOODS), key="nycf_hood", default=None, width="stretch",
+                     format_func=lambda k: L(f"All ({len(_jc)})", f"Todas ({len(_jc)})") if k is None else f"{P(NYC.JC_HOODS[k][:2])} ({_jn[k]})")
         st.segmented_control(L("Bedrooms", "Habitaciones"), [None, 0, 1, 2, 3], key="nycf_bd", default=None, width="stretch",
                              format_func=lambda b: L("Any", "Todas") if b is None else (L("Studio", "Estudio") if b == 0 else f"{b}{'+' if b == 3 else ''}"))
         st.segmented_control(L("Type", "Tipo"), ["any", "condo", "coop"], key="nycf_kd", default="any", required=True, width="stretch",
                              format_func=lambda k: {"any": L("All", "Todas"), "condo": "Condo", "coop": "Co-op"}[k])
         st.segmented_control(L("Sort", "Ordenar"), list(FEED_NYC_SORT), key="nycf_sort", default="near", required=True, width="stretch", format_func=lambda k: P(FEED_NYC_SORT[k]))
-    sel = NYC.filter_rows(rows, ss.get("nycf_area", "all"), ss.get("nycf_bd"), ss.get("nycf_kd", "any"))
+    if _a0 == "jc":
+        _jc_note(_h0, NYC.filter_rows(rows, "jc", ss.get("nycf_bd"), ss.get("nycf_kd", "any"), _h0))
+    sel = NYC.filter_rows(rows, ss.get("nycf_area", "all"), ss.get("nycf_bd"), ss.get("nycf_kd", "any"), _h0)
     srt = ss.get("nycf_sort", "near")
     sel = sorted(sel, key=(lambda r: r.get("mi") or 99) if srt == "near" else (lambda r: (r.get("days") is None, r.get("days") or 0)) if srt == "new" else
                  (lambda r: (r.get("price") or 0) * (1 if srt == "low" else -1)))

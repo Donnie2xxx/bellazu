@@ -12,8 +12,28 @@ TOP_N = 15
 PER_BUILDING = 2                                    # at most this many units of one building in the top list (variety)
 MIN_SQFT_2BR = 500                                  # under this a "2 bedroom" is probably a small 1BR: flagged
 AREAS = {"all": ("All areas", "Todas las zonas"), "manhattan": ("Manhattan", "Manhattan"), "bronx": ("Bronx", "Bronx"),
-         "bkq": ("Brooklyn & Queens", "Brooklyn y Queens"), "nj": ("Hudson River NJ", "NJ junto al río Hudson"), "other": ("Other NY", "Otros de NY")}
+         "bkq": ("Brooklyn & Queens", "Brooklyn y Queens"), "nj": ("Hudson River NJ", "NJ junto al río Hudson"),
+         "jc": ("Jersey City", "Jersey City"), "other": ("Other NY", "Otros de NY")}
+# Jersey City areas (2026-10-02): the listing data has no neighborhood field, so a home is placed by its ZIP code (USPS ZIP -> primary neighborhoods, the city's ZIP map;
+# blocks can cross ZIP lines). 07311 (Exchange Place offices) has no homes in the snapshot and joins Downtown.
+JC_HOODS = {"downtown": ("Downtown", "Downtown", ("07302", "07311"), ("Paulus Hook, Exchange Place, Harborside, Van Vorst, Hamilton Park, Grove Street",) * 2),
+            "newport": ("Newport", "Newport", ("07310",), ("Newport",) * 2),
+            "square": ("Journal Square", "Journal Square", ("07306",), ("Journal Square, southern Heights", "Journal Square, sur de The Heights")),
+            "heights": ("The Heights", "The Heights", ("07307",), ("The Heights",) * 2),
+            "bergen": ("Bergen-Lafayette", "Bergen-Lafayette", ("07304",), ("Bergen-Lafayette, West Side",) * 2),
+            "greenville": ("Greenville", "Greenville", ("07305",), ("Greenville",) * 2)}
 _MEMO = {}
+
+
+def jc_hood(r):
+    """Key of JC_HOODS for a Jersey City, NJ row (by ZIP), else None."""
+    if str(r.get("town") or "").lower() != "jersey city" or r.get("state", "NJ") != "NJ":
+        return None
+    z = str(r.get("zip") or "")[:5]
+    for k, v in JC_HOODS.items():
+        if z in v[2]:
+            return k
+    return None
 
 
 def pack(plain_json):
@@ -219,11 +239,16 @@ def pick_top(rows, money, hud, ap, n=TOP_N, beds=2):
     return picks, n_true
 
 
-def filter_rows(rows, area="all", beds=None, kind="any"):
+def filter_rows(rows, area="all", beds=None, kind="any", hood=None):
     """beds: None = any, 0 = studio, 1, 2 = exactly that many, 3 = 3 or more. kind: any | condo (not co-op, not timeshare) | coop."""
     out = []
     for r in rows:
-        if area != "all" and r.get("area") != area:
+        if area == "jc":
+            if str(r.get("town") or "").lower() != "jersey city" or r.get("state", "NJ") != "NJ":
+                continue
+            if hood and jc_hood(r) != hood:
+                continue
+        elif area != "all" and r.get("area") != area:
             continue
         b = r.get("beds")
         if beds is not None and not ((b or 0) >= 3 if beds == 3 else b == beds):
