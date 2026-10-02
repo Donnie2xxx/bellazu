@@ -1,7 +1,7 @@
 """BellaZu web app (Streamlit). Simple phone-first UI, English/Spanish, passcode-gated.
 Run locally:  APP_PASSCODE=... streamlit run app.py   (or put the values in .streamlit/secrets.toml)
 Secrets (st.secrets first, then environment variables):
-  APP_PASSCODE (required), RENTCAST_API_KEY (optional), RENTCAST_MONTHLY_CAP / RENTCAST_USED_OFFSET (optional).
+  APP_PASSCODE (required), RENTCAST_API_KEY (optional), RENTCAST_MONTHLY_LIMIT / RENTCAST_MONTHLY_CAP / RENTCAST_USED_OFFSET (optional).
 RentCast key: data/rc.lock holds the key encrypted with the passcode (bellazu/keylock.py); it is tried first and
 RENTCAST_API_KEY is the fallback (also used if RentCast refuses the locked key). The key is never shown.
 Nothing personal lives in this file: every number is typed by the user and kept only in the browser session."""
@@ -26,7 +26,7 @@ def secret(name, default=""):
     return str(v).strip() if v is not None else default
 
 
-for _k in ("RENTCAST_API_KEY", "RENTCAST_MONTHLY_CAP", "RENTCAST_USED_OFFSET"):   # the engine reads these from os.environ
+for _k in ("RENTCAST_API_KEY", "RENTCAST_MONTHLY_LIMIT", "RENTCAST_MONTHLY_CAP", "RENTCAST_USED_OFFSET"):   # the engine reads these from os.environ
     _v = secret(_k)
     if _v and not os.environ.get(_k):
         os.environ[_k] = _v
@@ -990,10 +990,11 @@ def rc_usage_line():
                  "Las búsquedas de precio están apagadas por ahora (RentCast no aceptó la clave); se usan fuentes gratuitas. Agregue el precio cuando se lo pidamos; todo lo demás funciona.")
     if not u["enabled"]:
         return L("RentCast is off, so only free sources are used.", "RentCast está apagado; solo se usan fuentes gratuitas.")
-    s = L(f"RentCast lookups used this month: {u['used']} of {u['free_plan']} (this app's own count).",
-          f"Consultas de RentCast usadas este mes: {u['used']} de {u['free_plan']} (conteo de esta app).")
+    s = L(f"RentCast lookups used this month: {u['used']:,} of {u['plan_limit']:,} (this app's own count).",
+          f"Consultas de RentCast usadas este mes: {u['used']:,} de {u['plan_limit']:,} (conteo de esta app).")
     if u["used"] >= u["cap"]:
-        s += " " + L("Monthly limit reached, so free sources are used until next month.", "Se alcanzó el límite mensual; se usan fuentes gratuitas hasta el próximo mes.")
+        s += " " + L(f"Our safety limit for the month ({u['cap']:,}) was reached, so free sources are used until next month.",
+                     f"Se alcanzó nuestro límite de seguridad del mes ({u['cap']:,}); se usan fuentes gratuitas hasta el próximo mes.")
     return s
 
 

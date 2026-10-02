@@ -1,13 +1,14 @@
-"""RentCast API (optional; free Developer plan = 50 requests/month). Reads RENTCAST_API_KEY from the environment.
+"""RentCast API (optional; paid Foundation plan = 1,000 requests/month since 2026-10-02, was the free Developer plan = 50). Reads RENTCAST_API_KEY from the environment.
 Signup: https://app.rentcast.io/app/api   Docs: https://developers.rentcast.io/reference/introduction
 
-Quota protection (every real request costs 1 of the 50 monthly lookups):
+Quota protection (every real request costs 1 of the 1,000 monthly lookups; RentCast does NOT block past the plan, it bills overage per request, so the cap below is our only brake):
   * every response (including empty lists / 404 "not found") is cached on disk + in memory, keyed by
     endpoint + normalized params (never the key), so repeating an address does not spend quota;
   * a local monthly counter (cache/rentcast/usage.json) counts every real request this app makes;
-  * RENTCAST_MONTHLY_CAP (default 45) stops calling before the free 50 are gone -> free-source fallback;
+  * RENTCAST_MONTHLY_LIMIT (default 1000 = the plan) is the one number to change when the plan changes; the cap is 90% of it
+    (900) unless RENTCAST_MONTHLY_CAP is set explicitly. At the cap calls stop -> free-source fallback;
   * RENTCAST_USED_OFFSET="YYYY-MM:N" adds N lookups spent elsewhere in that month (e.g. testing); the larger of it
-    and DEFAULT_OFFSET (below) is used;
+    and DEFAULT_OFFSET (below, empty now) is used;
   * the last lookup left (monthly cap or a per-run budget) is kept for the rent estimate (property record skipped).
 Keys: the app may pass candidate keys with set_keys() (e.g. the passcode-locked key in data/rc.lock); RENTCAST_API_KEY
 from the environment is the last fallback. A key RentCast refuses (HTTP 401) is dropped for this process and the next
@@ -23,8 +24,9 @@ _DIR = CACHE / "rentcast"
 _MEM = {}
 _LOCK = threading.Lock()
 TTL_H = {"listings/sale": 72, "properties": 24 * 30, "avm/rent/long-term": 24 * 14, "listings/rental/long-term": 72}
-FREE_PLAN = 50
-DEFAULT_OFFSET = "2026-09:9"   # lookups already used this month (app count + tests), as of 2026-09-26
+PLAN_LIMIT = 1000              # lookups per month on the current plan (RENTCAST_MONTHLY_LIMIT overrides)
+CAP_SHARE = 0.9                # stop at 90% of the plan, like the RapidAPI cap
+DEFAULT_OFFSET = ""            # no built-in offset (the 2026-09:9 one was for the 50-lookup plan, September only)
 _KEYS = []                     # candidate keys in priority order (set by the app)
 _BAD = set()                   # fingerprints of keys RentCast refused (401) in this process
 _BUDGET = contextvars.ContextVar("rentcast_budget", default=None)   # optional per-run limit: [remaining]
@@ -102,15 +104,24 @@ def _offset():
     return max(_parse_offset(os.environ.get("RENTCAST_USED_OFFSET", "")), _parse_offset(DEFAULT_OFFSET))
 
 
-def cap():
+def plan_limit():
     try:
-        return int(os.environ.get("RENTCAST_MONTHLY_CAP", "45"))
+        return max(int(os.environ.get("RENTCAST_MONTHLY_LIMIT") or PLAN_LIMIT), 1)
     except ValueError:
-        return 45
+        return PLAN_LIMIT
+
+
+def cap():
+    """Lookups the app may use per month: RENTCAST_MONTHLY_CAP if set, else 90% of the plan (900 of 1,000)."""
+    try:
+        c = os.environ.get("RENTCAST_MONTHLY_CAP")
+        return int(c) if c not in (None, "") else int(plan_limit() * CAP_SHARE)
+    except ValueError:
+        return int(plan_limit() * CAP_SHARE)
 
 
 def usage():
-    """{'month','app_calls','offset','used','cap','free_plan','remaining_before_cap'} (never contains the key)."""
+    """{'month','app_calls','offset','used','cap','plan_limit','remaining_before_cap'} (never contains the key)."""
     p = _usage_path()
     d = {}
     if p.exists():
@@ -121,7 +132,7 @@ def usage():
     n = int(d.get("count", 0)) if d.get("month") == _month() else 0
     used = n + _offset()
     return {"month": _month(), "app_calls": n, "offset": _offset(), "used": used, "cap": cap(),
-            "free_plan": FREE_PLAN, "remaining_before_cap": max(cap() - used, 0), "enabled": available(),
+            "plan_limit": plan_limit(), "remaining_before_cap": max(cap() - used, 0), "enabled": available(),
             "key_state": key_state()}
 
 
@@ -216,9 +227,9 @@ def _get(path, params):
                 msg = (r.json() or {}).get("error", "")
             except Exception:
                 pass
-            note = {429: "rate limited / quota exhausted", 402: "billing / quota"}.get(r.status_code, "error")
+            note = {429: "rate limited (20 requests/second)", 402: "billing / quota"}.get(r.status_code, "error")
             record("RentCast " + path, BASE + path, False, r.status_code, f"{note} {msg}".strip())
-            return None, ("quota" if r.status_code in (402, 429) else f"error:{r.status_code}")
+            return None, ("quota" if r.status_code == 402 else f"error:{r.status_code}")
         _MEM[ck] = hit
         _DIR.mkdir(parents=True, exist_ok=True)
         f.write_text(json.dumps(hit))
