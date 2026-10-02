@@ -2505,9 +2505,22 @@ def rent_comps_box(key, town, beds, kind=None, lat=None, lon=None, est=None, est
         extra.append(L(f"Furnished 30+ day stays: about {money(mtr['monthly_equiv_median'])}/mo ({mtr.get('n', 0)} nearby)",
                        f"Amueblado 30+ días: unos {money(mtr['monthly_equiv_median'])}/mes ({mtr.get('n', 0)} cerca)"))
     sm = (strs or {}).get("summary") or {}
-    if air_ok is True and sm.get("adr_median"):
-        extra.append(L(f"Airbnb (with the town permit): about {money(sm['adr_median'])}/night ({sm.get('n', 0)} nearby)",
-                       f"Airbnb (con permiso del pueblo): unos {money(sm['adr_median'])}/noche ({sm.get('n', 0)} cerca)"))
+    if sm.get("adr_median"):                # display only: shown for every town; air_ok only changes the wording
+        if air_ok is True:
+            extra.append(L(f"Airbnb (with the town permit): about {money(sm['adr_median'])}/night ({sm.get('n', 0)} nearby)",
+                           f"Airbnb (con permiso del pueblo): unos {money(sm['adr_median'])}/noche ({sm.get('n', 0)} cerca)"))
+        else:
+            tag = (L("🚫 not allowed here, market only", "🚫 no se permite aquí, solo el mercado") if air_ok is False
+                   else L("❓ not sure it's allowed", "❓ no sabemos si se permite"))
+            lbl = L("Airbnb nearby market (not allowed here)", "Mercado de Airbnb cerca (no se permite aquí)") if air_ok is False else L("Airbnb nearby market", "Mercado de Airbnb cerca")
+            bor = ""
+            dss = strs.get("datasets") or []
+            if town and dss and not any(town.lower().replace(" ", "-") in d for d in dss):      # same check as places_block: no snapshot of its own
+                cities = ", ".join(sorted({d.split("/")[1].replace("-", " ").title() for d in dss if "/" in d}))
+                mi = strs["nearest_km"] / 1.609 if strs.get("nearest_km") is not None else None
+                bor = L(f" (borrowed from {cities}{f', {mi:.1f} mi away' if mi is not None else ''})",
+                        f" (tomado de {cities}{f', a {mi:.1f} mi' if mi is not None else ''})")
+            extra.append(f"{lbl}: " + L(f"about {money(sm['adr_median'])}/night ({sm.get('n', 0)} nearby)", f"unos {money(sm['adr_median'])}/noche ({sm.get('n', 0)} cerca)") + f" {tag}" + bor)
     if extra:
         body += "<div class='ex'>" + "<br>".join(H.escape(x) for x in extra) + "</div>"
     srcs = [L("realtor.com via Realty in US", "realtor.com vía Realty in US") if src == "realty" else "", "RentCast" if src == "rentcast" else "",
