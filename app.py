@@ -4273,20 +4273,27 @@ def _thumb(u):
     return re.sub(r"od-w1024_h768\.jpg$", "rd-w480_h360.jpg", u) if isinstance(u, str) else None
 
 
+# NOTE: no `a(), b()` tuple statements in here: this runs while the page draws (NYC cards build their entry), and Streamlit's magic would print (None, None).
 def _facts_line(beds, baths, sqft, type_lbl, hoa, rent=False):
     en, es = [], []
     if beds is not None:
-        en.append(f"{beds} bd"), es.append(f"{beds} hab")
+        en.append(f"{beds} bd")
+        es.append(f"{beds} hab")
     if baths:
-        en.append(f"{float(baths):g} ba"), es.append(f"{float(baths):g} baño{'' if float(baths) == 1 else 's'}")
+        en.append(f"{float(baths):g} ba")
+        es.append(f"{float(baths):g} baño{'' if float(baths) == 1 else 's'}")
     if sqft:
-        en.append(f"{int(sqft):,} ft²"), es.append(f"{int(sqft):,} ft²")
+        en.append(f"{int(sqft):,} ft²")
+        es.append(f"{int(sqft):,} ft²")
     if type_lbl:
-        en.append(type_lbl[0]), es.append(type_lbl[1])
+        en.append(type_lbl[0])
+        es.append(type_lbl[1])
     if isinstance(hoa, dict) and not rent:
-        en.append(hoa_txt(hoa, True, False)), es.append(hoa_txt(hoa, True, True))
+        en.append(hoa_txt(hoa, True, False))
+        es.append(hoa_txt(hoa, True, True))
     elif hoa and not rent:
-        en.append(f"HOA {money(hoa)}/mo"), es.append(f"HOA {money(hoa)}/mes")
+        en.append(f"HOA {money(hoa)}/mo")
+        es.append(f"HOA {money(hoa)}/mes")
     return " · ".join(en), " · ".join(es)
 
 
@@ -4531,9 +4538,13 @@ def _sv_expander(label, key):
 
 
 @timed('saved_card')
-def saved_card(x):
-    """Calm saved card: photo carousel with the price on it, one facts line, then tap-to-open details and notes."""
+def saved_card(x, top=None):
+    """Calm saved card: photo carousel with the price on it, one facts line, then tap-to-open details and notes.
+    top = None on the Saved homes page. The NYC box (Top 15 + All homes) draws its homes with THIS SAME function, so the two always look alike:
+    top = {"h": listing row, "hm": home_money, "rank": int|None, "fill": bool}. Differences, on purpose: a "#rank" in front of the address, one tag + monthly line
+    under the facts, and a Save / Saved heart in the place of Remove (a Top 15 home is not on the saved list until the heart is tapped)."""
     k = _sv_key(x["id"])
+    sx = sv()["items"].get(x["id"]) if top else x        # the saved copy (status, notes, saved date); None while a Top 15 home isn't saved
     with st.container(key=f"svcard_{k}"):
         pic = x.get("photo") if str(x.get("photo") or "").startswith("https://") else None
         phs = [u for u in (x.get("photos") or []) if str(u).startswith("https://")] or ([pic] if pic else [])
@@ -4544,12 +4555,24 @@ def saved_card(x):
         if x.get("kind") == "home" and phs:
             h = {"id": x.get("listing_id") or "", "photo": phs[0], "photos": phs, "photo_count": len(phs), "price": x.get("price"),
                  "url": x.get("url"), "new": False, "price_cut": None}
-            carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=(lambda i=x["id"]: _sv_open(i)), more_ok=bool(x.get("nyc")))
+            carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=((lambda i=x["id"], h_=top["h"]: _sv_open(i) if i in sv()["items"] else _nyc_open(h_)) if top else (lambda i=x["id"]: _sv_open(i))),
+                     more_ok=bool(x.get("nyc")))
         elif price:
             html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
-        html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
+        if top:
+            pre = f"<b>#{top['rank']}</b> · " if top.get("rank") else ""
+            chip = f" <span class='nyc-fill'>{H.escape(L('Closest option, not 2 bd', 'Opción cercana, no es de 2 hab'))}</span>" if top.get("fill") else ""
+            sm_ = L(" · small for 2 bd, check the layout", " · pequeña para 2 hab, revise el plano") if NYC.small_flag(top["h"]) else ""
+            html(f"<div class='bz-svh'>{pre}{H.escape(title)}<br><span class='x'>{H.escape(fl)}{H.escape(sm_)}</span>{chip}</div>")
+        else:
+            html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
+        if top:          # NYC box only: the approval tag + monthly total under the facts line (the HOA is already in the facts line). Saved homes pages are unchanged.
+            html(_nyc_money_html(top["h"], top["hm"], "", flag=False, hoa_line=False))
         with _sv_expander(L("Details", "Detalles"), f"svdt_{k}"):
-            st.caption(f"♥ {L('Saved', 'Guardada')} {_date_txt(x.get('saved'))}" + (f" · {src}" if src and x.get("cols") else ""))
+            if sx:
+                st.caption(f"♥ {L('Saved', 'Guardada')} {_date_txt(sx.get('saved'))}" + (f" · {src}" if src and x.get("cols") else ""))
+            if top:
+                _nyc_details(top["h"], top["hm"])
             if x.get("cols"):
                 html(f"<div class='bz-lbl' style='margin-top:.3rem'>{L('Each month, when saved', 'Cada mes, al guardarla')}</div>" + _cmp_html(x["cols"], "bz-sv-nums"))
             if x.get("legal"):
@@ -4576,25 +4599,35 @@ def saved_card(x):
                                None, None, _hud_for(x["town"], b), None, None, None, None)
         if x.get("kind") == "home" and not x.get("rent"):
             with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"svrr_{k}"):
-                h_, hm_ = saved_hm(x)
+                h_, hm_ = (top["h"], top["hm"]) if top else saved_hm(x)
                 if hm_:
                     rooms_block(k, hm_["m"]["total"], rooms_base_tag(h_, hm_), h_.get("zip"), x.get("beds") if x.get("beds") is not None else h_.get("beds"), x.get("addr"),
                                 flag=NYC.rent_note(h_, hm_.get("hoa")) if h_.get("_nyc") else None)
                 else:
                     st.caption(L("Open my numbers first: this saved home has no monthly total to work from.", "Abra primero sus números: esta casa guardada no tiene un total mensual para calcular."))
         with _sv_expander(L("My status and notes", "Mi estado y notas"), f"svnx_{k}"):
-            st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
-                     format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
-            st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
-                         placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
-                         on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
+            if sx:
+                st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=sx.get("status") or "interested", required=True,
+                         format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(sx["id"], "status", f"svst_{k}"))
+                st.text_area(L("My notes", "Mis notas"), value=sx.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
+                             placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
+                             on_change=_sv_set, args=(sx["id"], "note", f"svnt_{k}"))
+            else:
+                st.caption(L("Tap ♡ Save first, then you can add a status and notes here.", "Toque ♡ Guardar primero y aquí podrá poner un estado y notas."))
         row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"svrow_{k}")
         with row:
             if not x.get("rent"):
-                st.button(L("Open my numbers", "Abrir mis números"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="tertiary")
+                if top and not sx:
+                    st.button(L("Open my numbers", "Abrir mis números"), key=f"svop_{k}", on_click=_nyc_open, args=(top["h"],), type="tertiary")
+                else:
+                    st.button(L("Open my numbers", "Abrir mis números"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="tertiary")
             if str(x.get("url") or "").startswith("http"):
                 st.link_button(L("Listing ↗", "Anuncio ↗"), x["url"], type="tertiary")
-            st.button(L("Remove", "Quitar"), key=f"svrm_{k}", on_click=_sv_remove, args=(x["id"],), type="tertiary")
+            if top:        # the heart takes the place of Remove: the same button, in the same spot, that saves (or un-saves) this home
+                st.button(L("♥ Saved", "♥ Guardada") if sx else L("♡ Save", "♡ Guardar"), key=f"{'svon' if sx else 'svoff'}_{k}", type="tertiary",
+                          on_click=_sv_toggle, args=(x["id"], entry_from_feed, top["h"], False))
+            else:
+                st.button(L("Remove", "Quitar"), key=f"svrm_{k}", on_click=_sv_remove, args=(x["id"],), type="tertiary")
 
 
 def _sv_wait_cloud():
@@ -4763,7 +4796,7 @@ def _nyc_tag_txt(tg):
     return tag_txt(tg)
 
 
-def _nyc_money_html(h, hm, extra="", flag=True):
+def _nyc_money_html(h, hm, extra="", flag=True, hoa_line=True):
     """Approval tag + monthly total + fee + the rent-out flag, for one NYC box card. Never green over the benchmark or on an unconfirmed fee."""
     tg = _nyc_tag(h, hm)
     tt, tc = _nyc_tag_txt(tg)
@@ -4775,7 +4808,7 @@ def _nyc_money_html(h, hm, extra="", flag=True):
     lv, en, es = NYC.rent_short(h, hi)
     tax = L(" · taxes: lender figure", " · impuestos: cifra del banco") if hm["m"]["tax_src"] == "lender" and not hm.get("coop") else ""
     return (f"<div class='bz-cm'><span class='tg {tc}'>{H.escape(tt)}</span> · <b>{H.escape(tot)}</b>"
-            f"<div class='x'>{H.escape(hoa_txt(hi))}{H.escape(tax)}</div>"
+            + (f"<div class='x'>{H.escape(hoa_txt(hi))}{H.escape(tax)}</div>" if hoa_line else f"<div class='x'>{H.escape(tax.lstrip(' ·'))}</div>" if tax else "")
             + (f"<div class='ff'>{H.escape(L(*FHA_FLAG[hm['fha']]))}</div>" if hm.get("fha") else
                f"<div class='cn'>{H.escape(L(*COOP_NOTE))}</div>" if hm.get("coop") else "")
             + (f"<div class='x'>{H.escape(hoa_extra_note(hi))}</div>" if hoa_extra_note(hi) else "")
@@ -4932,66 +4965,37 @@ def _nyc_line(h, hm):
                                   f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, P(tl), h.get("town"), f"{h.get('mi', 0):.1f} mi"] if x)
 
 
+def _nyc_details(h, hm):
+    """NYC extras inside the shared card's Details: the monthly breakdown, HUD fair rent, days listed and the agent."""
+    m = hm["m"]
+    rows = [(L("Loan payment (principal + interest)", "Pago del préstamo (capital + interés)"), m["pi"]), (L("Mortgage insurance", "Seguro hipotecario"), m["mi"]),
+            (L("Taxes", "Impuestos") + (L(" (lender figure)", " (cifra del banco)") if m["tax_src"] == "lender" and not hm.get("coop") else ""), m["tax"]),
+            (L("Home insurance", "Seguro de la casa"), m["ins"]), (L("HOA / maintenance", "HOA / mantenimiento"), m["hoa"])]
+    body = "".join(f"<tr><td>{H.escape(a_)}</td><td class='n'>{money(v)}</td></tr>" for a_, v in rows if v or a_.startswith(L("Loan", "Pago")))
+    html(f"<table class='bz-bd'>{body}<tr class='t'><td>{H.escape(L('Total a month, my loan', 'Total al mes, mi préstamo'))}</td><td class='n'>{money(m['total'])}</td></tr></table>")
+    hud = _nyc_hud(h.get("zip"), h.get("beds"))
+    if hud:
+        nb_, zp_ = h.get("beds"), h.get("zip")
+        html("<div class='bz-sv-b'>" + H.escape(L(f"HUD fair rent for {nb_} bd in ZIP {zp_}: about {money(hud)}/mo (a guide for what the whole home could rent for, not a promise).",
+                                                  f"Renta justa HUD para {nb_} hab en el ZIP {zp_}: unos {money(hud)}/mes (una guía de lo que podría rentar la casa entera, no una promesa).")) + "</div>")
+    bits = []
+    if h.get("town") or h.get("mi") is not None:
+        bits.append(" ".join(x_ for x_ in [str(h.get("town") or ""), f"{float(h['mi']):.1f} mi" + L(" from Times Square", " de Times Square") if h.get("mi") is not None else ""] if x_))
+    if isinstance(h.get("days"), int):
+        bits.append(L(f"listed {h['days']} days ago", f"publicada hace {h['days']} días"))
+    if h.get("broker"):
+        bits.append(L(f"by {h['broker']}", f"por {h['broker']}"))
+    if bits:
+        st.caption(" · ".join(bits))
+
+
 def nyc_card(h, hm, i, tab, ap, rank=None, fill=False, why=None):
-    """One NYC home in the SAME card as Saved homes: photo carousel (price on it), title + facts, tag + monthly, Details, Rent rooms, status and notes,
-    then Save / Open my numbers / Listing. Photos come from the cached detail (no call); swiping past the last one loads the rest with one cached call."""
-    ss = st.session_state
+    """One NYC home = the SAME card as Saved homes (saved_card): photo carousel with the price on it, address + one facts line, Details, Rent rooms,
+    My status and notes, then Open my numbers / Listing / heart. Photos come from the cached detail (no call); swiping past the last one loads the rest."""
     h = dict(h, _nyc=True)
     iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
-    k = _sv_key(iid)
-    x = sv()["items"].get(iid)
-    tg = _nyc_tag(h, hm)
-    with st.container(key=f"svcard_ny{tab}_{i}_{k[-20:]}"):
-        carousel(h, f"nycz_{tab}_{i}_{h['id']}", False, None, more_ok=True,
-                 on_open=(lambda i_=iid, h_=h: _sv_open(i_) if i_ in sv()["items"] else _nyc_open(h_)))
-        pre = f"<b>#{rank}</b> · " if rank else ""
-        fl = H.escape(L("Closest option, not 2 bd", "Opción cercana, no es de 2 hab")) if fill else ""
-        sm = L(" · small for 2 bd, check the layout", " · pequeña para 2 hab, revise el plano") if NYC.small_flag(h) else ""
-        html(f"<div class='bz-svh'>{pre}{H.escape(h['address'])}<br><span class='x'>{H.escape(_nyc_line(h, hm))}{H.escape(sm)}</span>"
-             + (f" <span class='nyc-fill'>{fl}</span>" if fl else "") + "</div>")
-        lv_ = NYC.rent_short(h, hm.get("hoa"))[0]
-        html(_nyc_money_html(h, hm, (f"<div class='nyc-why nyc-fl {lv_}'>💡 {H.escape(P(why))}</div>" if why else ""), flag=not why))
-        with _sv_expander(L("Details", "Detalles"), f"nyd_{tab}_{k}"):
-            m = hm["m"]
-            rows = [(L("Loan payment (principal + interest)", "Pago del préstamo (capital + interés)"), m["pi"]), (L("Mortgage insurance", "Seguro hipotecario"), m["mi"]),
-                    (L("Taxes", "Impuestos") + (L(" (lender figure)", " (cifra del banco)") if m["tax_src"] == "lender" and not hm.get("coop") else ""), m["tax"]),
-                    (L("Home insurance", "Seguro de la casa"), m["ins"]), (L("HOA / maintenance", "HOA / mantenimiento"), m["hoa"])]
-            body = "".join(f"<tr><td>{H.escape(a_)}</td><td class='n'>{money(v)}</td></tr>" for a_, v in rows if v or a_.startswith(L("Loan", "Pago")))
-            html(f"<table class='bz-bd'>{body}<tr class='t'><td>{H.escape(L('Total a month, my loan', 'Total al mes, mi préstamo'))}</td><td class='n'>{money(m['total'])}</td></tr></table>")
-            rn = NYC.rent_note(h, hm.get("hoa"))
-            html(f"<div class='bz-sv-b'>🔑 {H.escape(L(rn[1], rn[2]))}</div>")
-            hud = _nyc_hud(h.get("zip"), h.get("beds"))
-            if hud:
-                nb_, zp_ = h.get("beds"), h.get("zip")
-                html("<div class='bz-sv-b'>" + H.escape(L(f"HUD fair rent for {nb_} bd in ZIP {zp_}: about {money(hud)}/mo (a guide for what the whole home could rent for, not a promise).",
-                                                          f"Renta justa HUD para {nb_} hab en el ZIP {zp_}: unos {money(hud)}/mes (una guía de lo que podría rentar la casa entera, no una promesa).")) + "</div>")
-            bits = []
-            if isinstance(h.get("days"), int):
-                bits.append(L(f"listed {h['days']} days ago", f"publicada hace {h['days']} días"))
-            if h.get("broker"):
-                bits.append(L(f"by {h['broker']}", f"por {h['broker']}"))
-            if bits:
-                st.caption(" · ".join(bits))
-        with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"nyr_{tab}_{k}"):
-            rn = NYC.rent_note(h, hm.get("hoa"))
-            rooms_block(k, hm["m"]["total"], tg, h.get("zip"), h.get("beds"), h.get("address"), flag=rn)
-        with _sv_expander(L("My status and notes", "Mi estado y notas"), f"nyn_{tab}_{k}"):
-            if x:
-                st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
-                         format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
-                st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
-                             placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
-                             on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
-            else:
-                st.caption(L("Tap ♡ Save first, then you can add a status and notes here.", "Toque ♡ Guardar primero y aquí podrá poner un estado y notas."))
-        with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"nyrow_{tab}_{i}_{k[-20:]}"):
-            heart(iid, f"nyc_{tab}_{i}_{k[-12:]}", entry_from_feed, (h, False))
-            if x:
-                st.button(L("Open my numbers", "Abrir mis números"), key=f"nyop_{tab}_{i}_{k[-12:]}", type="tertiary", on_click=_sv_open, args=(iid,))
-            else:
-                st.button(L("Open my numbers", "Abrir mis números"), key=f"nyop_{tab}_{i}_{k[-12:]}", type="tertiary", on_click=_nyc_open, args=(h,))
-            if str(h.get("url") or "").startswith("http"):
-                st.link_button("realtor.com ↗", h["url"], type="tertiary")
+    x = entry_from_feed(iid, h, False)                    # same snapshot a heart tap would save (no API call)
+    saved_card(x, top={"h": h, "hm": hm, "rank": rank, "fill": fill})
 
 
 def _nyc_pick_card(x, i, ap):
