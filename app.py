@@ -3586,7 +3586,15 @@ def feed_block(ts, drives, sid):
                      "Ningún anuncio aquí cabe en su aprobación con FHA. La mayoría de los edificios de condos de la zona no están en la lista FHA de HUD, y los co-ops no pueden usar FHA. "
                      "Apague 'Solo casas para las que estoy aprobada' para ver las casas marcadas 'Sin aprobación FHA' y pregunte a su banco por una aprobación de unidad individual."))
     elif not rows:
-        st.caption(L("No listings match. Try another price or type.", "Ningún anuncio coincide. Pruebe otro precio o tipo."))
+        _lo = sorted(r_["price"] for r_ in allrows if isinstance(r_.get("price"), (int, float)) and r_["price"] > 0) if not rent else []
+        _nx = next((p_ for p_ in FEED_PRICE[status] if p_ is not None and _lo and p_ >= _lo[0] and (mx is None or p_ > mx)), None) if _lo and mx is not None and _lo[0] > mx else None
+        if _lo and mx is not None and _lo[0] > mx:
+            st.info(L(f"Nothing here is up to {kmoney(mx)} right now: the cheapest of the {len(allrows)} newest homes is {kmoney(_lo[0])}.",
+                      f"Ahora no hay nada hasta {kmoney(mx)}: la más barata de las {len(allrows)} casas más nuevas cuesta {kmoney(_lo[0])}."), icon="🌷")
+            st.button(L(f"Show homes up to {kmoney(_nx)}", f"Ver casas hasta {kmoney(_nx)}") if _nx else L("Show all prices", "Ver todos los precios"), key=f"hwiden_{sid}", width="stretch",
+                      on_click=lambda v_=_nx: ss.update({f"hpx_{sid}_{status}": v_}))
+        else:
+            st.caption(L("No listings match. Try another price or type.", "Ningún anuncio coincide. Pruebe otro precio o tipo."))
     upd = min((r_.get("fetched") or "") for r_ in ok.values())[-5:]
     if multi:
         st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings in {len(ok)} towns match (updated {upd}).",
@@ -5199,6 +5207,8 @@ def main_page():
         if go[0] == "addr":
             ss.prop_addr = go[1]
             run_home(go[1], res_box)
+        elif go[0] == "town" and towns.normalize(go[1]).get("name") == towns.NYC and towns.normalize(go[1]).get("match") in ("exact", "alias", "fuzzy") and (nyc_data() or {}).get("rows"):
+            _nyc_open_view()                  # Manhattan / NYC / a borough typed as a town: the town feed only knows NJ (state_code NJ), so show the NYC box (478 homes up to $300K) instead of a 1-home NJ list
         else:
             run_town(go[1], res_box)
         st.rerun()
