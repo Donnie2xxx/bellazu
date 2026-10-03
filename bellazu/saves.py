@@ -132,7 +132,7 @@ def export_html(lst, lang="en"):
         pic = x.get("photo") if str(x.get("photo", "")).startswith("https://") else ""
         facts = " · ".join(b for b in [x.get("facts_line_es" if es else "facts_line_en") or ""] if b)
         nums = "".join(f"<li>{H.escape((c.get('title') or ['', ''])[1 if es else 0])}: <b>{H.escape(str(c.get('pay') or '—'))}</b></li>" for c in (x.get("cols") or []))
-        link = f"<a href='{H.escape(x['url'])}'>{'Ver anuncio' if es else 'See listing'} ↗</a>" if str(x.get("url", "")).startswith("http") else ""
+        link = f"<a href='{H.escape(x['url'])}'>{'Ver anuncio' if es else 'See listing'}</a>" if str(x.get("url", "")).startswith("http") else ""
         s = st_lbl.get(x.get("status") or "interested", st_lbl["interested"])
         rows.append(f"<div class='c'>{f'<img src={chr(39)}{H.escape(pic)}{chr(39)} alt={chr(39)}{chr(39)}>' if pic else ''}<div><h3>{H.escape(x.get('title') or '')}</h3>"
                     f"<p class='p'>{H.escape(_money(x.get('price')) + ((('/mes' if es else '/mo')) if x.get('rent') else ''))} {H.escape(facts)}</p>"

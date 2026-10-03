@@ -336,11 +336,6 @@ hr {border-color:var(--line) !important}
 .bz-h1 {font-family:var(--disp); text-transform:uppercase; font-size:4.3rem; line-height:.9; letter-spacing:.01em; color:var(--paper); margin:0 0 .9rem}
 .bz-h1 em {font-style:normal; color:var(--rose)}
 .bz-lede {text-transform:uppercase; letter-spacing:.05em; font-size:.84rem; line-height:1.6; color:#D8D8D8; font-weight:300; margin:0 0 1.2rem; max-width:30rem}
-.bz-marquee {overflow:hidden; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:1.6rem 0 1.4rem; padding:.55rem 0; white-space:nowrap}
-.bz-marquee .track {display:inline-block; animation:bzscroll 26s linear infinite; font-family:var(--disp); text-transform:uppercase; font-size:2.3rem; line-height:1}
-.bz-marquee .o {color:transparent; -webkit-text-stroke:1px var(--paper)} .bz-marquee .f {color:var(--paper)} .bz-marquee .st {color:var(--rose); font-size:1.4rem; margin:0 .9rem; vertical-align:middle}
-@keyframes bzscroll {from {transform:translateX(0)} to {transform:translateX(-50%)}}
-@media (prefers-reduced-motion: reduce) {.bz-marquee .track {animation:none}}
 .bz-steps {display:grid; grid-template-columns:1fr 1fr 1fr; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:1.4rem 0 1rem}
 .bz-steps .s {padding:.9rem .6rem .9rem 0; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:#D8D8D8; line-height:1.35}
 .bz-steps .s + .s {border-left:1px solid var(--line); padding-left:.7rem}
@@ -663,12 +658,6 @@ def header_hero():
          f"<div class='bz-lede'>{L('Type an address or a town. See what you would pay each month living there alone, with a tenant, or with Airbnb or 30+ day guests.', 'Escriba una dirección o un pueblo. Vea lo que pagaría al mes viviendo allí sin nadie más, con un inquilino, o con huéspedes de Airbnb o de 30+ días.')}</div>")
 
 
-def marquee():
-    words = [L("Check a home", "Revise una casa"), L("Find rentals", "Busque alquileres"), L("Plain answers", "Respuestas claras"), L("Free to use", "Gratis")]
-    seq = "".join(f"<span class='{'f' if i % 2 == 0 else 'o'}'>{H.escape(w)}</span><span class='st'>✺</span>" for i, w in enumerate(words))
-    html(f"<div class='bz-marquee' aria-hidden='true'><div class='track'>{seq}{seq}</div></div>")
-
-
 # ------------------------------------------------------------------ saved homes: state (the UI is further down)
 def sv():
     return st.session_state.setdefault("sv", saves.empty())
@@ -878,9 +867,9 @@ def storage_bridge(gate_page=False):
 @timed('gate')
 def gate():
     header()
-    st.markdown(f"<div class='bz-eyebrow'>{L('Private beta', 'Beta privada')}</div>"
-                f"<div class='bz-h1'>{L('Welcome to <em>BellaZu</em>', 'Bienvenida a <em>BellaZu</em>')}</div>"
-                f"<div class='bz-lede'>{L('Type your passcode to come in 💕', 'Escriba su código para entrar 💕')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='bz-h1'>{L('Welcome to <em>BellaZu</em>', 'Bienvenida a <em>BellaZu</em>')}</div>"
+                f"<div class='bz-lede'>{L('Type your passcode to come in 💕', 'Escriba su código para entrar 💕')}</div>"
+                f"<div class='bz-sub'>{L('Private. Only people with the passcode can see this list.', 'Privado. Solo quienes tienen el código pueden ver esta lista.')}</div>", unsafe_allow_html=True)
     storage_bridge(gate_page=True)
     pc = secret("APP_PASSCODE").lower()
     if not pc:
@@ -981,6 +970,13 @@ def tiles(items):
                     + (f"<details><summary>{L('What does this mean?', '¿Qué significa?')}</summary><p>{H.escape(t[3])}</p></details>" if len(t) > 3 else "")
                     + "</div>" for t in items for a, b, c in [t[:3]])
     html(f"<div class='bz-tiles'>{cells}</div>")
+
+
+def rapid_usage_line():
+    """About BellaZu only: the app's own count of home searches (realtor.com via Realty in US) against the monthly cap."""
+    u = listings.usage()
+    return L(f"Home searches used this month: {u['used']:,} of {u['cap']:,} (this app's own count).",
+             f"Búsquedas de casas usadas este mes: {u['used']:,} de {u['cap']:,} (conteo de esta app).")
 
 
 def rc_usage_line():
@@ -1264,7 +1260,7 @@ def glossary():
 def how_it_works():
     steps = [L("Type an address", "Escriba una dirección"), L("We check the numbers", "Revisamos los números"),
              L("You get a plain answer", "Recibe una respuesta clara")]
-    html("<div class='bz-steps'>" + "".join(f"<div class='s'><span class='n'>0{i}</span>{H.escape(t)}</div>" for i, t in enumerate(steps, 1)) + "</div>")
+    html("<div class='bz-steps'>" + "".join(f"<div class='s'><span class='n'>{i}</span>{H.escape(t)}</div>" for i, t in enumerate(steps, 1)) + "</div>")
 
 
 def example():
@@ -1371,6 +1367,24 @@ def loan_kind_lbl(lc=None):
     dp = lc.get("down_pct") if lc.get("down_pct") is not None else (max(p["down_pct"], ML.FHA["down_pct"]) if k == "fha" else p["down_pct"])
     return (L(f"FHA {dp * 100:.1f}% down", f"FHA {dp * 100:.1f}% inicial") if k == "fha" else
             L(f"conventional {dp * 100:.1f}% down", f"convencional {dp * 100:.1f}% inicial")) + f", {p['term']} {L('yr', 'años')}"
+
+
+def down_note(ln, price):
+    """Plain-language reason when the down payment shown is higher than the plan's % of the price, because My loan has a minimum in dollars
+    (pre-approval: 5% and at least $15,000). '' when the % rule applies (or a co-op/board floor sets it). Returns (en, es)."""
+    p = loan_prof()
+    if not ln or not price or not p.get("min_down"):
+        return "", ""
+    k = ln.get("kind") or p["kind"]
+    pct = max(p["down_pct"], ML.FHA["down_pct"]) if k == "fha" else p["down_pct"]
+    dp = ln.get("down_payment") or 0
+    if abs(dp - round(p["min_down"])) > 1 or price * pct + 1 >= p["min_down"]:
+        return "", ""
+    cc = ln.get("closing_costs_est") or 0
+    return (f" Your down payment is {money(dp)}, the minimum in your pre-approval (the usual {pct * 100:g}% of this price would be {money(price * pct)}), so it shows {dp / price * 100:.1f}%."
+            f" Cash to close = {money(dp)} down + about {money(cc)} closing costs ({p['closing_pct'] * 100:g}%, est.).",
+            f" Su pago inicial es {money(dp)}, el mínimo de su pre-aprobación (el {pct * 100:g}% habitual de este precio sería {money(price * pct)}), por eso aparece {dp / price * 100:.1f}%."
+            f" Efectivo para cerrar = {money(dp)} de inicial + unos {money(cc)} de gastos de cierre ({p['closing_pct'] * 100:g}%, est.).")
 
 
 def hoa_txt(hi, short=False, es=None):
@@ -2643,7 +2657,7 @@ def _arv_comps_render(c, sold, sid, tag, cur_id, cur_addr):
     if app:
         st.button(L("Open in BellaZu ›", "Abrir en BellaZu ›"), key=f"arvo_{sid}_{tag}", type="tertiary", on_click=_open_comp, args=(app, cur_id, cur_addr))
     elif str(c.get("url") or "").startswith("http"):
-        st.link_button(L("Not saved in BellaZu: see on realtor.com ↗", "No está guardada en BellaZu: ver en realtor.com ↗"), c["url"], type="tertiary")
+        st.link_button(L("Not saved in BellaZu: see on realtor.com", "No está guardada en BellaZu: ver en realtor.com"), c["url"], type="tertiary")
 
 
 def arv_section(r, sid, addr):
@@ -3016,12 +3030,13 @@ def show_property(r):
                  "monthly": L(f"Price OK, but {money(mtot)}/mo is higher than the {money(apm['total'])}/mo you were approved for. The HOA and taxes may push you over: ask your lender.",
                               f"Precio OK, pero {money(mtot)}/mes es más que los {money(apm['total'])}/mes aprobados. La HOA y los impuestos pueden pasarla del límite: pregunte a su banco."),
                  "over": L(f"Over your {kmoney(loan_prof()['max_price'])} approval.", f"Sobre su aprobación de {kmoney(loan_prof()['max_price'])}.")}.get(tg, "")
+        _dn = down_note(ln, f.get("price"))
         with summ:
             html("<div class='bz-3'>" + "".join(f"<div><b>{H.escape(str(n))}</b><span>{H.escape(t)}</span></div>" for n, t in cells) + "</div>"
                  + (f"<div class='bz-tag {tc}'>{H.escape(tt)}</div><div class='bz-3n'>{H.escape(long_)}</div>" if tg else "")
                  + (f"<div class='bz-tag r'>{H.escape(L(*FHA_FLAG[ff_]))}</div><div class='bz-3n'>{H.escape(FHA_LONG(ff_))}</div>" if ff_ else
                     f"<div class='bz-3n'>{H.escape(L(*COOP_LONG))}</div>" if (fa or {}).get("code") == "coop" else "")
-                 + f"<div class='bz-3n'>{H.escape(L(f'My loan: {loan_kind_lbl(ln)}, {rate_lbl()}. Tap a section below for the details.', f'Mi préstamo: {loan_kind_lbl(ln)}, {rate_lbl()}. Toque una sección abajo para ver los detalles.'))}</div>")
+                 + f"<div class='bz-3n'>{H.escape(L(f'My loan: {loan_kind_lbl(ln)}, {rate_lbl()}.' + _dn[0] + ' Tap a section below for the details.', f'Mi préstamo: {loan_kind_lbl(ln)}, {rate_lbl()}.' + _dn[1] + ' Toque una sección abajo para ver los detalles.'))}</div>")
             with st.expander(L("Monthly cost with my loan", "Costo mensual con mi préstamo"), key=f"pml_{sid}"):
                 loan_breakdown(c_, ln, hi_p, f, r, own, apm)
             with st.expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), key=f"prr_{sid}"):
@@ -3578,7 +3593,7 @@ def feed_block(ts, drives, sid):
             heart(iid, f"h_{sid}_{i}_{_sv_key(iid)[-12:]}", entry_from_feed, (h, rent))
             if rent:
                 if h.get("url"):
-                    st.link_button(L("realtor.com ↗", "realtor.com ↗"), h["url"], type="tertiary")
+                    st.link_button(L("View listing", "Ver anuncio"), h["url"], type="tertiary")
             else:
                 st.button(L("Details ›", "Ver ›"), key=f"ho_{sid}_{i}_{h['id']}", type="tertiary", on_click=_open_listing, args=(h,))
         if not rent:
@@ -3608,9 +3623,8 @@ def feed_block(ts, drives, sid):
     else:
         st.caption(L(f"{len(rows)} of the {len(allrows)} newest listings match (updated {upd}).",
                      f"{len(rows)} de los {len(allrows)} anuncios más nuevos coinciden (actualizado {upd})."))
-    u = listings.usage()
-    st.caption(L(f"Listing data from realtor.com via Realty in US. Prices and details can change; check with the agent. Swipe a photo to see more. Home searches this month: {u['used']} of {u['cap']}.",
-                 f"Datos de anuncios de realtor.com vía Realty in US. Los precios y datos pueden cambiar; confirme con el agente. Deslice una foto para ver más. Búsquedas de casas este mes: {u['used']} de {u['cap']}."))
+    st.caption(L(f"Listing data from realtor.com via Realty in US. Prices and details can change; check with the agent. Swipe a photo to see more.",
+                 f"Datos de anuncios de realtor.com vía Realty in US. Los precios y datos pueden cambiar; confirme con el agente. Deslice una foto para ver más."))
 
 
 @timed('run_listing')
@@ -3660,7 +3674,7 @@ def gallery_block(addr):
     if g.get("broker"):
         bits.append(L(f"listed by {g['broker']}", f"publicada por {g['broker']}"))
     st.caption((" · ".join(bits) + ". " if bits else "") + L("Price from the listing (realtor.com via Realty in US).", "Precio del anuncio (realtor.com vía Realty in US).")
-               + (f" [realtor.com ↗]({g['url']})" if g.get("url") else ""))
+               + (" [" + L("View on realtor.com", "Ver en realtor.com") + "](" + g["url"] + ")" if g.get("url") else ""))
 
 
 # ------------------------------------------------------------------ search
@@ -4607,7 +4621,7 @@ def saved_card(x):
             if not x.get("rent"):
                 st.button(L("Open my numbers", "Abrir mis números"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="tertiary")
             if str(x.get("url") or "").startswith("http"):
-                st.link_button(L("Listing ↗", "Anuncio ↗"), x["url"], type="tertiary")
+                st.link_button(L("View listing", "Ver anuncio"), x["url"], type="tertiary")
             st.button(L("Remove", "Quitar"), key=f"svrm_{k}", on_click=_sv_remove, args=(x["id"],), type="tertiary")
 
 
@@ -4897,7 +4911,7 @@ def rooms_info(key):
     """Two top-level expanders (never inside another expander): the warnings and the platform guide."""
     with st.expander(L("⚠️ Renting rooms: read this first", "⚠️ Alquilar cuartos: lea esto primero"), key=f"rooms_warn_{key}"):
         for en, es, url in ROOMS.WARN:
-            md("- " + L(en, es) + (f" [source ↗]({url})" if url and not ES() else f" [fuente ↗]({url})" if url else ""))
+            md("- " + L(en, es) + (f" [source]({url})" if url and not ES() else f" [fuente]({url})" if url else ""))
         cap(L("This is general information from public sources checked on Oct 1, 2026, not legal, tax or lending advice. Check with your lender, the building, your insurer and a NY/NJ housing lawyer or HUD-approved counselor.",
                      "Esto es información general de fuentes públicas revisadas el 1 de oct de 2026, no es asesoría legal, de impuestos ni de préstamos. Consulte con su banco, el edificio, su aseguradora y un abogado de vivienda de NY/NJ o un consejero aprobado por HUD."))
     with st.expander(L("📱 Where to find roommates and get paid", "📱 Dónde encontrar compañeros y cobrar"), key=f"rooms_apps_{key}"):
@@ -4906,7 +4920,7 @@ def rooms_info(key):
         for nm, pay_en, pay_es, fee_en, fee_es, nt_en, nt_es, url in ROOMS.PLATFORMS:
             html(f"<div class='bz-sv-b' style='margin:.6rem 0 .1rem'><b>{H.escape(nm)}</b></div>"
                  f"<div class='bz-sv-b'>💵 {H.escape(L(pay_en, pay_es))}</div><div class='bz-sv-b'>🏷️ {H.escape(L(fee_en, fee_es))}</div>"
-                 f"<div class='bz-sv-b'>📝 {H.escape(L(nt_en, nt_es))}</div><div class='bz-sv-b'><a href='{H.escape(url)}' target='_blank' rel='noopener'>{H.escape(L('source', 'fuente'))} ↗</a></div>")
+                 f"<div class='bz-sv-b'>📝 {H.escape(L(nt_en, nt_es))}</div><div class='bz-sv-b'><a href='{H.escape(url)}' target='_blank' rel='noopener'>{H.escape(L('source', 'fuente'))}</a></div>")
 
 
 def saved_hm(x):
@@ -5005,7 +5019,7 @@ def nyc_card(h, hm, i, tab, ap, rank=None, fill=False, why=None):
             else:
                 st.button(L("Open my numbers", "Abrir mis números"), key=f"nyop_{tab}_{i}_{k[-12:]}", type="tertiary", on_click=_nyc_open, args=(h,))
             if str(h.get("url") or "").startswith("http"):
-                st.link_button("realtor.com ↗", h["url"], type="tertiary")
+                st.link_button(L("View listing", "Ver anuncio"), h["url"], type="tertiary")
 
 
 def _nyc_pick_card(x, i, ap):
@@ -5277,7 +5291,6 @@ def main_page():
     if not view:
         how_it_works()
         town_ranking(hm)
-        marquee()
 
 
 # ------------------------------------------------------------------ page
@@ -5307,6 +5320,7 @@ with st.expander(L("About BellaZu", "Sobre BellaZu"), icon="ℹ️"):
          "**Privacidad:** lo que escribe se queda en esta sesión del navegador. Las casas guardadas se quedan en este navegador y en una copia en línea cifrada que solo se abre con el código de entrada. No se guarda en ninguna cuenta.\n\n"
          "**Importante:** son estimados, no asesoría financiera, legal ni hipotecaria."))
     st.caption(rc_usage_line())
+    st.caption(rapid_usage_line())
     if st.button(L("Check which data sources work from this server", "Revisar qué fuentes funcionan desde este servidor"), key="probe"):
         import requests
         from bellazu.http import UA_BROWSER
