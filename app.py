@@ -447,7 +447,9 @@ iframe[title*="searchbox"] {min-height:58px}
 .bz-rc .ex {font-size:.78rem; color:#DADADA; margin-top:.45rem; border-top:1px solid var(--line); padding-top:.4rem}
 .bz-rc .src {font-size:.66rem; color:var(--mute); margin-top:.35rem}
 .bz-rc .g {font-size:.72rem; color:var(--rose2); text-transform:uppercase; letter-spacing:.05em; margin:.65rem 0 .1rem}
-.bz-rc .cue {font-size:.72rem; color:#9FE0B0} .bz-rc .cue.w {color:#FFB38A}
+.bz-rc .cue {font-size:.72rem; color:#9FE0B0} .bz-rc .cue.w {color:#FFB38A} .bz-rc .cue.sz {color:#CFCFCF}
+.bz-rc details.bz-oth {margin:.6rem 0 .2rem; border-top:1px solid var(--line); padding-top:.4rem}
+.bz-rc details.bz-oth summary {cursor:pointer; font-size:.72rem; color:var(--mute); text-transform:uppercase; letter-spacing:.05em}
 .bz-rc .pill {display:inline-block; border-radius:100px; padding:.15rem .6rem; font-size:.72rem; font-weight:600; margin-top:.35rem}
 .bz-rc .pill.s {background:rgba(159,224,176,.14); color:#9FE0B0} .bz-rc .pill.a {background:rgba(245,211,122,.14); color:#F5D37A}
 .bz-rc .big {display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:.5rem 0 .3rem}
@@ -2591,8 +2593,28 @@ def _arv_row(c, sold, es=False):
     warn = ARV.cue_labels([k for k in ck if k == "work"], ES())
     cu = (f"<div class='cue'>{H.escape(' · '.join(cues))}</div>" if cues else "") + (f"<div class='cue w'>{H.escape(' · '.join(warn))}</div>" if warn else "")
     img = f"<img src='{H.escape(c['photo'])}' loading='lazy' alt=''>" if c.get("photo") else "<div class='ni'>🏠</div>"
+    sz = _size_tag(c)
+    if sz:
+        cu = f"<div class='cue sz'>{H.escape(sz)}</div>" + cu
     return (f"<div class='row'>{img}<div><b>{pr}</b> <span class='f'>{H.escape(sub)}</span><div class='f'>{H.escape(facts)}</div>"
             f"<div class='f a'>{H.escape((c.get('address') or '').split(',')[0])}</div>{cu}</div></div>")
+
+
+def _size_tag(c):
+    """Same-building units only (arv.split_building sets c['_size']): how its size compares with this unit."""
+    k, d = c.get("_size"), c.get("_size_diff")
+    if k == "exact":
+        return L("same size", "mismo tamaño")
+    if k in ("similar", "other") and d is not None:
+        dd = f"{'+' if d > 0 else '−'}{abs(int(d)):,} ft²"
+        return L(f"similar size ({dd})", f"tamaño parecido ({dd})") if k == "similar" else L(f"different size ({dd})", f"otro tamaño ({dd})")
+    if k == "beds":
+        return L("same bedrooms (size not compared)", "mismas habitaciones (tamaño no comparado)")
+    if k == "unknown":
+        return L("size unknown", "tamaño desconocido")
+    if k == "other":
+        return L("different bedrooms", "otras habitaciones")
+    return ""
 
 
 _ARV_TOK = "\x00COMP%d\x00"
@@ -2715,7 +2737,7 @@ def arv_section(r, sid, addr):
         rad = gx["radius"]
         rl = L("in the town", "en el pueblo") if rad == "town" else L(f"within {rad:g} mi", f"a menos de {rad:g} mi")
         unit = L("price per sq ft", "precio por pie²") if ppsf else L("price (no size listed for this home)", "precio (esta casa no tiene tamaño)")
-        body += (f"<div class='sub' style='margin-top:.4rem'>{H.escape(L(f'{st_['n']} similar homes {rl}' + (f', {len(gx['bld'])} in this building' if gx['bld'] else ''), f'{st_['n']} casas parecidas {rl}' + (f', {len(gx['bld'])} en este edificio' if gx['bld'] else '')))}. "
+        body += (f"<div class='sub' style='margin-top:.4rem'>{H.escape(L(f'{st_['n']} similar homes {rl}' + (f', {len(gx['bld'])} of a similar size in this building' if gx['bld'] else ''), f'{st_['n']} casas parecidas {rl}' + (f', {len(gx['bld'])} de tamaño parecido en este edificio' if gx['bld'] else '')))}. "
                  f"{H.escape(L('Top quarter by ', 'El cuarto más alto por '))}{H.escape(unit)}: {H.escape(L(str(st_['top_n']) + ' homes', str(st_['top_n']) + ' casas'))}.</div>")
         cells = [(money(st_["p75"]) + "/ft²" if ppsf else money(st_["p75"]), L("top-quarter starts at", "el cuarto más alto empieza en")),
                  (money(st_["med_top"]) + "/ft²" if ppsf else money(st_["med_top"]), L("typical of the top quarter", "típico del cuarto más alto"))]
@@ -2736,9 +2758,24 @@ def arv_section(r, sid, addr):
             body += "<div class='cav'>" + H.escape(L("The top-quarter comps are about the same as (or below) this home's asking price, so there may be little room to add value here.",
                                                        "Los comparables del cuarto más alto están cerca (o por debajo) del precio pedido, así que quizá hay poco margen para agregar valor.")) + "</div>"
         grp_sold = basis == "sold"
+        by_beds = gx.get("bld_basis") == "beds"
+        bmatch = (L("same bedrooms (this unit has no size listed)", "mismas habitaciones (esta unidad no tiene tamaño)") if by_beds else
+                  L(f"similar size (±{ARV.SIZE_PCT * 100:g}% or ±{ARV.SIZE_ABS} ft²)", f"tamaño parecido (±{ARV.SIZE_PCT * 100:g}% o ±{ARV.SIZE_ABS} ft²)"))
+        sold_lbl = L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')
         if gx["bld"]:
-            body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio') + ' · ' + (L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')))}</div>"
+            body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio') + ' · ' + bmatch + ' · ' + sold_lbl)}</div>"
+            bs = gx.get("bld_stats") or {}
+            if bs.get("median_price"):
+                me = L(f"Median of {bs['n']}: {money(bs['median_price'])}", f"Mediana de {bs['n']}: {money(bs['median_price'])}") + \
+                    (f" · {money(bs['median_ppsf'])}/ft²" if bs.get("median_ppsf") else "") + \
+                    (L(f" · this unit {money(price / float(sqft))}/ft²", f" · esta unidad {money(price / float(sqft))}/ft²") if (ppsf and bs.get("median_ppsf")) else "")
+                body += f"<div class='sub'>{H.escape(me)}</div>"
             body += "".join(_arv_tok(c, grp_sold, comps) for c in gx["bld"][:4])
+        elif gx.get("bld_other"):
+            body += (f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio') + ' · ' + bmatch)}</div><div class='sub'>"
+                     + H.escape(L("No other units of a similar size in this building right now.", "Por ahora no hay otras unidades de tamaño parecido en este edificio.")
+                                if not by_beds else L("No other units with the same bedrooms in this building right now.", "Por ahora no hay otras unidades con las mismas habitaciones en este edificio."))
+                     + "</div>")
         else:
             body += f"<div class='g'>{H.escape(L('Same building', 'Mismo edificio'))}</div><div class='sub'>{H.escape(L('None found in this building in the saved data.', 'No se encontró ninguna en este edificio en los datos guardados.'))}</div>"
         body += f"<div class='g'>{H.escape(L('Nearby, highest first', 'Cerca, de mayor a menor') + ' · ' + (L('sold', 'vendidas') if grp_sold else L('asking', 'precios pedidos')))}</div>"
@@ -2746,6 +2783,15 @@ def arv_section(r, sid, addr):
         if grp_sold and (res.get("ask") or {}).get("bld"):
             body += f"<div class='g'>{H.escape(L('Listed now in this building · asking, not sold', 'Publicadas ahora en este edificio · precio pedido, no vendidas'))}</div>"
             body += "".join(_arv_tok(c, False, comps) for c in res["ask"]["bld"][:3])
+        others = [(c, grp_sold) for c in gx.get("bld_other") or []] + ([(c, False) for c in (res.get("ask") or {}).get("bld_other") or []] if grp_sold else [])
+        if others:          # different size / no size: shown apart, collapsed, never used in the estimate or the medians above
+            body += ("<details class='bz-oth'><summary>" + H.escape(L(f"Other units in this building ({len(others)}) · not compared", f"Otras unidades en este edificio ({len(others)}) · no comparadas") if by_beds else
+                                                      L(f"Other sizes in this building ({len(others)}) · not compared", f"Otros tamaños en este edificio ({len(others)}) · no comparadas"))
+                     + "</summary><div class='sub'>" + H.escape((L("Different bedroom count, so their prices don't say much about this unit. They are not used in the estimate.",
+                                                                   "Otro número de habitaciones, así que sus precios dicen poco de esta unidad. No se usan en el estimado.") if by_beds else
+                                                                 L("Different size or no size listed, so their prices don't say much about this unit. They are not used in the estimate.",
+                                                                  "Tamaño distinto o sin tamaño, así que sus precios dicen poco de esta unidad. No se usan en el estimado.")))
+                     + "</div>" + "".join(_arv_row(c, so) for c, so in others[:10]) + (f"<div class='sub'>{H.escape(L(f'+{len(others) - 10} more not shown', f'+{len(others) - 10} más no mostradas'))}</div>" if len(others) > 10 else "") + "</details>")
         if gx.get("far"):
             body += "<div class='sub'>" + H.escape(L(f"Left out {gx['far']} much pricier homes (new luxury buildings) that don't say much about this one.",
                                                     f"Se dejaron fuera {gx['far']} casas mucho más caras (edificios nuevos de lujo) que dicen poco de esta.")) + "</div>"

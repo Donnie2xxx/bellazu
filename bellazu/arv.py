@@ -5,6 +5,13 @@ listings we already have saved (asking prices, labeled as such). Same building c
 Nearby = same kind of home, similar beds/baths/size, within 0.5 mi (widening to 1 and 2 mi, then the town, when there are too few).
 The 'nicer / fixed-up' units are the top quarter of the comps by price per sq ft. ARV = this unit's sq ft x that price per sq ft.
 It is a rough estimate: it leaves out rehab cost, HOA, closing, holding and selling costs.
+
+Same-building units are only compared when they are about the same size as this unit (`size_match`):
+  exact   = the same listed sq ft;
+  similar = within ±10% of this unit's sq ft or ±100 sq ft, whichever is larger (e.g. 900 ft² -> 800-1,000; 1,500 ft² -> 1,350-1,650).
+Only those (the "matched" set, exact first, then same bedroom count, then closest size) feed the stats and lead the list. Units of a
+different size, or with no size listed, go to a separate "other sizes" group that is never used in the estimate. When this unit has no
+size listed, units with the same bedroom count are the matched set instead (basis "beds", labeled as such in the app).
 """
 import datetime as dt
 import math
@@ -16,6 +23,7 @@ from .sources import fha as _fha
 APT = {"condo", "coop"}
 SELL_COST = 0.06
 RADII = (0.5, 1.0, 2.0)
+SIZE_PCT, SIZE_ABS = 0.10, 100     # "similar size" = within ±10% or ±100 sq ft, whichever is larger
 MIN_N = 4                       # comps with a usable price per sq ft (or price) needed for an estimate
 CUES = [("reno", r"renovat|remodel|gut(ted)?\b|rehab(bed)?\b|newly (updated|done)", ("renovated", "renovado")),
         ("updated", r"\bupdated\b|\bmodern(ized)?\b|\bupgraded\b", ("updated", "actualizado")),
@@ -87,6 +95,45 @@ def _similar(s, c):
     if s.get("sqft") and c.get("sqft") and not (0.6 * s["sqft"] <= c["sqft"] <= 1.6 * s["sqft"]):
         return False
     return True
+
+
+def size_match(s_sqft, c_sqft):
+    """'exact' (same listed sq ft), 'similar' (within ±10% or ±100 sq ft, whichever is larger), 'other', or 'unknown' (a size is missing)."""
+    try:
+        a, b = float(s_sqft or 0), float(c_sqft or 0)
+    except (TypeError, ValueError):
+        return "unknown"
+    if a <= 0 or b <= 0:
+        return "unknown"
+    if round(a) == round(b):
+        return "exact"
+    return "similar" if abs(b - a) <= max(SIZE_PCT * a, SIZE_ABS) else "other"
+
+
+def split_building(bld, s):
+    """Same-building units -> (matched, other, basis). basis 'sqft' (exact/similar size) or 'beds' (this unit has no size: same bedroom count).
+    Each unit gets c['_size'] ('exact' | 'similar' | 'beds' | 'other' | 'unknown') and c['_size_diff'] (sq ft difference or None)."""
+    sq = s.get("sqft")
+    basis = "sqft" if sq else "beds"
+    matched, other = [], []
+    for c in bld:
+        if basis == "sqft":
+            m = size_match(sq, c.get("sqft"))
+            c["_size"], c["_size_diff"] = m, (round(float(c["sqft"]) - float(sq)) if m in ("exact", "similar", "other") else None)
+            (matched if m in ("exact", "similar") else other).append(c)
+        else:
+            same = s.get("beds") is not None and c.get("beds") is not None and int(c["beds"]) == int(s["beds"])
+            c["_size"], c["_size_diff"] = ("beds" if same else "other" if c.get("beds") is not None else "unknown"), None
+            (matched if same else other).append(c)
+    sb = s.get("beds")
+
+    def rank(c):
+        tier = 0 if c["_size"] == "exact" else 1
+        beds_off = 0 if (sb is not None and c.get("beds") is not None and int(c["beds"]) == int(sb)) else 1
+        return (tier, beds_off, abs(c["_size_diff"] or 0), -(c.get("_ppsf") or 0))
+    matched.sort(key=rank)
+    other.sort(key=lambda c: (c["_size"] == "unknown", abs(c.get("_size_diff") or 0)))
+    return matched, other, basis
 
 
 def _trim(vals):
@@ -176,9 +223,13 @@ def analyze(s, sold_rows, active_rows, cues_of=None):
         far = [c for c in bld + near if far_pricier(c, s, use_ppsf)]
         fid = {id(c) for c in far}
         bld, near = [c for c in bld if id(c) not in fid], [c for c in near if id(c) not in fid]
+        bld, bld_other, bbasis = split_building(bld, s)      # only same-size units count; other sizes are shown apart, never in the stats
         st = stats(bld + near if use_ppsf else near, s.get("sqft"), use_ppsf)
+        bp = [c["_ppsf"] for c in bld if c.get("_ppsf")]
+        bstat = {"n": len(bld), "median_price": _q([c["price"] for c in bld], .5) if bld else None,
+                 "median_ppsf": _q(bp, .5) if bp else None, "n_ppsf": len(bp)}
         ds = sorted(c["sold_date"] for c in pool if c.get("sold_date")) if sold else []
-        res[name] = {"bld": sorted(bld, key=lambda c: -_key_rank(c, use_ppsf)), "near": sorted(near, key=lambda c: -_key_rank(c, use_ppsf)),
+        res[name] = {"bld": bld, "bld_other": bld_other, "bld_basis": bbasis, "bld_stats": bstat, "near": sorted(near, key=lambda c: -_key_rank(c, use_ppsf)),
                      "radius": rad, "stats": st, "n_all": len(pool), "far": len(far), "since": ds[0] if ds else None}
     res["basis"] = "sold" if (res["sold"] or {}).get("stats") else "ask" if (res["ask"] or {}).get("stats") else None
     if res["basis"]:
