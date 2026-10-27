@@ -19,6 +19,19 @@ def _slug(addr):
     return re.sub(r"[^a-z0-9]+", "-", str(addr or "").lower()).strip("-")
 
 
+SEED = pathlib.Path(__file__).resolve().parents[2] / "data" / "casa_photos.json"   # photo URLs found from the box (the site blocks datacenter IPs)
+_SEED = {}
+
+
+def seed():
+    if "d" not in _SEED:
+        try:
+            _SEED["d"] = json.loads(SEED.read_text())
+        except Exception:
+            _SEED["d"] = {}
+    return _SEED["d"]
+
+
 def cached(mls):
     p = _dir() / f"{re.sub(r'[^A-Za-z0-9]', '', mls)}.json"
     try:
@@ -34,13 +47,19 @@ def fetch(mls, addr):
     """{'photos': [...], 'url': listing page or None}. Free; one page download unless cached."""
     if not mls or not str(mls).upper().startswith("NJ"):
         return {"photos": [], "url": None}
+    sd = seed().get(mls)
+    if sd and sd.get("photos"):
+        return sd
     c = cached(mls)
     if c:
         return c
     url = f"https://www.newjerseyrealestatenetwork.com/property-search/detail/337/{mls}/{_slug(addr)}/"
     photos, ok_url = [], None
     try:
-        h = subprocess.run(["curl", "-sL", "-m", "20", "-A", UA, url], capture_output=True, timeout=25).stdout.decode("utf8", "ignore")
+        cp = subprocess.run(["curl", "-sL", "-m", "20", "-A", UA, "-w", "\n%{http_code}", url], capture_output=True, timeout=25)
+        h, _, code = cp.stdout.decode("utf8", "ignore").rpartition("\n")
+        if code.strip() != "200":
+            return {"photos": [], "url": None}      # blocked (403 from datacenter IPs) or down: not cached as "no photos"
         num = str(addr or "").split()[0] if addr else ""
         t = re.search(r"<title>([^<]*)", h)
         if t and mls in t.group(1) and num in t.group(1):

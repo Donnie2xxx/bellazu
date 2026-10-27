@@ -5295,7 +5295,7 @@ def _casa_go(slug):
     ss._full = True
 
 
-PC_PA_MIN_LEFT = 60          # a PA town's one photo search (RapidAPI) only runs while more than this many calls are left this month
+PC_PA_MIN_LEFT = 60          # a town's one photo search (RapidAPI) only runs while more than this many calls are left this month
 
 
 def _casa_add_photos(slug, rows):
@@ -5315,7 +5315,7 @@ def _casa_add_photos(slug, rows):
     if need:
         for c in t[3]:
             feed = PC.cached_feed(c, t[2]) or []
-            if not feed and t[2] != "NJ":
+            if not feed:
                 done = st.session_state.setdefault("pc_pa_try", set())
                 cache_ok = listings.read_cache(c, "for_sale", 7 * 24, state=t[2])
                 if cache_ok is None and c not in done and listings.usage().get("left", 0) > PC_PA_MIN_LEFT:
