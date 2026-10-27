@@ -119,6 +119,8 @@ def merge_photos(rows, feed_rows):
                 m["hoa_monthly"] = r["hoa_monthly"]
             for k_ in ("beds", "baths", "sqft", "year", "rc_type", "mls", "lot"):
                 m[k_] = m.get(k_) or r.get(k_)
+            if r.get("baths"):
+                m["baths"] = r["baths"]          # RentCast counts a half bath as 0.5; realtor.com's list "baths" can count it as 1
             out.append(m)
         else:
             out.append(r)

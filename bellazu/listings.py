@@ -166,7 +166,7 @@ def _norm(x, status):
     fl = x.get("flags") or {}
     t = de.get("type") or ""
     ph = (x.get("primary_photo") or {}).get("href")
-    baths = de.get("baths") or ((de.get("baths_full_calc") or 0) + 0.5 * (de.get("baths_partial_calc") or 0)) or None
+    baths = (((de.get("baths_full_calc") or 0) + 0.5 * (de.get("baths_partial_calc") or 0)) or de.get("baths") or None)   # half baths count 0.5
     price, beds, pfrom = x.get("list_price"), de.get("beds"), False
     if status == "for_rent" and not price and x.get("list_price_min") and de.get("beds_min") is not None and de.get("beds_min") == de.get("beds_max"):
         price, beds, pfrom = x.get("list_price_min"), de.get("beds_min"), True     # one-size building: its lowest asking rent
