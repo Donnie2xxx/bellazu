@@ -129,6 +129,7 @@ _fresh_engine()
 from bellazu import analyze_property, scan_arbitrage          # noqa: E402
 from bellazu.render import property_html, arb_html, write_property, write_arbitrage  # noqa: E402
 from bellazu.sources import rentcast                          # noqa: E402
+from bellazu.sources import nj_photos                         # noqa: E402
 from bellazu import simple as S                               # noqa: E402
 from bellazu import towns                                     # noqa: E402
 from bellazu.simple import money                              # noqa: E402
@@ -612,7 +613,8 @@ if "sv_sid" not in st.session_state:
     if str(st.query_params.get("nyc") or "") == "1":                # ?nyc=1 opens the NYC box
         st.session_state.nyc_boot = True
     if str(st.query_params.get("casa") or "") == "1":               # ?casa=1 opens Nuestra Primera Casa
-        st.session_state.casa_boot = True
+        _qt2 = re.sub(r"[^a-z_]", "", str(st.query_params.get("town") or ""))[:30]
+        st.session_state.casa_boot = _qt2 if PC.town(_qt2) else True
     _qh = re.sub(r"\D", "", str(st.query_params.get("home") or ""))[:14]        # ?home=<listing id> opens that listing's detail page (after the passcode)
     if _qh:
         st.session_state.home_boot = _qh
@@ -1641,7 +1643,7 @@ def settings_defaults():
             ss[k] = ss[k]
 
 
-_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+|rooms_.+|pc_budget|pc_open|pc_n|pc_ph_done)$")
+_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+|rooms_.+|pc_budget|pc_beds|pc_baths|pc_types|pc_sqft|pc_lot|pc_year|pc_maxm|pc_sort|pc_n|pc_pa_try)$")
 _KEEP_MAIN = re.compile(r"^(hmode|pk_mode|rank_price|mt_price|mt_size|tchips_.+|hst_.+|hpx_.+|happ_.+|hbd_.+|hkd_.+|hsort_.+|tp_.+|tpo_.+|ts_.+|ro_.+|ub_.+|un_.+|rm_.+|lv_.+|own_.+|cc_.+|g_.+|arv_rehab_.+|arv_sell_.+)$")
 
 
@@ -3436,6 +3438,8 @@ def _card_photos(h):
         if cover and cover not in full:
             full = [cover] + full
         return full[:60], max(len(full[:60]), 0)
+    if not pid and h.get("photos"):
+        return list(h["photos"])[:60], len(h["photos"][:60])
     return ([h["photo"]] if h.get("photo") else []), int(h.get("photo_count") or 0)
 
 
@@ -4152,7 +4156,7 @@ def nav_back(from_button=True):
     if was_saved and ss.get("view") and tuple(ss.view) == prev:       # leaving Saved homes for the view the user was on: it is still there
         return
     if prev[0] in ("nyc", "casa"):
-        ss.view = (prev[0],)
+        ss.view = tuple(prev) if prev[0] == "casa" else (prev[0],)
         ss.pop("arv_trail", None)
         return
     tr = list(ss.get("arv_trail") or [])
@@ -4180,7 +4184,8 @@ def back_link():
         return
     lbl = L(f"← Back to your {len(prev[1])} towns", f"← Volver a sus {len(prev[1])} pueblos") if prev[0] == "towns" else \
         L("← Back to NYC homes", "← Volver a casas de NYC") if prev[0] == "nyc" else \
-        L("← Back to Our First Home", "← Volver a Nuestra Primera Casa") if prev[0] == "casa" else \
+        (L(f"← Back to {PC.town(prev[1])[1]}", f"← Volver a {PC.town(prev[1])[1]}") if len(prev) > 1 and PC.town(prev[1]) else
+         L("← Back to Our First Home", "← Volver a Nuestra Primera Casa")) if prev[0] == "casa" else \
         L(f"← Back to results · {prev[1]}", f"← Volver a los resultados · {prev[1]}")
     st.button(lbl, key="back_res", type="tertiary", on_click=nav_back)
 
@@ -5282,19 +5287,52 @@ def _casa_rows(slug):
     return rows, stats
 
 
-def _casa_load(slug):
+def _casa_go(slug):
+    """Open the town's own page (its own history entry: phone Back and '← Back to Our First Home' return to the list)."""
     ss = st.session_state
-    ss.setdefault("pc_open", {})[slug] = True
+    ss.page = "main"
+    ss.view = ("casa", slug)
+    ss._full = True
 
 
-def _casa_photos(slug):
-    """One realtor.com list search (RapidAPI, cached 18 h) for this NJ town, only when tapped, to add photos and links."""
+PC_PA_MIN_LEFT = 60          # a PA town's one photo search (RapidAPI) only runs while more than this many calls are left this month
+
+
+def _casa_add_photos(slug, rows):
+    """Photos for the homes on screen. NJ: the free MLS listing page (no quota, cached 14 days). Homes still without photos
+    (all PA towns): the realtor.com list already on disk, or ONE RapidAPI list search per PA city (cached 7 days, skipped when the
+    monthly quota runs low). Returns the rows with photos where found."""
     t = PC.town(slug)
-    try:
-        listings.fetch_town(t[1].split(" (")[0], "for_sale")
-    except Exception:
-        pass
-    st.session_state.setdefault("pc_ph_done", set()).add(slug)
+    need = [r for r in rows if not r.get("photos") and not r.get("photo")]
+    if need and t[2] == "NJ":
+        got = nj_photos.fetch_many([(r.get("mls"), r.get("address")) for r in need])
+        for r in need:
+            g = got.get(r.get("mls")) or {}
+            if g.get("photos"):
+                r["photos"], r["photo"], r["photo_count"] = g["photos"], g["photos"][0], len(g["photos"])
+                r["url"] = r.get("url") or g.get("url")
+        need = [r for r in need if not r.get("photo")]
+    if need:
+        for c in t[3]:
+            feed = PC.cached_feed(c, t[2]) or []
+            if not feed and t[2] != "NJ":
+                done = st.session_state.setdefault("pc_pa_try", set())
+                cache_ok = listings.read_cache(c, "for_sale", 7 * 24, state=t[2])
+                if cache_ok is None and c not in done and listings.usage().get("left", 0) > PC_PA_MIN_LEFT:
+                    done.add(c)
+                    try:
+                        feed = (listings.fetch_town(c, "for_sale", state=t[2]) or {}).get("rows") or []
+                    except Exception:
+                        feed = []
+                else:
+                    feed = (cache_ok or {}).get("rows") or []
+            by = {PC.norm_addr(f.get("address")): f for f in feed if f.get("address") and f.get("photo")}
+            for r in need:
+                f = by.get(PC.norm_addr(r.get("address")))
+                if f:
+                    for k_ in ("photo", "photo_count", "url", "id"):
+                        r[k_] = f.get(k_) or r.get(k_)
+    return rows
 
 
 def _casa_more(slug):
@@ -5302,21 +5340,31 @@ def _casa_more(slug):
     ss.setdefault("pc_n", {})[slug] = ss.get("pc_n", {}).get(slug, 6) + 6
 
 
+def _casa_money_html(h, hm):
+    """Neutral monthly estimate for Our First Home: no approval/benchmark tag or color."""
+    hi = hm.get("hoa") or {}
+    tot = L("about ", "unos ") + money(hm["m"]["total"]) + L("/mo (estimate)", "/mes (estimado)")
+    tax = L(" · taxes: estimate", " · impuestos: estimado") if not hm.get("coop") else ""
+    return (f"<div class='bz-cm' style='margin-top:.4rem'>🧮 <b>{H.escape(tot)}</b><div class='x'>{H.escape(hoa_txt(hi))}{H.escape(tax)}</div>"
+            + (f"<div class='cn'>{H.escape(L(*COOP_NOTE))}</div>" if hm.get("coop") else "")
+            + (f"<div class='x'>{H.escape(hoa_extra_note(hi))}</div>" if hoa_extra_note(hi) else "") + "</div>")
+
+
 def casa_card(h, hm, i, slug):
-    """One home in the SAME card as Saved homes: photos (when realtor.com has them), title + facts, tag + monthly (never green over the benchmark),
-    Details, Rent rooms (always yellow, lenders don't count it), status/notes, Save / Open my numbers / listing."""
+    """One home in the SAME card as Saved homes: photos (when realtor.com has them), title + facts, a neutral monthly estimate (no approval verdict in this section),
+    Details, status/notes, Save / Open my numbers / listing."""
     h = dict(h, _pc=True)
     iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
     k = _sv_key(iid)
     x = sv()["items"].get(iid)
-    tg = _nyc_tag(h, hm)
     tab = "pc" + slug[:6]
     with st.container(key=f"svcard_pc{slug[:6]}_{i}_{k[-20:]}"):
         if h.get("photo"):
-            carousel(h, f"pcz_{slug[:6]}_{i}_{k[-12:]}", False, None, more_ok=bool(h.get("id")),
+            carousel(h, f"pcz_{slug[:6]}_{i}_{k[-12:]}", False, None, more_ok=False,
                      on_open=(lambda i_=iid, h_=h: _sv_open(i_) if i_ in sv()["items"] else _open_listing(h_)))
         else:
-            html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(money(h['price']))}</div>"
+            html("<div style='height:150px;border-radius:12px;background:linear-gradient(135deg,#3a2b33,#1f1a1d);display:flex;align-items:center;"
+                 f"justify-content:center;font-size:2.4rem;opacity:.9'>🏡</div><div class='bz-price' style='margin-top:.2rem'>{H.escape(money(h['price']))}</div>"
                  f"<div class='x' style='opacity:.7;font-size:.8rem'>📷 {H.escape(L('No photos here yet: tap View on map, or add photos for this town below.', 'Aún no hay fotos aquí: toque Ver en el mapa, o agregue fotos de este pueblo abajo.'))}</div>")
         tl = P(NYC.type_label(h, hm.get("hoa"))) if h.get("kind") != "other" else (h.get("rc_type") or "")
         line = " · ".join(v for v in [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None,
@@ -5325,7 +5373,7 @@ def casa_card(h, hm, i, slug):
                                       L(f"built {h['year']}", f"construida en {h['year']}") if h.get("year") else None] if v)
         html(f"<div class='bz-svh'>{H.escape(h['address'])}</div>"
              f"<div class='x' style='opacity:.75;font-size:.85rem;line-height:1.35;margin:.1rem 0 .35rem'>{H.escape(line)}</div>")
-        html(_nyc_money_html(h, hm, "", flag=False))
+        html(_casa_money_html(h, hm))
         with _sv_expander(L("Details", "Detalles"), f"pcd_{tab}_{k}"):
             m = hm["m"]
             rows = [(L("Loan payment (principal + interest)", "Pago del préstamo (capital + interés)"), m["pi"]), (L("Mortgage insurance", "Seguro hipotecario"), m["mi"]),
@@ -5340,9 +5388,6 @@ def casa_card(h, hm, i, slug):
                 bits.append(L(f"by {h['broker']}", f"por {h['broker']}"))
             bits.append(L("source: RentCast" if h.get("source") == "RentCast" else "source: realtor.com", "fuente: RentCast" if h.get("source") == "RentCast" else "fuente: realtor.com"))
             st.caption(" · ".join(bits))
-        with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"pcr_{tab}_{k}"):
-            rooms_block(k, hm["m"]["total"], tg, h.get("zip"), h.get("beds"), h.get("address"),
-                        flag=("ask", "", "") if hm.get("coop") else None)
         with _sv_expander(L("My status and notes", "Mi estado y notas"), f"pcn_{tab}_{k}"):
             if x:
                 st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
@@ -5364,44 +5409,131 @@ def casa_card(h, hm, i, slug):
                 st.link_button(L("View on map", "Ver en el mapa"), rentcast.map_link(h["address"]), type="tertiary")
 
 
-def _casa_town(t, budget, ap, pd):
+def _casa_commute(t, pd):
+    slug, name, state, _c, mw, mn = t[:6]
+    rw, rn = PC.rush(mw), PC.rush(mn)
+    html(f"<div class='bz-sv-b'>🚗 {H.escape(L(f'To {pd.get("work_en")}: about {mw} min off-peak, roughly {rw[0]}-{rw[1]} min at rush hour.', f'Al {pd.get("work_es")}: unos {mw} min sin tráfico, más o menos {rw[0]}-{rw[1]} min en hora punta.'))}<br>"
+         f"🗽 {H.escape(L(f'To Midtown Manhattan: about {mn} min off-peak, roughly {rn[0]}-{rn[1]} min at rush hour (plus tolls).', f'A Midtown Manhattan: unos {mn} min sin tráfico, más o menos {rn[0]}-{rn[1]} min en hora punta (más peajes).'))}</div>")
+    st.caption(L("Approximate: OSRM route × 0.78 (matches Google off-peak); rush hour is a rough range, not live traffic.",
+                 "Aproximado: ruta OSRM × 0.78 (parecido a Google sin tráfico); la hora punta es un rango aproximado, no tráfico en vivo."))
+
+
+def _casa_town(t, pd):
+    """One town box on the list page: commute, notes, and a button that opens the town's own page."""
     slug, name, state, _c, mw, mn = t[:6]
     fav = slug in (pd.get("favorites") or [])
     note = (pd.get("notes") or {}).get(slug) or ["", ""]
-    ss = st.session_state
-    rw, rn = PC.rush(mw), PC.rush(mn)
     star = "⭐ " if fav else ""
     with st.container(border=True, key=f"pc_x_{slug}"):
         html(f"<div class='bz-svh'><b>{H.escape(star + name)}</b><br><span class='x'>🚗 {mw} min Wilmington · 🗽 {mn} min NYC ({H.escape(L('approx.', 'aprox.'))})</span></div>")
-        html(f"<div class='bz-sv-b'>🚗 {H.escape(L(f'To {pd.get("work_en")}: about {mw} min off-peak, roughly {rw[0]}-{rw[1]} min at rush hour.', f'Al {pd.get("work_es")}: unos {mw} min sin tráfico, más o menos {rw[0]}-{rw[1]} min en hora punta.'))}<br>"
-             f"🗽 {H.escape(L(f'To Midtown Manhattan: about {mn} min off-peak, roughly {rn[0]}-{rn[1]} min at rush hour (plus tolls).', f'A Midtown Manhattan: unos {mn} min sin tráfico, más o menos {rn[0]}-{rn[1]} min en hora punta (más peajes).'))}</div>")
-        st.caption(L("Approximate: OSRM route × 0.78 (matches Google off-peak); rush hour is a rough range, not live traffic.",
-                     "Aproximado: ruta OSRM × 0.78 (parecido a Google sin tráfico); la hora punta es un rango aproximado, no tráfico en vivo."))
+        _casa_commute(t, pd)
         if note[0]:
             md(L(note[0], note[1]))
-        if not ss.get("pc_open", {}).get(slug):
-            st.button(L(f"🔎 Show homes for sale in {name}", f"🔎 Ver casas a la venta en {name}"), key=f"pc_load_{slug}", on_click=_casa_load, args=(slug,), width="stretch")
-            st.caption(L("Uses at most one RentCast lookup, then it is saved for 3 days for everyone.", "Usa como máximo una consulta de RentCast y luego se guarda 3 días para todos."))
-            return
-        with st.spinner(L("Looking for homes... ✨", "Buscando casas... ✨")):
-            rows, stats = _casa_rows(slug)
-        if not rows and any(s_ in ("no_key", "quota", "budget") or str(s_).startswith("error") for s_ in stats):
-            st.info(L("Home lookups are paused right now (monthly safety limit or the service didn't answer). Please try again later.",
-                      "Las búsquedas de casas están en pausa ahora (límite mensual de seguridad o el servicio no respondió). Intente más tarde."))
-            return
-        ok = sorted(PC.filter_rows(rows, budget), key=lambda r: r["price"])
-        st.caption(L(f"{len(ok)} homes with 2+ bedrooms up to {kmoney(budget)} (of {len(rows)} listed).",
-                     f"{len(ok)} casas de 2+ habitaciones hasta {kmoney(budget)} (de {len(rows)} publicadas)."))
-        if state == "NJ" and not any(r.get("photo") for r in ok) and slug not in ss.get("pc_ph_done", set()) and ok:
-            st.button(L("📷 Add photos and listing links for this town (uses 1 home search)", "📷 Agregar fotos y enlaces de este pueblo (usa 1 búsqueda de casas)"),
-                      key=f"pc_ph_{slug}", on_click=_casa_photos, args=(slug,), type="tertiary")
-        n = ss.get("pc_n", {}).get(slug, 6)
-        for i, h in enumerate(ok[:n]):
-            hm = home_money(h)
-            if hm:
-                casa_card(h, hm, i, slug)
-        if len(ok) > n:
-            st.button(L(f"Show more ({len(ok) - n} left)", f"Ver más (quedan {len(ok) - n})"), key=f"pc_more_{slug}", on_click=_casa_more, args=(slug,), width="stretch")
+        st.button(L(f"🔎 See homes for sale in {name} ›", f"🔎 Ver casas a la venta en {name} ›"), key=f"pc_go_{slug}", on_click=_casa_go, args=(slug,),
+                  width="stretch", type="primary")
+
+
+PC_TYPES = {"house": ("Single-family house", "Casa unifamiliar"), "townhome": ("Townhouse", "Casa adosada (townhouse)"),
+            "condo": ("Condo / apartment", "Condo / apartamento"), "multi": ("Multi-family", "Multifamiliar")}
+PC_SORTS = {"price": ("Price: low to high", "Precio: de menor a mayor"), "price_d": ("Price: high to low", "Precio: de mayor a menor"),
+            "newest": ("Newest listings", "Publicadas más recientes"), "sqft": ("Biggest first", "Más grandes primero"),
+            "year": ("Newest built", "Construcción más nueva")}
+
+
+def _casa_filters(pd):
+    """The town page's filters (all from fields RentCast actually returns). Values persist across towns and pages."""
+    ss = st.session_state
+    f = {}
+    with st.expander(L("🎛️ Filters", "🎛️ Filtros"), expanded=True):
+        f["budget"] = st.number_input(L("Max price ($)", "Precio máximo ($)"), min_value=100000, max_value=2000000, step=25000,
+                                      value=int(pd.get("budget") or 500000), key="pc_budget")
+        c1, c2 = st.columns(2)
+        with c1:
+            f["beds"] = st.selectbox(L("Bedrooms (min)", "Habitaciones (mín.)"), [2, 3, 4, 5], key="pc_beds", format_func=lambda v: f"{v}+")
+        with c2:
+            f["baths"] = st.selectbox(L("Baths (min)", "Baños (mín.)"), [0, 1, 1.5, 2, 2.5, 3], key="pc_baths",
+                                      format_func=lambda v: L("Any", "Cualquiera") if not v else f"{v:g}+")
+        f["types"] = st.multiselect(L("Home type", "Tipo de casa"), list(PC_TYPES), key="pc_types", format_func=lambda k: L(*PC_TYPES[k]),
+                                    placeholder=L("All types", "Todos los tipos"))
+        c1, c2 = st.columns(2)
+        with c1:
+            f["sqft"] = st.number_input(L("Min size (ft²)", "Tamaño mín. (ft²)"), min_value=0, max_value=10000, step=100, value=0, key="pc_sqft")
+        with c2:
+            f["lot"] = st.selectbox(L("Min yard / lot", "Terreno mín."), [0, 0.1, 0.25, 0.5, 1], key="pc_lot",
+                                    format_func=lambda v: L("Any", "Cualquiera") if not v else f"{v:g} acre" + ("" if v <= 1 else "s"))
+        c1, c2 = st.columns(2)
+        with c1:
+            f["year"] = st.selectbox(L("Built in or after", "Construida desde"), [0, 1970, 1990, 2000, 2010, 2020], key="pc_year",
+                                     format_func=lambda v: L("Any year", "Cualquier año") if not v else str(v))
+        with c2:
+            f["maxm"] = st.number_input(L("Max monthly cost ($, 0 = any)", "Pago mensual máx. ($, 0 = cualquiera)"), min_value=0, max_value=20000,
+                                        step=100, value=0, key="pc_maxm")
+        f["sort"] = st.selectbox(L("Sort by", "Ordenar por"), list(PC_SORTS), key="pc_sort", format_func=lambda k: L(*PC_SORTS[k]))
+        st.caption(L("Garage, basement and pool aren't in the listing data we get (RentCast), so they can't be filtered here; check them in each listing.",
+                     "Garaje, sótano y piscina no vienen en los datos de los anuncios (RentCast), así que no se pueden filtrar aquí; revísenlos en cada anuncio."))
+    return f
+
+
+def _casa_apply(rows, f):
+    ok = PC.filter_rows(rows, f["budget"], f["beds"])
+    out = []
+    for r in ok:
+        if f["baths"] and (r.get("baths") or 0) < f["baths"]:
+            continue
+        if f["types"] and r.get("kind") not in f["types"]:
+            continue
+        if f["sqft"] and (r.get("sqft") or 0) < f["sqft"]:
+            continue
+        if f["lot"] and (r.get("lot") or 0) < f["lot"] * 43560:
+            continue
+        if f["year"] and (r.get("year") or 0) < f["year"]:
+            continue
+        out.append(r)
+    if f["maxm"]:
+        out = [r for r in out if (lambda hm: hm and hm["m"]["total"] <= f["maxm"])(home_money(r))]
+    key = {"price": lambda r: r["price"], "price_d": lambda r: -r["price"], "newest": lambda r: r.get("days") if r.get("days") is not None else 9999,
+           "sqft": lambda r: -(r.get("sqft") or 0), "year": lambda r: -(r.get("year") or 0)}[f["sort"]]
+    return sorted(out, key=key)
+
+
+def casa_town_view(slug):
+    """One town's own page: filters, then the homes (RentCast, one lookup per city, 3-day cache), each with photos (free first)."""
+    ss = st.session_state
+    t = PC.town(slug)
+    st.markdown("<div class='bz-restop'></div>", unsafe_allow_html=True)
+    st.button(L("← Back to Our First Home", "← Volver a Nuestra Primera Casa"), key="casa_tback", on_click=_casa_back)
+    pd = PC.load(_sv_secret())
+    if not pd:
+        st.info(L("This section can't be opened right now (it needs the passcode). Please log out and in again.",
+                  "Esta sección no se puede abrir ahora (necesita el código de entrada). Salga y vuelva a entrar, por favor."))
+        return
+    star = "⭐ " if slug in (pd.get("favorites") or []) else ""
+    st.markdown(f"### {star}{t[1]}")
+    _casa_commute(t, pd)
+    f = _casa_filters(pd)
+    with st.spinner(L("Looking for homes... ✨", "Buscando casas... ✨")):
+        rows, stats = _casa_rows(slug)
+    if not rows and any(s_ in ("no_key", "quota", "budget") or str(s_).startswith("error") for s_ in stats):
+        st.info(L("Home lookups are paused right now (monthly safety limit or the service didn't answer). Please try again later.",
+                  "Las búsquedas de casas están en pausa ahora (límite mensual de seguridad o el servicio no respondió). Intente más tarde."))
+        return
+    ok = _casa_apply(rows, f)
+    st.caption(L(f"{len(ok)} homes match your filters (of {len(rows)} listed in {t[1]}).",
+                 f"{len(ok)} casas cumplen sus filtros (de {len(rows)} publicadas en {t[1]})."))
+    st.caption(L("Monthly figures are rough estimates (loan, taxes, insurance, HOA) for comparing homes, not a loan approval.",
+                 "Los pagos mensuales son estimados aproximados (préstamo, impuestos, seguro, HOA) para comparar casas, no una aprobación de préstamo."))
+    n = ss.get("pc_n", {}).get(slug, 6)
+    shown = [dict(h) for h in ok[:n]]
+    with st.spinner(L("Getting photos... 📷", "Buscando fotos... 📷")):
+        shown = _casa_add_photos(slug, shown)
+    for i, h in enumerate(shown):
+        hm = home_money(h)
+        if hm:
+            casa_card(h, hm, i, slug)
+    if len(ok) > n:
+        st.button(L(f"Show more ({len(ok) - n} left)", f"Ver más (quedan {len(ok) - n})"), key=f"pc_more_{slug}", on_click=_casa_more, args=(slug,), width="stretch")
+    st.caption(L("Photos: the public NJ listing pages (free) or realtor.com; 🏡 means no photo was found yet. " + rc_usage_line(),
+                 "Fotos: las páginas públicas de anuncios de NJ (gratis) o realtor.com; 🏡 significa que aún no se encontró foto. " + rc_usage_line()))
 
 
 def casa_view():
@@ -5416,18 +5548,13 @@ def casa_view():
                   "Esta sección no se puede abrir ahora (necesita el código de entrada). Salga y vuelva a entrar, por favor."))
         return
     md(L(pd.get("intro_en", ""), pd.get("intro_es", "")))
-    budget = st.number_input(L("My max budget ($)", "Mi presupuesto máximo ($)"), min_value=100000, max_value=2000000, step=25000, value=int(pd.get("budget") or 500000), key="pc_budget")
-    ap = approved_monthly()["total"]
-    st.caption(L(f"Each home is checked against your approved monthly of {money(ap)} and your approval price. Green only when the monthly is at or under it AND the fee and taxes are confirmed; at these prices most homes will show above it, and that's expected.",
-                 f"Cada casa se compara con su pago mensual aprobado de {money(ap)} y su precio aprobado. Verde solo si el mensual queda igual o por debajo Y la cuota y los impuestos están confirmados; a estos precios la mayoría saldrá por encima, y es normal."))
-    st.caption(L("Homes come from RentCast (one lookup per town, saved 3 days) and only load when you open a town. " + rc_usage_line(),
-                 "Las casas vienen de RentCast (una consulta por pueblo, guardada 3 días) y solo se cargan al abrir un pueblo. " + rc_usage_line()))
+    st.caption(L("Tap a town to see its homes for sale on their own page, with photos and filters (price, bedrooms, baths, type, size and more).",
+                 "Toquen un pueblo para ver sus casas a la venta en su propia página, con fotos y filtros (precio, habitaciones, baños, tipo, tamaño y más)."))
     for t in PC.TOWNS:
-        _casa_town(t, budget, ap, pd)
+        _casa_town(t, pd)
     with st.expander(L("Where these notes come from", "De dónde salen estas notas"), icon="ℹ️"):
         md(L("Safety wording is approximate and hedged; it is not a guarantee. Sources: ", "La seguridad está descrita de forma aproximada y prudente; no es una garantía. Fuentes: ") + "; ".join(PC.SOURCES) + ".")
         st.caption(L("Always visit the exact street, day and night, and check the town's police reports.", "Visiten siempre la calle exacta, de día y de noche, y revisen los reportes de la policía local."))
-    rooms_info("pc")
 
 
 # ------------------------------------------------------------------ the one page
@@ -5445,8 +5572,9 @@ def main_page():
     res_box = st.container()
     if ss.pop("nyc_boot", False) and not view and not ss.get("go"):        # opened with ?nyc=1
         ss.view = view = ("nyc",)
-    if ss.pop("casa_boot", False) and not view and not ss.get("go"):       # opened with ?casa=1
-        ss.view = view = ("casa",)
+    _cb = ss.pop("casa_boot", False)
+    if _cb and not view and not ss.get("go"):       # opened with ?casa=1 (&town=<slug> opens that town's page)
+        ss.view = view = ("casa", _cb) if isinstance(_cb, str) else ("casa",)
     if ss.pop("tsel_boot", False) and not view and tsel():      # opened with ?towns=...
         if len(tsel()) == 1:
             ss.go = ("town", tsel()[0])
@@ -5501,7 +5629,7 @@ def main_page():
         if view and view[0] == "nyc":
             nyc_view()
         elif view and view[0] == "casa":
-            casa_view()
+            casa_town_view(view[1]) if len(view) > 1 and PC.town(view[1]) else casa_view()
         elif view and view[0] == "towns":
             show_towns_view(list(view[1]))
         elif view and view[0] == "addr":

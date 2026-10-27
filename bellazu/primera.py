@@ -90,7 +90,7 @@ def rc_row(x):
             "hoa_monthly": fee, "photo": None, "photos": [], "photo_count": 0, "days": x.get("daysOnMarket"),
             "price_cut": None, "new": False, "lat": x.get("latitude"), "lon": x.get("longitude"), "url": None,
             "broker": (x.get("listingOffice") or {}).get("name"), "status": "for_sale", "source": "RentCast",
-            "flags": [], "year": x.get("yearBuilt"), "rc_type": pt}
+            "flags": [], "year": x.get("yearBuilt"), "rc_type": pt, "mls": x.get("mlsNumber"), "lot": x.get("lotSize")}
 
 
 def filter_rows(rows, budget, min_beds=MIN_BEDS):
@@ -117,7 +117,7 @@ def merge_photos(rows, feed_rows):
             m["price"] = f.get("price") or r.get("price")
             if not m.get("hoa_monthly") and r.get("hoa_monthly"):
                 m["hoa_monthly"] = r["hoa_monthly"]
-            for k_ in ("beds", "baths", "sqft"):
+            for k_ in ("beds", "baths", "sqft", "year", "rc_type", "mls", "lot"):
                 m[k_] = m.get(k_) or r.get(k_)
             out.append(m)
         else:
@@ -125,10 +125,10 @@ def merge_photos(rows, feed_rows):
     return out
 
 
-def cached_feed(name):
+def cached_feed(name, state="NJ"):
     """The realtor.com for-sale list for this town if it is already on disk (any age up to 14 days). Never calls the API."""
     try:
-        r = listings.read_cache(name, "for_sale", 14 * 24)
+        r = listings.read_cache(name, "for_sale", 14 * 24, state=state)
         return (r or {}).get("rows") or []
     except Exception:
         return []

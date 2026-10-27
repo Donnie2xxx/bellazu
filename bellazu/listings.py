@@ -195,9 +195,9 @@ def age_h(town, status="for_sale", page=0):
     return (time.time() - p.stat().st_mtime) / 3600 if p.exists() else None
 
 
-def read_cache(town, status="for_sale", max_age_h=None, page=0):
+def read_cache(town, status="for_sale", max_age_h=None, page=0, state="NJ"):
     """The on-disk list even if past its TTL (up to max_age_h), or None. Never calls the API."""
-    p = _cpath(f"{town}_{status}_{page}_v2")
+    p = _cpath(f"{town}_{status}_{page}_v2" + ("" if state == "NJ" else f"_{state}"))
     if p.exists() and (max_age_h is None or time.time() - p.stat().st_mtime < max_age_h * 3600):
         try:
             return json.loads(p.read_text())
@@ -206,17 +206,17 @@ def read_cache(town, status="for_sale", max_age_h=None, page=0):
     return None
 
 
-def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False):
+def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False, state="NJ"):
     """One list call per town + status (+ page of 200), cached on disk for TTL_H hours (for-rent: RENT_TTL_H). Never raises.
     If the city name finds fewer than 25 homes and the town's main ZIP is known, one more call by ZIP is merged in
     (realtor.com's city names don't always match the township name, e.g. Union)."""
-    p = _cpath(f"{town}_{status}_{page}_v2")
+    p = _cpath(f"{town}_{status}_{page}_v2" + ("" if state == "NJ" else f"_{state}"))
     if not force and p.exists() and time.time() - p.stat().st_mtime < ttl_h(status) * 3600:
         try:
             return json.loads(p.read_text())
         except Exception:
             pass
-    body = {"limit": 200, "offset": 200 * page, "city": town, "state_code": "NJ", "status": [status], "sort": {"direction": "desc", "field": "list_date"}}
+    body = {"limit": 200, "offset": 200 * page, "city": town, "state_code": state, "status": [status], "sort": {"direction": "desc", "field": "list_date"}}
     if status == "for_sale":
         body["list_price"] = {"max": SALE_MAX}
     d, err = _call("POST", "/properties/v3/list", json=body)
