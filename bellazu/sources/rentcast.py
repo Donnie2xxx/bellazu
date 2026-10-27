@@ -270,6 +270,12 @@ def sale_listing(address):
     return (d[0] if isinstance(d, list) and d else None), s
 
 
+def sale_listings_city(city, state, limit=500):
+    """Active for-sale listings in a city (all types/prices in ONE lookup, cached 3 days like every listings/sale answer)."""
+    d, s = _get("listings/sale", {"city": city, "state": state.upper(), "status": "Active", "limit": limit})
+    return (d if isinstance(d, list) else []), s
+
+
 def property_record(address, reserve=0):
     """Public-record facts (taxes, HOA, beds, sqft). 1 lookup (cached 30 days). Skipped (status 'skipped') when it is not
     cached and no more than `reserve` lookups are left, so the last one goes to the rent estimate."""

@@ -139,6 +139,7 @@ from bellazu import myloan as ML                              # noqa: E402
 from bellazu import nyc as NYC                                # noqa: E402
 from bellazu import rooms as ROOMS                            # noqa: E402
 from bellazu import arv as ARV                                # noqa: E402
+from bellazu import primera as PC                             # noqa: E402
 import datetime as dt                                         # noqa: E402
 from bellazu import hoa as HOA                                # noqa: E402
 
@@ -610,6 +611,8 @@ if "sv_sid" not in st.session_state:
             st.session_state.tsel_boot = True
     if str(st.query_params.get("nyc") or "") == "1":                # ?nyc=1 opens the NYC box
         st.session_state.nyc_boot = True
+    if str(st.query_params.get("casa") or "") == "1":               # ?casa=1 opens Nuestra Primera Casa
+        st.session_state.casa_boot = True
     _qh = re.sub(r"\D", "", str(st.query_params.get("home") or ""))[:14]        # ?home=<listing id> opens that listing's detail page (after the passcode)
     if _qh:
         st.session_state.home_boot = _qh
@@ -1498,7 +1501,7 @@ def home_money(h):
     """HOA + real monthly cost with My loan + approval tag for one for-sale listing (no API call). Memoized per session."""
     ss = st.session_state
     p = loan_prof()
-    key = json.dumps([str(h.get("id")), h.get("price"), p, market_rate()["rate_pct"]], sort_keys=True, default=str)
+    key = json.dumps([str(h.get("id")), h.get("address") if not h.get("id") else None, h.get("price"), h.get("hoa_monthly"), p, market_rate()["rate_pct"]], sort_keys=True, default=str)
     memo = ss.setdefault("_hm", {})
     if key in memo:
         return memo[key]
@@ -1638,7 +1641,7 @@ def settings_defaults():
             ss[k] = ss[k]
 
 
-_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+|rooms_.+)$")
+_KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+|rooms_.+|pc_budget|pc_open|pc_n|pc_ph_done)$")
 _KEEP_MAIN = re.compile(r"^(hmode|pk_mode|rank_price|mt_price|mt_size|tchips_.+|hst_.+|hpx_.+|happ_.+|hbd_.+|hkd_.+|hsort_.+|tp_.+|tpo_.+|ts_.+|ro_.+|ub_.+|un_.+|rm_.+|lv_.+|own_.+|cc_.+|g_.+|arv_rehab_.+|arv_sell_.+)$")
 
 
@@ -4148,8 +4151,8 @@ def nav_back(from_button=True):
     prev = tuple(prev)
     if was_saved and ss.get("view") and tuple(ss.view) == prev:       # leaving Saved homes for the view the user was on: it is still there
         return
-    if prev[0] == "nyc":
-        ss.view = ("nyc",)
+    if prev[0] in ("nyc", "casa"):
+        ss.view = (prev[0],)
         ss.pop("arv_trail", None)
         return
     tr = list(ss.get("arv_trail") or [])
@@ -4173,10 +4176,11 @@ def back_link():
     ss = st.session_state
     stk = ss.get("vstack") or []
     prev = tuple(stk[-1]) if stk and stk[-1] else None
-    if not prev or prev[0] not in ("town", "towns", "nyc"):
+    if not prev or prev[0] not in ("town", "towns", "nyc", "casa"):
         return
     lbl = L(f"← Back to your {len(prev[1])} towns", f"← Volver a sus {len(prev[1])} pueblos") if prev[0] == "towns" else \
         L("← Back to NYC homes", "← Volver a casas de NYC") if prev[0] == "nyc" else \
+        L("← Back to Our First Home", "← Volver a Nuestra Primera Casa") if prev[0] == "casa" else \
         L(f"← Back to results · {prev[1]}", f"← Volver a los resultados · {prev[1]}")
     st.button(lbl, key="back_res", type="tertiary", on_click=nav_back)
 
@@ -4413,8 +4417,8 @@ def entry_from_feed(iid, h, rent):
     tk = str(h.get("_t") or h.get("town") or "").lower()
     if tk and (ss.get("town_cache") or {}).get(tk):          # combined feed: use the card's own town
         a = ss.town_cache[tk]
-    if h.get("_nyc"):
-        a = {}                                                   # NYC box homes: never borrow the numbers of whatever NJ town was open
+    if h.get("_nyc") or h.get("_pc"):
+        a = {}                                                   # NYC box / Primera Casa homes: never borrow the numbers of whatever NJ town was open
     first = ss.get("hmode", "first") == "first"
     tl = list(FEED_TYPE_LBL.get(h.get("kind"), FEED_TYPE_LBL["other"]))
     hm_ = None if rent else home_money(h)
@@ -5234,6 +5238,195 @@ def nyc_teaser():
     st.caption(L(f"{len(d['rows'])} homes in Manhattan and nearby, flagged for co-ops and renting rules.", f"{len(d['rows'])} casas en Manhattan y cerca, con aviso de co-ops y reglas para alquilar."))
 
 
+# ------------------------------------------------------------------ Nuestra Primera Casa (Our First Home): a shortlist of towns midway Wilmington-Manhattan
+def _casa_open_view():
+    ss = st.session_state
+    for k in ("sv_chain", "arv_trail", "from_towns"):
+        ss.pop(k, None)
+    ss.page = "main"
+    ss.view = ("casa",)
+    ss._full = True
+
+
+def casa_teaser():
+    """Home page: the entry to Nuestra Primera Casa (no lookups here)."""
+    html(f"<div class='bz-lbl'>{L('Our First Home', 'Nuestra Primera Casa')}</div>")
+    st.button(L(f"🏡 Our First Home · {len(PC.TOWNS)} towns between Wilmington and NYC ›", f"🏡 Nuestra Primera Casa · {len(PC.TOWNS)} pueblos entre Wilmington y NYC ›"),
+              key="casa_open", width="stretch", type="primary", on_click=_casa_open_view)
+    st.caption(L("Your favorite towns, drive times, a few honest words on each, and homes for sale up to your budget.",
+                 "Sus pueblos favoritos, tiempos en carro, unas palabras sinceras de cada uno y casas a la venta hasta su presupuesto."))
+
+
+def _casa_back():
+    ss = st.session_state
+    if ss.get("vstack"):
+        nav_back()
+    else:
+        ss.view = None
+
+
+def _casa_rows(slug):
+    """RentCast for-sale homes for one town: ONE lookup per city, 3-day disk cache shared by everyone (no RapidAPI)."""
+    t = PC.town(slug)
+    rows, stats = [], []
+    for c in t[3]:
+        d, s_ = rentcast.sale_listings_city(c, t[2])
+        stats.append(s_)
+        rows += [PC.rc_row(x) for x in d]
+    seen = set()
+    rows = [r for r in rows if r.get("address") and not (r["address"] in seen or seen.add(r["address"]))]
+    if t[2] == "NJ":
+        rows = PC.merge_photos(rows, PC.cached_feed(t[1].split(" (")[0]))
+    return rows, stats
+
+
+def _casa_load(slug):
+    ss = st.session_state
+    ss.setdefault("pc_open", {})[slug] = True
+
+
+def _casa_photos(slug):
+    """One realtor.com list search (RapidAPI, cached 18 h) for this NJ town, only when tapped, to add photos and links."""
+    t = PC.town(slug)
+    try:
+        listings.fetch_town(t[1].split(" (")[0], "for_sale")
+    except Exception:
+        pass
+    st.session_state.setdefault("pc_ph_done", set()).add(slug)
+
+
+def _casa_more(slug):
+    ss = st.session_state
+    ss.setdefault("pc_n", {})[slug] = ss.get("pc_n", {}).get(slug, 6) + 6
+
+
+def casa_card(h, hm, i, slug):
+    """One home in the SAME card as Saved homes: photos (when realtor.com has them), title + facts, tag + monthly (never green over the benchmark),
+    Details, Rent rooms (always yellow, lenders don't count it), status/notes, Save / Open my numbers / listing."""
+    h = dict(h, _pc=True)
+    iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
+    k = _sv_key(iid)
+    x = sv()["items"].get(iid)
+    tg = _nyc_tag(h, hm)
+    tab = "pc" + slug[:6]
+    with st.container(key=f"svcard_pc{slug[:6]}_{i}_{k[-20:]}"):
+        if h.get("photo"):
+            carousel(h, f"pcz_{slug[:6]}_{i}_{k[-12:]}", False, None, more_ok=bool(h.get("id")),
+                     on_open=(lambda i_=iid, h_=h: _sv_open(i_) if i_ in sv()["items"] else _open_listing(h_)))
+        else:
+            html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(money(h['price']))}</div>"
+                 f"<div class='x' style='opacity:.7;font-size:.8rem'>📷 {H.escape(L('No photos here yet: tap View on map, or add photos for this town below.', 'Aún no hay fotos aquí: toque Ver en el mapa, o agregue fotos de este pueblo abajo.'))}</div>")
+        tl = P(NYC.type_label(h, hm.get("hoa"))) if h.get("kind") != "other" else (h.get("rc_type") or "")
+        line = " · ".join(v for v in [f"{h['beds']} {L('bd', 'hab')}" if h.get("beds") is not None else None,
+                                      f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
+                                      f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, tl,
+                                      L(f"built {h['year']}", f"construida en {h['year']}") if h.get("year") else None] if v)
+        html(f"<div class='bz-svh'>{H.escape(h['address'])}<br><span class='x'>{H.escape(line)}</span></div>")
+        html(_nyc_money_html(h, hm, "", flag=False))
+        with _sv_expander(L("Details", "Detalles"), f"pcd_{tab}_{k}"):
+            m = hm["m"]
+            rows = [(L("Loan payment (principal + interest)", "Pago del préstamo (capital + interés)"), m["pi"]), (L("Mortgage insurance", "Seguro hipotecario"), m["mi"]),
+                    (L("Taxes", "Impuestos") + (L(" (lender figure)", " (cifra del banco)") if m["tax_src"] == "lender" and not hm.get("coop") else ""), m["tax"]),
+                    (L("Home insurance", "Seguro de la casa"), m["ins"]), (L("HOA / maintenance", "HOA / mantenimiento"), m["hoa"])]
+            body = "".join(f"<tr><td>{H.escape(a_)}</td><td class='n'>{money(v)}</td></tr>" for a_, v in rows if v or a_.startswith(L("Loan", "Pago")))
+            html(f"<table class='bz-bd'>{body}<tr class='t'><td>{H.escape(L('Total a month, my loan', 'Total al mes, mi préstamo'))}</td><td class='n'>{money(m['total'])}</td></tr></table>")
+            bits = []
+            if isinstance(h.get("days"), int):
+                bits.append(L(f"listed {h['days']} days ago", f"publicada hace {h['days']} días"))
+            if h.get("broker"):
+                bits.append(L(f"by {h['broker']}", f"por {h['broker']}"))
+            bits.append(L("source: RentCast" if h.get("source") == "RentCast" else "source: realtor.com", "fuente: RentCast" if h.get("source") == "RentCast" else "fuente: realtor.com"))
+            st.caption(" · ".join(bits))
+        with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"pcr_{tab}_{k}"):
+            rooms_block(k, hm["m"]["total"], tg, h.get("zip"), h.get("beds"), h.get("address"),
+                        flag=("ask", "", "") if hm.get("coop") else None)
+        with _sv_expander(L("My status and notes", "Mi estado y notas"), f"pcn_{tab}_{k}"):
+            if x:
+                st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
+                         format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
+                st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
+                             placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
+                             on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
+            else:
+                st.caption(L("Tap ♡ Save first, then you can add a status and notes here.", "Toque ♡ Guardar primero y aquí podrá poner un estado y notas."))
+        with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"pcrow_{slug[:6]}_{i}_{k[-20:]}"):
+            heart(iid, f"pc_{slug[:6]}_{i}_{k[-12:]}", entry_from_feed, (h, False))
+            if x:
+                st.button(L("Open my numbers", "Abrir mis números"), key=f"pcop_{slug[:6]}_{i}_{k[-12:]}", type="tertiary", on_click=_sv_open, args=(iid,))
+            else:
+                st.button(L("Open my numbers", "Abrir mis números"), key=f"pcop_{slug[:6]}_{i}_{k[-12:]}", type="tertiary", on_click=_open_listing, args=(h,))
+            if str(h.get("url") or "").startswith("http"):
+                st.link_button(L("View listing", "Ver anuncio"), h["url"], type="tertiary")
+            else:
+                st.link_button(L("View on map", "Ver en el mapa"), rentcast.map_link(h["address"]), type="tertiary")
+
+
+def _casa_town(t, budget, ap, pd):
+    slug, name, state, _c, mw, mn = t[:6]
+    fav = slug in (pd.get("favorites") or [])
+    note = (pd.get("notes") or {}).get(slug) or ["", ""]
+    ss = st.session_state
+    rw, rn = PC.rush(mw), PC.rush(mn)
+    star = "⭐ " if fav else ""
+    with st.container(border=True, key=f"pc_x_{slug}"):
+        html(f"<div class='bz-svh'><b>{H.escape(star + name)}</b><br><span class='x'>🚗 {mw} min Wilmington · 🗽 {mn} min NYC ({H.escape(L('approx.', 'aprox.'))})</span></div>")
+        html(f"<div class='bz-sv-b'>🚗 {H.escape(L(f'To {pd.get("work_en")}: about {mw} min off-peak, roughly {rw[0]}-{rw[1]} min at rush hour.', f'Al {pd.get("work_es")}: unos {mw} min sin tráfico, más o menos {rw[0]}-{rw[1]} min en hora punta.'))}<br>"
+             f"🗽 {H.escape(L(f'To Midtown Manhattan: about {mn} min off-peak, roughly {rn[0]}-{rn[1]} min at rush hour (plus tolls).', f'A Midtown Manhattan: unos {mn} min sin tráfico, más o menos {rn[0]}-{rn[1]} min en hora punta (más peajes).'))}</div>")
+        st.caption(L("Approximate: OSRM route × 0.78 (matches Google off-peak); rush hour is a rough range, not live traffic.",
+                     "Aproximado: ruta OSRM × 0.78 (parecido a Google sin tráfico); la hora punta es un rango aproximado, no tráfico en vivo."))
+        if note[0]:
+            md(L(note[0], note[1]))
+        if not ss.get("pc_open", {}).get(slug):
+            st.button(L(f"🔎 Show homes for sale in {name}", f"🔎 Ver casas a la venta en {name}"), key=f"pc_load_{slug}", on_click=_casa_load, args=(slug,), width="stretch")
+            st.caption(L("Uses at most one RentCast lookup, then it is saved for 3 days for everyone.", "Usa como máximo una consulta de RentCast y luego se guarda 3 días para todos."))
+            return
+        with st.spinner(L("Looking for homes... ✨", "Buscando casas... ✨")):
+            rows, stats = _casa_rows(slug)
+        if not rows and any(s_ in ("no_key", "quota", "budget") or str(s_).startswith("error") for s_ in stats):
+            st.info(L("Home lookups are paused right now (monthly safety limit or the service didn't answer). Please try again later.",
+                      "Las búsquedas de casas están en pausa ahora (límite mensual de seguridad o el servicio no respondió). Intente más tarde."))
+            return
+        ok = sorted(PC.filter_rows(rows, budget), key=lambda r: r["price"])
+        st.caption(L(f"{len(ok)} homes with 2+ bedrooms up to {kmoney(budget)} (of {len(rows)} listed).",
+                     f"{len(ok)} casas de 2+ habitaciones hasta {kmoney(budget)} (de {len(rows)} publicadas)."))
+        if state == "NJ" and not any(r.get("photo") for r in ok) and slug not in ss.get("pc_ph_done", set()) and ok:
+            st.button(L("📷 Add photos and listing links for this town (uses 1 home search)", "📷 Agregar fotos y enlaces de este pueblo (usa 1 búsqueda de casas)"),
+                      key=f"pc_ph_{slug}", on_click=_casa_photos, args=(slug,), type="tertiary")
+        n = ss.get("pc_n", {}).get(slug, 6)
+        for i, h in enumerate(ok[:n]):
+            hm = home_money(h)
+            if hm:
+                casa_card(h, hm, i, slug)
+        if len(ok) > n:
+            st.button(L(f"Show more ({len(ok) - n} left)", f"Ver más (quedan {len(ok) - n})"), key=f"pc_more_{slug}", on_click=_casa_more, args=(slug,), width="stretch")
+
+
+def casa_view():
+    """Nuestra Primera Casa: the towns, then homes per town only when tapped (no lookups on page load)."""
+    st.markdown("<div class='bz-restop'></div>", unsafe_allow_html=True)
+    back_link()
+    st.button(L("← Back", "← Volver"), key="casa_back", on_click=_casa_back)
+    st.markdown(f"### {L('🏡 Our First Home', '🏡 Nuestra Primera Casa')}")
+    pd = PC.load(_sv_secret())
+    if not pd:
+        st.info(L("This section can't be opened right now (it needs the passcode). Please log out and in again.",
+                  "Esta sección no se puede abrir ahora (necesita el código de entrada). Salga y vuelva a entrar, por favor."))
+        return
+    md(L(pd.get("intro_en", ""), pd.get("intro_es", "")))
+    budget = st.number_input(L("My max budget ($)", "Mi presupuesto máximo ($)"), min_value=100000, max_value=2000000, step=25000, value=int(pd.get("budget") or 500000), key="pc_budget")
+    ap = approved_monthly()["total"]
+    st.caption(L(f"Each home is checked against your approved monthly of {money(ap)} and your approval price. Green only when the monthly is at or under it AND the fee and taxes are confirmed; at these prices most homes will show above it, and that's expected.",
+                 f"Cada casa se compara con su pago mensual aprobado de {money(ap)} y su precio aprobado. Verde solo si el mensual queda igual o por debajo Y la cuota y los impuestos están confirmados; a estos precios la mayoría saldrá por encima, y es normal."))
+    st.caption(L("Homes come from RentCast (one lookup per town, saved 3 days) and only load when you open a town. " + rc_usage_line(),
+                 "Las casas vienen de RentCast (una consulta por pueblo, guardada 3 días) y solo se cargan al abrir un pueblo. " + rc_usage_line()))
+    for t in PC.TOWNS:
+        _casa_town(t, budget, ap, pd)
+    with st.expander(L("Where these notes come from", "De dónde salen estas notas"), icon="ℹ️"):
+        md(L("Safety wording is approximate and hedged; it is not a guarantee. Sources: ", "La seguridad está descrita de forma aproximada y prudente; no es una garantía. Fuentes: ") + "; ".join(PC.SOURCES) + ".")
+        st.caption(L("Always visit the exact street, day and night, and check the town's police reports.", "Visiten siempre la calle exacta, de día y de noche, y revisen los reportes de la policía local."))
+    rooms_info("pc")
+
+
 # ------------------------------------------------------------------ the one page
 @timed('main')
 def main_page():
@@ -5249,6 +5442,8 @@ def main_page():
     res_box = st.container()
     if ss.pop("nyc_boot", False) and not view and not ss.get("go"):        # opened with ?nyc=1
         ss.view = view = ("nyc",)
+    if ss.pop("casa_boot", False) and not view and not ss.get("go"):       # opened with ?casa=1
+        ss.view = view = ("casa",)
     if ss.pop("tsel_boot", False) and not view and tsel():      # opened with ?towns=...
         if len(tsel()) == 1:
             ss.go = ("town", tsel()[0])
@@ -5302,6 +5497,8 @@ def main_page():
             town_bar(view, here=(ss.get("prop") or {}).get("town") if view[0] == "addr" else None)
         if view and view[0] == "nyc":
             nyc_view()
+        elif view and view[0] == "casa":
+            casa_view()
         elif view and view[0] == "towns":
             show_towns_view(list(view[1]))
         elif view and view[0] == "addr":
@@ -5321,6 +5518,7 @@ def main_page():
     if not view:
         ss.tpick_open = False
     if not view and not ss.get("tpick_open"):
+        casa_teaser()
         nyc_teaser()
     if not ss.get("tpick_open"):
         town_chips(hm)
