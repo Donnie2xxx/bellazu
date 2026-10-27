@@ -4633,6 +4633,8 @@ def saved_card(x):
             carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=(lambda i=x["id"]: _sv_open(i)), more_ok=bool(x.get("nyc")))
         elif price:
             html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
+        if x.get("pc") and x.get("kind") == "home":
+            casa_commute_line(_casa_slug_for(x.get("addr")))
         html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
         if x.get("pc") and x.get("kind") == "home":
             photo_gallery(phs, f"svgal_{k}")
@@ -5421,6 +5423,7 @@ def casa_card(h, hm, i, slug):
                                       f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
                                       f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, tl,
                                       L(f"built {h['year']}", f"construida en {h['year']}") if h.get("year") else None] if v)
+        casa_commute_line(slug)
         html(f"<div class='bz-svh'>{H.escape(h['address'])}</div>"
              f"<div class='x' style='opacity:.75;font-size:.85rem;line-height:1.35;margin:.1rem 0 .35rem'>{H.escape(line)}</div>")
         html(_casa_money_html(h, hm))
@@ -5458,6 +5461,37 @@ def casa_card(h, hm, i, slug):
                 st.link_button(L("View listing", "Ver anuncio"), h["url"], type="tertiary")
             else:
                 st.link_button(L("View on map", "Ver en el mapa"), rentcast.map_link(h["address"]), type="tertiary")
+
+
+PC_TRAIN = {   # verified (ridepatco.org, njtransit.com, Oct 2026); towns without an entry show driving only
+    "voorhees": ("PATCO from Ashland / Lindenwold to Philadelphia", "PATCO desde Ashland / Lindenwold a Filadelfia"),
+    "cherry_hill": ("PATCO from Woodcrest to Philadelphia", "PATCO desde Woodcrest a Filadelfia"),
+    "bordentown": ("River LINE (Florence / Bordentown) to Trenton, then NJ Transit to Penn Station NY", "River LINE (Florence / Bordentown) a Trenton y NJ Transit a Penn Station NY"),
+}
+
+
+def _casa_slug_for(addr):
+    """Our First Home town for a saved address ('..., Voorhees, NJ 08043' -> 'voorhees'), or None."""
+    a = str(addr or "").lower()
+    for t in PC.TOWNS:
+        for c in [t[1]] + list(t[3]):
+            if f", {str(c).lower()}," in a:
+                return t[0]
+    return None
+
+
+def casa_commute_line(slug):
+    """First line on an Our First Home home: driving minutes to Wilmington and Manhattan (per town, approx., no traffic) + a short train hint."""
+    t = PC.town(slug) if slug else None
+    if not t:
+        return
+    mw, mn = t[4], t[5]
+    tip = PC_TRAIN.get(slug)
+    extra = L(" · Bordentown-area figure (some addresses are in Florence Twp)", " · cifra de la zona de Bordentown (algunas direcciones están en Florence Twp)") if slug == "bordentown" else ""
+    html("<div style='font-size:.92rem;line-height:1.35;margin:.35rem 0 .2rem;font-weight:600'>"
+         f"🚗 Wilmington DE: ~{mw} min · Manhattan: ~{mn} min"
+         f"<span style='font-weight:400;opacity:.7;font-size:.8rem'> ({H.escape(L('by car, no traffic, approx. per town', 'en carro, sin tráfico, aprox. por pueblo') + extra)})</span>"
+         + (f"<br><span style='font-weight:400;font-size:.82rem;opacity:.85'>🚆 {H.escape(L(*tip))}</span>" if tip else "") + "</div>")
 
 
 def _casa_commute(t, pd):
