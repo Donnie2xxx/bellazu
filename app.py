@@ -4444,6 +4444,8 @@ def entry_from_feed(iid, h, rent):
              photos=photos[:8], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"),
              facts_over=_listing_facts(h, listings.detail_cached(str(h["id"])) if h.get("_nyc") and h.get("id") else None),
              safety=_caution(h.get("town") or a.get("town")))
+    if h.get("_pc"):
+        e["pc"] = True                                           # saved from Our First Home: no approval tag/verdict anywhere on its saved card
     if h.get("_nyc"):
         rn = NYC.rent_note(h, (hm_ or {}).get("hoa"))
         e["nyc"] = {"rent": list(rn), "why": list(h.get("_why") or []), "rank": h.get("_rank"), "fill": bool(h.get("_fill"))}
@@ -4645,7 +4647,12 @@ def saved_card(x):
                     html(f"<div class='bz-sv-b'>{L('NYC pick' + (' #' + str(nx['rank']) if nx.get('rank') else ''), 'Selección NYC' + (' #' + str(nx['rank']) if nx.get('rank') else ''))}: {H.escape(P(nx['why']))}</div>")
                 if nx.get("rent"):
                     html(f"<div class='bz-sv-b'>🔑 {H.escape(P(nx['rent'][1:]))}</div>")
-            if x.get("kind") == "home" and not x.get("rent"):
+            if x.get("pc"):
+                html(f"<div class='bz-sv-b'>🏡 {H.escape(L('From Our First Home (joint search)', 'De Nuestra Primera Casa (búsqueda en pareja)'))}</div>")
+                h_, hm_ = saved_hm(x)
+                if hm_:
+                    html(_casa_money_html(h_, hm_))
+            elif x.get("kind") == "home" and not x.get("rent"):
                 fa = fha_for_saved(x)
                 if fa:
                     html(f"<div class='bz-sv-b'>{H.escape(fha_badge_short(fa))}</div>")
@@ -4657,7 +4664,7 @@ def saved_card(x):
                 tk = (x.get("type_lbl") or [""])[0].lower()
                 rent_comps_box("sv_" + k, x["town"], b, "condo" if tk in ("condo", "co-op") else "house" if tk == "house" else None, None, None,
                                None, None, _hud_for(x["town"], b), None, None, None, None)
-        if x.get("kind") == "home" and not x.get("rent"):
+        if x.get("kind") == "home" and not x.get("rent") and not x.get("pc"):
             with _sv_expander(L("🛏️ Rent rooms: what it does to my monthly", "🛏️ Alquilar cuartos: qué pasa con mi pago mensual"), f"svrr_{k}"):
                 h_, hm_ = saved_hm(x)
                 if hm_:
@@ -4673,7 +4680,7 @@ def saved_card(x):
                          on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
         row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"svrow_{k}")
         with row:
-            if not x.get("rent"):
+            if not x.get("rent") and not x.get("pc"):
                 st.button(L("Open my numbers", "Abrir mis números"), key=f"svop_{k}", on_click=_sv_open, args=(x["id"],), type="tertiary")
             if str(x.get("url") or "").startswith("http"):
                 st.link_button(L("View listing", "Ver anuncio"), x["url"], type="tertiary")
