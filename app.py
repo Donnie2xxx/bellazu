@@ -5313,6 +5313,12 @@ def _casa_add_photos(slug, rows):
     (all PA towns): the realtor.com list already on disk, or ONE RapidAPI list search per PA city (cached 7 days, skipped when the
     monthly quota runs low). Returns the rows with photos where found."""
     t = PC.town(slug)
+    if t[2] == "NJ":                                 # NJ: the full MLS photo set (up to 12) even when realtor.com gave only a cover photo
+        for r in rows:
+            sd = (nj_photos.seed().get(r.get("mls")) or {}).get("photos") if r.get("mls") else None
+            if sd and len(sd) > len(r.get("photos") or []):
+                r["photos"], r["photo_count"] = list(sd), len(sd)
+                r["photo"] = r.get("photo") or sd[0]
     need = [r for r in rows if not r.get("photos") and not r.get("photo")]
     if need and t[2] == "NJ":
         got = nj_photos.fetch_many([(r.get("mls"), r.get("address")) for r in need])
@@ -5350,11 +5356,22 @@ def _casa_more(slug):
     ss.setdefault("pc_n", {})[slug] = ss.get("pc_n", {}).get(slug, 6) + 6
 
 
+@st.cache_resource
+def _seed_mls_by_addr():
+    """{address slug: MLS} from the shipped photo seed's listing links (for homes saved before the MLS number was kept)."""
+    out = {}
+    for m_, v_ in nj_photos.seed().items():
+        mm = re.search(r"/" + re.escape(m_) + r"/([a-z0-9-]+)/", str(v_.get("url") or ""))
+        if mm:
+            out[mm.group(1)] = m_
+    return out
+
+
 def _pc_photos_for(x):
     """All MLS photos for a home saved from Our First Home: the shipped seed (by MLS, from the saved entry or its listing link), else what was saved."""
     phs = [u for u in (x.get("photos") or []) if str(u).startswith("https://")]
     mm = re.search(r"/(NJ[A-Z]{2}\d+)/", str(x.get("url") or ""))
-    mls = x.get("mls") or (mm.group(1) if mm else None)
+    mls = x.get("mls") or (mm.group(1) if mm else None) or _seed_mls_by_addr().get(nj_photos._slug(x.get("addr")))
     sd = (nj_photos.seed().get(mls) or {}).get("photos") if mls else None
     return list(sd) if sd and len(sd) > len(phs) else phs
 
