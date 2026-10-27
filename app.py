@@ -5251,7 +5251,9 @@ def _casa_open_view():
 def casa_teaser():
     """Home page: the entry to Nuestra Primera Casa (no lookups here)."""
     html(f"<div class='bz-lbl'>{L('Our First Home', 'Nuestra Primera Casa')}</div>")
-    st.button(L(f"🏡 Our First Home · {len(PC.TOWNS)} towns between Wilmington and NYC ›", f"🏡 Nuestra Primera Casa · {len(PC.TOWNS)} pueblos entre Wilmington y NYC ›"),
+    pd = PC.load(_sv_secret()) or {}
+    who = L(pd.get("who_en", ""), pd.get("who_es", ""))
+    st.button(L("🏡 Our First Home", "🏡 Nuestra Primera Casa") + (f" · {who}" if who else "") + " ›",
               key="casa_open", width="stretch", type="primary", on_click=_casa_open_view)
     st.caption(L("Your favorite towns, drive times, a few honest words on each, and homes for sale up to your budget.",
                  "Sus pueblos favoritos, tiempos en carro, unas palabras sinceras de cada uno y casas a la venta hasta su presupuesto."))
@@ -5321,7 +5323,8 @@ def casa_card(h, hm, i, slug):
                                       f"{float(h['baths']):g} {L('ba', 'baño' if float(h['baths']) == 1 else 'baños')}" if h.get("baths") else None,
                                       f"{int(h['sqft']):,} ft²" if h.get("sqft") else None, tl,
                                       L(f"built {h['year']}", f"construida en {h['year']}") if h.get("year") else None] if v)
-        html(f"<div class='bz-svh'>{H.escape(h['address'])}<br><span class='x'>{H.escape(line)}</span></div>")
+        html(f"<div class='bz-svh'>{H.escape(h['address'])}</div>"
+             f"<div class='x' style='opacity:.75;font-size:.85rem;line-height:1.35;margin:.1rem 0 .35rem'>{H.escape(line)}</div>")
         html(_nyc_money_html(h, hm, "", flag=False))
         with _sv_expander(L("Details", "Detalles"), f"pcd_{tab}_{k}"):
             m = hm["m"]
