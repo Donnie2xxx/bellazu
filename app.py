@@ -3438,7 +3438,7 @@ def _card_photos(h):
         if cover and cover not in full:
             full = [cover] + full
         return full[:60], max(len(full[:60]), 0)
-    if not pid and h.get("photos"):
+    if h.get("photos") and (not pid or len(h["photos"]) > 1):
         return list(h["photos"])[:60], len(h["photos"][:60])
     return ([h["photo"]] if h.get("photo") else []), int(h.get("photo_count") or 0)
 
@@ -4441,10 +4441,11 @@ def entry_from_feed(iid, h, rent):
             pass
     e.update(addr=h["address"], town=h.get("town") or a.get("town"), price=h.get("price"), rent=bool(rent), beds=h.get("beds"), baths=h.get("baths"),
              sqft=h.get("sqft"), hoa=h.get("hoa_monthly"), type_lbl=tl, facts_line_en=fl[0], facts_line_es=fl[1], photo=h.get("photo") or _thumb(photos[0] if photos else None),
-             photos=photos[:8], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"),
+             photos=photos[:12], url=h.get("url"), listing_id=str(h.get("id") or ""), broker=h.get("broker"),
              facts_over=_listing_facts(h, listings.detail_cached(str(h["id"])) if h.get("_nyc") and h.get("id") else None),
              safety=_caution(h.get("town") or a.get("town")))
     if h.get("_pc"):
+        e["mls"] = h.get("mls")
         e["pc"] = True                                           # saved from Our First Home: no approval tag/verdict anywhere on its saved card
     if h.get("_nyc"):
         rn = NYC.rent_note(h, (hm_ or {}).get("hoa"))
@@ -4621,7 +4622,7 @@ def saved_card(x):
     k = _sv_key(x["id"])
     with st.container(key=f"svcard_{k}"):
         pic = x.get("photo") if str(x.get("photo") or "").startswith("https://") else None
-        phs = [u for u in (x.get("photos") or []) if str(u).startswith("https://")] or ([pic] if pic else [])
+        phs = (_pc_photos_for(x) if x.get("pc") else [u for u in (x.get("photos") or []) if str(u).startswith("https://")]) or ([pic] if pic else [])
         price = (money(x["price"]) + (L("/mo", "/mes") if x.get("rent") else "")) if x.get("price") else ""
         fl = x.get("facts_line_es" if ES() else "facts_line_en") or ""
         src = {"full": L("full check", "revisión completa"), "town": L("quick estimate from town averages", "estimado rápido con promedios del pueblo")}.get(x.get("nums_src"), "")
@@ -4633,6 +4634,8 @@ def saved_card(x):
         elif price:
             html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
         html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
+        if x.get("pc") and x.get("kind") == "home":
+            photo_gallery(phs, f"svgal_{k}")
         with _sv_expander(L("Details", "Detalles"), f"svdt_{k}"):
             st.caption(f"♥ {L('Saved', 'Guardada')} {_date_txt(x.get('saved'))}" + (f" · {src}" if src and x.get("cols") else ""))
             if x.get("cols"):
@@ -5347,6 +5350,29 @@ def _casa_more(slug):
     ss.setdefault("pc_n", {})[slug] = ss.get("pc_n", {}).get(slug, 6) + 6
 
 
+def _pc_photos_for(x):
+    """All MLS photos for a home saved from Our First Home: the shipped seed (by MLS, from the saved entry or its listing link), else what was saved."""
+    phs = [u for u in (x.get("photos") or []) if str(u).startswith("https://")]
+    mm = re.search(r"/(NJ[A-Z]{2}\d+)/", str(x.get("url") or ""))
+    mls = x.get("mls") or (mm.group(1) if mm else None)
+    sd = (nj_photos.seed().get(mls) or {}).get("photos") if mls else None
+    return list(sd) if sd and len(sd) > len(phs) else phs
+
+
+def photo_gallery(photos, key):
+    """'See all photos' on the same page: a tap-to-open grid of every photo (lazy-loaded, so nothing downloads until it is opened)."""
+    photos = [u for u in (photos or []) if str(u).startswith("https://")][:24]
+    if len(photos) < 2:
+        return
+    with _sv_expander(L(f"📷 See all photos ({len(photos)})", f"📷 Ver todas las fotos ({len(photos)})"), key):
+        cells = "".join(f"<a href='{H.escape(u)}' target='_blank' rel='noopener'><img src='{H.escape(u)}' loading='lazy' referrerpolicy='no-referrer' "
+                        f"alt='{H.escape(L('Photo', 'Foto'))} {i + 1}'><span>{i + 1}/{len(photos)}</span></a>" for i, u in enumerate(photos))
+        html("<style>.bz-gal{display:grid;grid-template-columns:1fr 1fr;gap:6px}.bz-gal a{position:relative;display:block}"
+             ".bz-gal img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:10px;display:block;background:#222}"
+             ".bz-gal span{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;font-size:.7rem;padding:1px 6px;border-radius:8px}</style>"
+             f"<div class='bz-gal'>{cells}</div>")
+
+
 def _casa_money_html(h, hm):
     """Neutral monthly estimate for Our First Home: no approval/benchmark tag or color."""
     hi = hm.get("hoa") or {}
@@ -5381,6 +5407,7 @@ def casa_card(h, hm, i, slug):
         html(f"<div class='bz-svh'>{H.escape(h['address'])}</div>"
              f"<div class='x' style='opacity:.75;font-size:.85rem;line-height:1.35;margin:.1rem 0 .35rem'>{H.escape(line)}</div>")
         html(_casa_money_html(h, hm))
+        photo_gallery(h.get("photos"), f"pcg_{tab}_{k}")
         with _sv_expander(L("Details", "Detalles"), f"pcd_{tab}_{k}"):
             m = hm["m"]
             rows = [(L("Loan payment (principal + interest)", "Pago del préstamo (capital + interés)"), m["pi"]), (L("Mortgage insurance", "Seguro hipotecario"), m["mi"]),
