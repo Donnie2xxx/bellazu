@@ -4646,7 +4646,8 @@ def saved_card(x):
             home_commute_line(x.get("addr") or x.get("title"), x, _casa_slug_for(x.get("addr")))
         elif x.get("kind") == "town" and x.get("town"):
             home_commute_line(f"{x['town']}, NJ", None, _casa_slug_for(f", {x['town']}, "))
-        html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
+        # bottom margin: Streamlit pulls each markdown block up 1rem; without it the facts line slid under the map on Our First Home saved cards
+        html(f"<div class='bz-svh' style='margin-bottom:1.05rem'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
         if x.get("pc") and x.get("kind") == "home":
             _sl = _casa_slug_for(x.get("addr"))
             casa_map([(str(x.get("addr") or "").split(",")[0], *_casa_home_point(x, _sl))], "sv_" + k[-20:], 260)
