@@ -309,3 +309,14 @@ def rental_listings(city, state, limit=500):
 def map_link(addr):
     from urllib.parse import quote_plus
     return "https://www.google.com/maps/search/?api=1&query=" + quote_plus(addr or "")
+
+
+def sale_listings_city_cached(city, state, limit=500):
+    """Disk cache only, any age (never calls RentCast, no quota): the last for-sale answer for a city, or []."""
+    p = {"city": city, "state": state.upper(), "status": "Active", "limit": limit}
+    f = _DIR / f"{_cache_key('listings/sale', p)}.json"
+    try:
+        hit = json.loads(f.read_text())
+        return hit["body"] if hit.get("status") == 200 and isinstance(hit.get("body"), list) else []
+    except Exception:
+        return []
