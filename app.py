@@ -141,6 +141,7 @@ from bellazu import nyc as NYC                                # noqa: E402
 from bellazu import rooms as ROOMS                            # noqa: E402
 from bellazu import arv as ARV                                # noqa: E402
 from bellazu import primera as PC                             # noqa: E402
+from bellazu import geo                                       # noqa: E402
 import datetime as dt                                         # noqa: E402
 from bellazu import hoa as HOA                                # noqa: E402
 
@@ -2968,6 +2969,7 @@ def show_property(r):
     arv_back_button(ss.get("prop_addr", r["address"]))
     gallery_block(ss.get("prop_addr", r["address"]))
     html(f"<div class='bz-addr'>📍 {H.escape(r['address'])}</div>")
+    home_commute_line(r["address"], r)
     if f.get("price"):
         fl_ = " · ".join(x for x in [f"{f['beds']} {L('bd', 'hab')}" if f.get("beds") is not None else "", f"{_num_g(f['baths'])} {L('ba', 'baño' if float(f['baths']) == 1 else 'baños')}" if f.get("baths") else ""] if x)
         html(f"<div class='bz-price'>{money(f['price'])}" + (f"<span class='f'>{H.escape(fl_)}</span>" if fl_ else "") + "</div>")
@@ -3456,13 +3458,19 @@ def _cz_more(key, h):
         ss.setdefault("cz_fail", set()).add(pid)
 
 
+def _bidi_key(key):
+    """Streamlit custom components (v2) reject a key that contains "__" (their event delimiter), e.g. 'pcz_mount__3_...' from the
+    slug 'mount_laurel'[:6]. Map the key one-to-one onto a form without "__": '-' -> '-m', '_' -> '-u' (so distinct keys stay distinct)."""
+    return "bz-" + str(key).replace("-", "-m").replace("_", "-u")
+
+
 def carousel(h, key, rent, town_lbl=None, on_open=None, more_ok=True):
     ss = st.session_state
     tag, tagc = ((f"↓ {kmoney(h['price_cut'])}", "cut") if h.get("price_cut") else (L("NEW", "NUEVA"), "new") if h.get("new") else ("", ""))
     photos, count = _card_photos(h)
     pid = str(h.get("id") or "")
     more = more_ok and bool(pid) and pid not in (ss.get("cz_fail") or set()) and pid not in (ss.get("cz_ph") or {}) and count > len(photos)
-    _CZ(key=key, data={"photos": photos, "count": count, "id": pid, "more": more, "open": not rent, "url": h.get("url") if rent else None,
+    _CZ(key=_bidi_key(key), data={"photos": photos, "count": count, "id": pid, "more": more, "open": not rent, "url": h.get("url") if rent else None,
                        "town": town_lbl or "", "price": money(h["price"]) if h.get("price") else "", "per": L("/mo", "/mes") if rent else "",
                        "tag": tag, "tagc": tagc,
                        "lbl": {"loading": L("Loading more photos... ✨", "Cargando más fotos... ✨"), "prev": L("Previous photo", "Foto anterior"),
@@ -4634,8 +4642,10 @@ def saved_card(x):
             carousel(h, f"svcz_{k}", bool(x.get("rent")), None, on_open=(lambda i=x["id"]: _sv_open(i)), more_ok=bool(x.get("nyc")))
         elif price:
             html(f"<div class='bz-price' style='margin-top:.2rem'>{H.escape(price)}</div>")
-        if x.get("pc") and x.get("kind") == "home":
-            casa_commute_line(_casa_slug_for(x.get("addr")))
+        if x.get("kind") == "home" or x.get("addr"):
+            home_commute_line(x.get("addr") or x.get("title"), x, _casa_slug_for(x.get("addr")))
+        elif x.get("kind") == "town" and x.get("town"):
+            home_commute_line(f"{x['town']}, NJ", None, _casa_slug_for(f", {x['town']}, "))
         html(f"<div class='bz-svh'>{H.escape(title)}" + (f"<br><span class='x'>{H.escape(fl)}</span>" if fl else "") + "</div>")
         if x.get("pc") and x.get("kind") == "home":
             _sl = _casa_slug_for(x.get("addr"))
@@ -5483,18 +5493,71 @@ def _casa_slug_for(addr):
     return None
 
 
-def casa_commute_line(slug):
-    """First line on an Our First Home home: driving minutes to Wilmington and Manhattan (per town, approx., no traffic) + a short train hint."""
+PC_WORK_PT, PC_NYC_PT = (39.7447, -75.5484), (40.7549, -73.9840)
+
+
+def _work_label():
+    """The work-address label ('<who>'s work (Wilmington DE)') from the encrypted Our First Home data; plain 'Wilmington DE' if it can't be read."""
+    ss = st.session_state
+    if "_pc_work_lbl" not in ss:
+        try:
+            pd = PC.load(_sv_secret()) or {}
+        except Exception:
+            pd = {}
+        en, es = (str(pd.get("work_en") or "").split(" (")[0].strip(), str(pd.get("work_es") or "").split(" (")[0].strip())
+        ss["_pc_work_lbl"] = (en, es[:1].upper() + es[1:]) if en and es else None
+    w = ss["_pc_work_lbl"]
+    return f"{L(*w)} (Wilmington DE)" if w else "Wilmington DE"
+
+
+@st.cache_data(ttl=30 * 86400, show_spinner=False)
+def _addr_point(addr):
+    """(lat, lon) for an address from the free, disk-cached geocoders (no paid lookups)."""
+    try:
+        g = geo.geocode(addr)
+        return (float(g["lat"]), float(g["lon"])) if g and g.get("lat") else None
+    except Exception:
+        return None
+
+
+def home_commute(addr, x=None, slug=None):
+    """One-way driving minutes (to the Wilmington work address, to Midtown Manhattan) for any home, plus how they were worked out.
+    Our First Home towns use the per-town OSRM figures; any other address: straight-line miles from its coordinates, scaled with a fit
+    to those same town figures (max error ~5-7 min on the 17 towns). Returns None only if no coordinates can be found."""
+    slug = slug or _casa_slug_for(addr)
     t = PC.town(slug) if slug else None
-    if not t:
+    if t:
+        return t[4], t[5], "town", slug
+    x = x or {}
+    pt = (x.get("lat"), x.get("lon")) if x.get("lat") and x.get("lon") else (_addr_point(str(addr)) if addr else None)
+    if not pt:
+        return None
+    mw, mn = _miles(pt[0], pt[1], *PC_WORK_PT), _miles(pt[0], pt[1], *PC_NYC_PT)
+    r5 = lambda v: int(max(5, round(v / 5) * 5))
+    return r5(1.134 * mw + 9.9), r5(0.766 * mn + 31.4), "dist", None
+
+
+def home_commute_line(addr, x=None, slug=None):
+    """Always-visible line at the top of a home card: one-way minutes to the work address and to Manhattan (+ train hint where verified)."""
+    c = home_commute(addr, x, slug)
+    if not c:
+        html("<div style='font-size:.85rem;margin:.35rem 0 .2rem;opacity:.8'>🚗 " + H.escape(L(
+            f"{_work_label()} and Manhattan: travel time not available for this address", f"{_work_label()} y Manhattan: tiempo de viaje no disponible para esta dirección")) + "</div>")
         return
-    mw, mn = t[4], t[5]
-    tip = PC_TRAIN.get(slug)
-    extra = L(" · Bordentown-area figure (some addresses are in Florence Twp)", " · cifra de la zona de Bordentown (algunas direcciones están en Florence Twp)") if slug == "bordentown" else ""
-    html("<div style='font-size:.92rem;line-height:1.35;margin:.35rem 0 .2rem;font-weight:600'>"
-         f"🚗 Wilmington DE: ~{mw} min · Manhattan: ~{mn} min"
-         f"<span style='font-weight:400;opacity:.7;font-size:.8rem'> ({H.escape(L('by car, no traffic, approx. per town', 'en carro, sin tráfico, aprox. por pueblo') + extra)})</span>"
+    mw, mn, how, slug = c
+    tip = PC_TRAIN.get(slug) if slug else None
+    note = (L("one way, by car, no traffic, approx. per town", "solo ida, en carro, sin tráfico, aprox. por pueblo") if how == "town"
+            else L("one way, by car, no traffic, approx. from distance", "solo ida, en carro, sin tráfico, aprox. por distancia"))
+    if slug == "bordentown":
+        note += L(" · Bordentown-area figure (some addresses are in Florence Twp)", " · cifra de la zona de Bordentown (algunas direcciones están en Florence Twp)")
+    html("<div class='bz-commute' style='font-size:.92rem;line-height:1.35;margin:.35rem 0 .2rem;font-weight:600;white-space:normal;overflow:visible'>"
+         f"🚗 {H.escape(_work_label())} ~{mw} min · Manhattan ~{mn} min"
+         f"<br><span style='font-weight:400;opacity:.7;font-size:.8rem'>({H.escape(note)})</span>"
          + (f"<br><span style='font-weight:400;font-size:.82rem;opacity:.85'>🚆 {H.escape(L(*tip))}</span>" if tip else "") + "</div>")
+
+
+def casa_commute_line(slug, addr=None):
+    home_commute_line(addr, None, slug)
 
 
 # ------------------------------------------------------------------ Our First Home: map vs Manhattan and Wilmington (pydeck, free CARTO/OSM basemap, no keys, no lookups)
