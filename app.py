@@ -5498,7 +5498,7 @@ def casa_commute_line(slug):
 
 
 # ------------------------------------------------------------------ Our First Home: map vs Manhattan and Wilmington (pydeck, free CARTO/OSM basemap, no keys, no lookups)
-PC_REF = [("Manhattan", 40.7549, -73.9840, "end"), ("Wilmington DE", 39.7447, -75.5484, "start")]
+PC_REF = [("Manhattan", 40.7549, -73.9840, "end"), ("Wilmington DE", 39.7447, -75.5484, "middle")]
 PC_CENTER = {   # approx. town centers (fallback when a home has no coordinates)
     "robbinsville": (40.2146, -74.6193), "moorestown": (39.9688, -74.9488), "mount_laurel": (39.9340, -74.8910), "cherry_hill": (39.9348, -75.0307),
     "lower_makefield": (40.2290, -74.8540), "yardley": (40.2457, -74.8460), "bordentown": (40.1462, -74.7118), "middletown_pa": (40.1790, -74.9080),
@@ -5526,7 +5526,7 @@ def casa_map(points, key, height=300, center=None):
     pts = [(n, float(a), float(b)) for n, a, b in points if a and b]
     if not pts:
         return
-    refs = [{"name": n, "lat": a, "lon": b, "anc": an} for n, a, b, an in PC_REF]
+    refs = [{"name": n, "lat": a, "lon": b, "anc": an, "off": [0, -18] if an == "end" else [0, 20]} for n, a, b, an in PC_REF]
     homes = [{"name": n, "lat": a, "lon": b} for n, a, b in pts]
     lines = []
     for h in homes[:40]:
@@ -5545,7 +5545,7 @@ def casa_map(points, key, height=300, center=None):
         pdk.Layer("ScatterplotLayer", homes, get_position=["lon", "lat"], get_fill_color=[236, 72, 153, 235], get_radius=900,
                   radius_min_pixels=6, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1),
         pdk.Layer("TextLayer", refs, get_position=["lon", "lat"], get_text="name", get_size=14, get_color=[20, 40, 110], get_text_anchor="anc",
-                  get_pixel_offset=[0, -18], font_weight=700, outline_width=3, outline_color=[255, 255, 255], font_settings={"sdf": True}),
+                  get_pixel_offset="off", font_weight=700, outline_width=3, outline_color=[255, 255, 255], font_settings={"sdf": True}),
     ]
     if len(homes) <= 3:
         layers.append(pdk.Layer("TextLayer", homes, get_position=["lon", "lat"], get_text="name", get_size=12, get_color=[150, 20, 90],
