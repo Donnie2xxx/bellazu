@@ -5520,39 +5520,53 @@ def _pc_coords_by_addr(slug):
     return out
 
 
+def _casa_map_html(homes, refs, lines, height):
+    """Leaflet (raster CARTO/OSM tiles, no WebGL needed) in its own frame; if Leaflet can't load, a plain SVG sketch of the same points."""
+    import json as _j
+    d = _j.dumps({"h": homes, "r": refs, "l": lines})
+    return f"""<!doctype html><html><head><meta name=viewport content="width=device-width,initial-scale=1">
+<link rel=stylesheet href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>html,body{{margin:0;height:100%;background:#eef0f3;font-family:sans-serif}}#m{{height:{height}px;width:100%;border-radius:12px;overflow:hidden}}
+.lb{{background:#fff;border:0;box-shadow:none;font-weight:700;color:#14286e;padding:1px 4px;font-size:12px}}.lh{{color:#96145a}}</style></head>
+<body><div id=m></div><script>var D={d};</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){{
+ var all=D.r.concat(D.h);
+ function svg(){{var el=document.getElementById('m'),W=el.clientWidth||600,Hh={height},la=all.map(p=>p.lat),lo=all.map(p=>p.lon);
+  var a=Math.min(...la),b=Math.max(...la),c=Math.min(...lo),e=Math.max(...lo),pd=40,sx=(W-2*pd)/Math.max(e-c,.01),sy=(Hh-2*pd)/Math.max(b-a,.01),k=Math.min(sx,sy*1.3);
+  var X=p=>pd+(p.lon-c)*k,Y=p=>Hh-pd-(p.lat-a)*k/1.3,o='<svg width="'+W+'" height="'+Hh+'" xmlns="http://www.w3.org/2000/svg" style="background:#eef0f3">';
+  D.h.forEach(h=>D.r.forEach(r=>{{o+='<line x1="'+X(h)+'" y1="'+Y(h)+'" x2="'+X(r)+'" y2="'+Y(r)+'" stroke="#5a6ea0" stroke-opacity=".5"/>'}}));
+  D.r.forEach(r=>{{o+='<circle cx="'+X(r)+'" cy="'+Y(r)+'" r="8" fill="#2563eb" stroke="#fff" stroke-width="2"/><text x="'+X(r)+'" y="'+(Y(r)-12)+'" text-anchor="middle" font-weight="700" fill="#14286e" font-size="13">'+r.name+'</text>'}});
+  D.h.forEach(h=>{{o+='<circle cx="'+X(h)+'" cy="'+Y(h)+'" r="6" fill="#ec4899" stroke="#fff"/>'}});
+  if(D.h.length<=3)D.h.forEach(h=>{{o+='<text x="'+X(h)+'" y="'+(Y(h)+18)+'" text-anchor="middle" fill="#96145a" font-size="12">'+h.name+'</text>'}});
+  el.innerHTML=o+'</svg>';}}
+ if(typeof L==='undefined'){{svg();return;}}
+ try{{
+  var m=L.map('m',{{zoomSnap:.25,scrollWheelZoom:false}});
+  L.tileLayer('https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}}.png',{{maxZoom:18,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'}}).addTo(m);
+  D.l.forEach(l=>L.polyline([[l.f[1],l.f[0]],[l.t[1],l.t[0]]],{{color:'#5a6ea0',weight:2,opacity:.55}}).addTo(m));
+  D.r.forEach(r=>L.circleMarker([r.lat,r.lon],{{radius:8,color:'#fff',weight:2,fillColor:'#2563eb',fillOpacity:1}}).addTo(m).bindTooltip(r.name,{{permanent:true,direction:r.anc=='end'?'top':'bottom',className:'lb'}}));
+  D.h.forEach(h=>{{var c=L.circleMarker([h.lat,h.lon],{{radius:6,color:'#fff',weight:1,fillColor:'#ec4899',fillOpacity:1}}).addTo(m);
+   c.bindTooltip(h.name,{{permanent:D.h.length<=3,direction:'bottom',className:'lb lh'}});}});
+  m.fitBounds(L.latLngBounds(all.map(p=>[p.lat,p.lon])),{{padding:[28,28]}});
+ }}catch(e){{svg();}}
+}})();
+</script></body></html>"""
+
+
 def casa_map(points, key, height=300, center=None):
-    """Always-visible map: the home(s)/town(s) in pink, Manhattan and Wilmington DE as fixed blue points, a line to each, zoomed to fit."""
-    import pydeck as pdk
+    """Always-visible map: the home(s)/town(s) in pink, Manhattan and Wilmington DE as fixed blue points, a line to each, zoomed to fit.
+    Leaflet + raster tiles (works with WebGL / hardware acceleration off), SVG sketch if Leaflet can't load."""
+    import streamlit.components.v1 as components
     pts = [(n, float(a), float(b)) for n, a, b in points if a and b]
     if not pts:
         return
-    refs = [{"name": n, "lat": a, "lon": b, "anc": an, "off": [0, -18] if an == "end" else [0, 20]} for n, a, b, an in PC_REF]
-    homes = [{"name": n, "lat": a, "lon": b} for n, a, b in pts]
-    lines = []
-    for h in homes[:40]:
-        for r in refs:
-            lines.append({"f": [h["lon"], h["lat"]], "t": [r["lon"], r["lat"]]})
-    allp = refs + homes
-    las, los = [p["lat"] for p in allp], [p["lon"] for p in allp]
-    span = max(max(las) - min(las), (max(los) - min(los)) * 0.76, 0.05)
-    import math
-    zoom = max(4.0, min(12.0, math.log2(360 / span) - 2.0))
-    view = pdk.ViewState(latitude=(max(las) + min(las)) / 2, longitude=(max(los) + min(los)) / 2, zoom=zoom)
-    layers = [
-        pdk.Layer("LineLayer", lines, get_source_position="f", get_target_position="t", get_color=[90, 110, 160, 150], get_width=2),
-        pdk.Layer("ScatterplotLayer", refs, get_position=["lon", "lat"], get_fill_color=[37, 99, 235, 235], get_radius=2600,
-                  radius_min_pixels=7, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=2),
-        pdk.Layer("ScatterplotLayer", homes, get_position=["lon", "lat"], get_fill_color=[236, 72, 153, 235], get_radius=900,
-                  radius_min_pixels=6, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1),
-        pdk.Layer("TextLayer", refs, get_position=["lon", "lat"], get_text="name", get_size=14, get_color=[20, 40, 110], get_text_anchor="anc",
-                  get_pixel_offset="off", font_weight=700, outline_width=3, outline_color=[255, 255, 255], font_settings={"sdf": True}),
-    ]
-    if len(homes) <= 3:
-        layers.append(pdk.Layer("TextLayer", homes, get_position=["lon", "lat"], get_text="name", get_size=12, get_color=[150, 20, 90],
-                                get_pixel_offset=[0, 16], outline_width=3, outline_color=[255, 255, 255], font_settings={"sdf": True}))
+    refs = [{"name": n, "lat": a, "lon": b, "anc": an} for n, a, b, an in PC_REF]
+    homes = [{"name": H.escape(n), "lat": a, "lon": b} for n, a, b in pts]
+    lines = [{"f": [h["lon"], h["lat"]], "t": [r["lon"], r["lat"]]} for h in homes[:40] for r in refs]
     with st.container(key=f"pcmap_{key}"):
-        st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_style="light", tooltip={"text": "{name}"}),
-                        height=height, key=f"pcdeck_{key}")
+        components.html(_casa_map_html(homes, refs, lines, height), height=height + 6)
         lat, lon = center or (pts[0][1], pts[0][2])
         if len(pts) > 1 and not center:
             html("<div style='font-size:.8rem;opacity:.8;margin:-.2rem 0 .4rem'>🩷 " + H.escape(L("each town", "cada pueblo")) + " · 🔵 Manhattan / Wilmington DE</div>")
