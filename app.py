@@ -5498,7 +5498,7 @@ def casa_commute_line(slug):
 
 
 # ------------------------------------------------------------------ Our First Home: map vs Manhattan and Wilmington (pydeck, free CARTO/OSM basemap, no keys, no lookups)
-PC_REF = [("Manhattan (NYC)", 40.7549, -73.9840), ("Wilmington, DE", 39.7447, -75.5484)]
+PC_REF = [("Manhattan", 40.7549, -73.9840, "end"), ("Wilmington DE", 39.7447, -75.5484, "start")]
 PC_CENTER = {   # approx. town centers (fallback when a home has no coordinates)
     "robbinsville": (40.2146, -74.6193), "moorestown": (39.9688, -74.9488), "mount_laurel": (39.9340, -74.8910), "cherry_hill": (39.9348, -75.0307),
     "lower_makefield": (40.2290, -74.8540), "yardley": (40.2457, -74.8460), "bordentown": (40.1462, -74.7118), "middletown_pa": (40.1790, -74.9080),
@@ -5520,13 +5520,13 @@ def _pc_coords_by_addr(slug):
     return out
 
 
-def casa_map(points, key, height=300):
+def casa_map(points, key, height=300, center=None):
     """Always-visible map: the home(s)/town(s) in pink, Manhattan and Wilmington DE as fixed blue points, a line to each, zoomed to fit."""
     import pydeck as pdk
     pts = [(n, float(a), float(b)) for n, a, b in points if a and b]
     if not pts:
         return
-    refs = [{"name": n, "lat": a, "lon": b} for n, a, b in PC_REF]
+    refs = [{"name": n, "lat": a, "lon": b, "anc": an} for n, a, b, an in PC_REF]
     homes = [{"name": n, "lat": a, "lon": b} for n, a, b in pts]
     lines = []
     for h in homes[:40]:
@@ -5536,7 +5536,7 @@ def casa_map(points, key, height=300):
     las, los = [p["lat"] for p in allp], [p["lon"] for p in allp]
     span = max(max(las) - min(las), (max(los) - min(los)) * 0.76, 0.05)
     import math
-    zoom = max(4.0, min(12.0, math.log2(360 / span) - 1.75))
+    zoom = max(4.0, min(12.0, math.log2(360 / span) - 2.0))
     view = pdk.ViewState(latitude=(max(las) + min(las)) / 2, longitude=(max(los) + min(los)) / 2, zoom=zoom)
     layers = [
         pdk.Layer("LineLayer", lines, get_source_position="f", get_target_position="t", get_color=[90, 110, 160, 150], get_width=2),
@@ -5544,7 +5544,7 @@ def casa_map(points, key, height=300):
                   radius_min_pixels=7, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=2),
         pdk.Layer("ScatterplotLayer", homes, get_position=["lon", "lat"], get_fill_color=[236, 72, 153, 235], get_radius=900,
                   radius_min_pixels=6, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1),
-        pdk.Layer("TextLayer", refs, get_position=["lon", "lat"], get_text="name", get_size=14, get_color=[20, 40, 110],
+        pdk.Layer("TextLayer", refs, get_position=["lon", "lat"], get_text="name", get_size=14, get_color=[20, 40, 110], get_text_anchor="anc",
                   get_pixel_offset=[0, -18], font_weight=700, outline_width=3, outline_color=[255, 255, 255], font_settings={"sdf": True}),
     ]
     if len(homes) <= 3:
@@ -5553,9 +5553,12 @@ def casa_map(points, key, height=300):
     with st.container(key=f"pcmap_{key}"):
         st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_style="light", tooltip={"text": "{name}"}),
                         height=height, key=f"pcdeck_{key}")
-        lat, lon = pts[0][1], pts[0][2]
+        lat, lon = center or (pts[0][1], pts[0][2])
+        if len(pts) > 1 and not center:
+            html("<div style='font-size:.8rem;opacity:.8;margin:-.2rem 0 .4rem'>🩷 " + H.escape(L("each town", "cada pueblo")) + " · 🔵 Manhattan / Wilmington DE</div>")
+            return
         mn, mw = _miles(lat, lon, PC_REF[0][1], PC_REF[0][2]), _miles(lat, lon, PC_REF[1][1], PC_REF[1][2])
-        what = L("this home", "esta casa") if len(pts) == 1 else L("the town", "el pueblo")
+        what = L("this home", "esta casa") if len(pts) == 1 and not center else L("homes in this town (miles from the town center)", "casas de este pueblo (millas desde el centro del pueblo)")
         html("<div style='font-size:.8rem;opacity:.8;margin:-.2rem 0 .4rem'>🩷 " + H.escape(what) + " · 🔵 Manhattan / Wilmington DE · 📏 "
              + H.escape(L(f"straight line: ~{mn:.0f} mi to Manhattan, ~{mw:.0f} mi to Wilmington DE", f"en línea recta: ~{mn:.0f} mi a Manhattan, ~{mw:.0f} mi a Wilmington DE"))
              + "</div>")
@@ -5684,7 +5687,7 @@ def casa_town_view(slug):
     with _town_map_slot:
         ba = _pc_coords_by_addr(slug)
         pts = [(str(h.get("address") or "").split(",")[0], *_casa_home_point(h, slug, ba)) for h in ok[:40]] or [(t[1], *PC_CENTER.get(slug, (None, None)))]
-        casa_map(pts, "town_" + slug)
+        casa_map(pts, "town_" + slug, center=PC_CENTER.get(slug))
     st.caption(L(f"{len(ok)} homes match your filters (of {len(rows)} listed in {t[1]}).",
                  f"{len(ok)} casas cumplen sus filtros (de {len(rows)} publicadas en {t[1]})."))
     st.caption(L("Monthly figures are rough estimates (loan, taxes, insurance, HOA) for comparing homes, not a loan approval.",
@@ -5717,7 +5720,7 @@ def casa_view():
     md(L(pd.get("intro_en", ""), pd.get("intro_es", "")))
     st.caption(L("Tap a town to see its homes for sale on their own page, with photos and filters (price, bedrooms, baths, type, size and more).",
                  "Toquen un pueblo para ver sus casas a la venta en su propia página, con fotos y filtros (precio, habitaciones, baños, tipo, tamaño y más)."))
-    casa_map([(t[1].split(" (")[0], *PC_CENTER[t[0]]) for t in PC.TOWNS if t[0] in PC_CENTER], "list", 340)
+    casa_map([(t[1].split(" (")[0], *PC_CENTER[t[0]]) for t in PC.TOWNS if t[0] in PC_CENTER], "list", 360)
     for t in PC.TOWNS:
         _casa_town(t, pd)
     with st.expander(L("Where these notes come from", "De dónde salen estas notas"), icon="ℹ️"):
