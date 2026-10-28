@@ -4264,7 +4264,7 @@ def town_bar(view, here=None):
     back_link()
     with st.container(key="townbar", horizontal=True, vertical_alignment="center", gap="small"):
         if from_saved():
-            st.button(L("← Back to Saved homes", "← Volver a Saved homes"), key="back_saved", width="stretch", on_click=back_to_saved)
+            st.button(L("← Back to Saved homes", "← Volver a Mis casas guardadas"), key="back_saved", width="stretch", on_click=back_to_saved)
         s_ = tsel() if view[0] in ("town", "towns") else []
         if s_:
             for t in s_:
