@@ -5527,7 +5527,7 @@ def _casa_map_html(homes, refs, lines, height):
     return f"""<!doctype html><html><head><meta name=viewport content="width=device-width,initial-scale=1">
 <link rel=stylesheet href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>html,body{{margin:0;height:100%;background:#eef0f3;font-family:sans-serif}}#m{{height:{height}px;width:100%;border-radius:12px;overflow:hidden}}
-.lb{{background:#fff;border:0;box-shadow:none;font-weight:700;color:#14286e;padding:1px 4px;font-size:12px}}.lh{{color:#96145a}}</style></head>
+.leaflet-tooltip-top:before,.leaflet-tooltip-bottom:before{{display:none}}.lb{{background:rgba(255,255,255,.85);border:0;box-shadow:none;font-weight:700;color:#14286e;padding:1px 4px;font-size:12px}}.lh{{color:#96145a}}</style></head>
 <body><div id=m></div><script>var D={d};</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -5544,7 +5544,7 @@ def _casa_map_html(homes, refs, lines, height):
  if(typeof L==='undefined'){{svg();return;}}
  try{{
   var m=L.map('m',{{zoomSnap:.25,scrollWheelZoom:false}});
-  L.tileLayer('https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}}.png',{{maxZoom:18,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'}}).addTo(m);
+  L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{maxZoom:18,attribution:'&copy; OpenStreetMap'}}).addTo(m);
   D.l.forEach(l=>L.polyline([[l.f[1],l.f[0]],[l.t[1],l.t[0]]],{{color:'#5a6ea0',weight:2,opacity:.55}}).addTo(m));
   D.r.forEach(r=>L.circleMarker([r.lat,r.lon],{{radius:8,color:'#fff',weight:2,fillColor:'#2563eb',fillOpacity:1}}).addTo(m).bindTooltip(r.name,{{permanent:true,direction:r.anc=='end'?'top':'bottom',className:'lb'}}));
   D.h.forEach(h=>{{var c=L.circleMarker([h.lat,h.lon],{{radius:6,color:'#fff',weight:1,fillColor:'#ec4899',fillOpacity:1}}).addTo(m);
