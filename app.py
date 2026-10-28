@@ -5359,9 +5359,13 @@ def _casa_add_photos(slug, rows):
                 else:
                     feed = (cache_ok or {}).get("rows") or []
             by = {PC.norm_addr(f.get("address")): f for f in feed if f.get("address") and f.get("photo")}
+            used = set()
             for r in need:
                 f = by.get(PC.norm_addr(r.get("address")))
+                if f and id(f) in used:          # norm_addr drops the unit: two units of one building must not share one listing (its id, photos, link)
+                    continue
                 if f:
+                    used.add(id(f))
                     for k_ in ("photo", "photo_count", "url", "id"):
                         r[k_] = f.get(k_) or r.get(k_)
     return rows
@@ -5423,7 +5427,7 @@ def casa_card(h, hm, i, slug):
     iid = find_home(h.get("address"), h.get("id")) or saves.item_id("listing", h.get("id") or h.get("address"))
     k = _sv_key(iid)
     x = sv()["items"].get(iid)
-    tab = "pc" + slug[:6]
+    tab = f"pc{slug[:6]}{i}"
     with st.container(key=f"svcard_pc{slug[:6]}_{i}_{k[-20:]}"):
         if h.get("photo"):
             carousel(h, f"pcz_{slug[:6]}_{i}_{k[-12:]}", False, None, more_ok=False,
@@ -5458,11 +5462,11 @@ def casa_card(h, hm, i, slug):
             st.caption(" · ".join(bits))
         with _sv_expander(L("My status and notes", "Mi estado y notas"), f"pcn_{tab}_{k}"):
             if x:
-                st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"svst_{k}", default=x.get("status") or "interested", required=True,
-                         format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"svst_{k}"))
-                st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"svnt_{k}", height=80, max_chars=1000,
+                st.pills(L("Status", "Estado"), STATUS_OPTS, key=f"pcst_{tab}_{k}", default=x.get("status") or "interested", required=True,
+                         format_func=lambda s_: P(STATUS_LBL[s_]), on_change=_sv_set, args=(x["id"], "status", f"pcst_{tab}_{k}"))
+                st.text_area(L("My notes", "Mis notas"), value=x.get("note") or "", key=f"pcnt_{tab}_{k}", height=80, max_chars=1000,
                              placeholder=L("e.g. loved the kitchen, street is noisy", "p. ej. me encantó la cocina, la calle es ruidosa"),
-                             on_change=_sv_set, args=(x["id"], "note", f"svnt_{k}"))
+                             on_change=_sv_set, args=(x["id"], "note", f"pcnt_{tab}_{k}"))
             else:
                 st.caption(L("Tap ♡ Save first, then you can add a status and notes here.", "Toque ♡ Guardar primero y aquí podrá poner un estado y notas."))
         with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key=f"pcrow_{slug[:6]}_{i}_{k[-20:]}"):
@@ -5668,7 +5672,7 @@ def _casa_town(t, pd):
     note = (pd.get("notes") or {}).get(slug) or ["", ""]
     star = "⭐ " if fav else ""
     with st.container(border=True, key=f"pc_x_{slug}"):
-        html(f"<div class='bz-svh'><b>{H.escape(star + name)}</b><br><span class='x'>🚗 {mw} min Wilmington · 🗽 {mn} min NYC ({H.escape(L('approx.', 'aprox.'))})</span></div>")
+        html(f"<div class='bz-svh'><b>{H.escape(star + name)}</b><br><span class='x'>🚗 {H.escape(_work_label())} ~{mw} min · 🗽 Manhattan ~{mn} min ({H.escape(L('one way, approx.', 'solo ida, aprox.'))})</span></div>")
         _casa_commute(t, pd)
         if note[0]:
             md(L(note[0], note[1]))
