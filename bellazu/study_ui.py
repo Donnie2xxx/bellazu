@@ -522,7 +522,7 @@ def _exam(cat, prog, on_change):
             f"{official_n} mixed multiple-choice questions, {minutes} minutes, explanations after you finish. "
             f"Passing score on the real exam is {ex.get('pass_pct', 70)}% ({ex.get('pass_count', 77)} correct). These are practice items from class notes, not PSI's official bank.",
             f"{official_n} preguntas mixtas de selección múltiple, {minutes} minutos, con explicación de cada una al terminar. "
-            f"En el examen real se aprueba con {ex.get('pass_pct', 70)}% ({ex.get('pass_count', 77)} correctas). Estas son preguntas de práctica de tus notas, no el banco oficial de PSI."
+            f"En el examen real se aprueba con {ex.get('pass_pct', 70)}% ({ex.get('pass_count', 77)} correctas). Estas son preguntas de práctica de sus notas, no el banco oficial de PSI."
         ))
     data = ss.get("st_exam")
     if not data or data.get("done"):
