@@ -74,6 +74,13 @@ def normalize(d):
             out["prefs"] = {"lang": pr["lang"], "t": int(pr.get("t", 0))}
         except Exception:
             pass
+    try:
+        from . import study as _study
+        st_ = _study.norm_progress(d.get("study"))
+        if st_:
+            out["study"] = st_
+    except Exception:
+        pass
     return out
 
 
@@ -101,6 +108,13 @@ def merge(a, b):
     pa, pb = a.get("prefs"), b.get("prefs")          # settings (language): the newest choice wins
     if pa or pb:
         out["prefs"] = pa if (pb is None or (pa is not None and pa["t"] >= pb["t"])) else pb
+    try:
+        from . import study as _study
+        sa, sb = a.get("study"), b.get("study")
+        if sa or sb:
+            out["study"] = _study.merge_progress(sa, sb)
+    except Exception:
+        pass
     return out
 
 

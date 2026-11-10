@@ -141,6 +141,8 @@ from bellazu import nyc as NYC                                # noqa: E402
 from bellazu import rooms as ROOMS                            # noqa: E402
 from bellazu import arv as ARV                                # noqa: E402
 from bellazu import primera as PC                             # noqa: E402
+from bellazu import study as STUDY                            # noqa: E402
+from bellazu import study_ui as STUDY_UI                      # noqa: E402
 from bellazu import geo                                       # noqa: E402
 import datetime as dt                                         # noqa: E402
 from bellazu import hoa as HOA                                # noqa: E402
@@ -616,6 +618,8 @@ if "sv_sid" not in st.session_state:
     if str(st.query_params.get("casa") or "") == "1":               # ?casa=1 opens Nuestra Primera Casa
         _qt2 = re.sub(r"[^a-z_]", "", str(st.query_params.get("town") or ""))[:30]
         st.session_state.casa_boot = _qt2 if PC.town(_qt2) else True
+    if str(st.query_params.get("study") or "") == "1":              # ?study=1 opens the study section
+        st.session_state.study_boot = True
     _qh = re.sub(r"\D", "", str(st.query_params.get("home") or ""))[:14]        # ?home=<listing id> opens that listing's detail page (after the passcode)
     if _qh:
         st.session_state.home_boot = _qh
@@ -656,7 +660,17 @@ def header(authed=False):
                           format_func=lambda k: "English" if k == "EN" else "Español", on_change=_lang_changed)
     if authed:
         n = len(sv()["items"])
-        st.button(f"♥ {L('My saved homes', 'Mis casas guardadas')} · {n}", key="savedbtn", on_click=_go_saved, width="stretch")
+        acts = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key="topacts")
+        with acts:
+            st.button(f"♥ {L('My saved homes', 'Mis casas guardadas')} · {n}", key="savedbtn", on_click=_go_saved, width="stretch")
+            try:
+                streak = int((sv().get("study") or {}).get("streak") or 0)
+            except Exception:
+                streak = 0
+            sl = f"📚 {L('Study', 'Estudiar')}"
+            if streak:
+                sl += f" · 🔥{streak}"
+            st.button(sl, key="studybtn", on_click=_go_study, width="stretch")
     html("<div style='border-bottom:1px solid #2E2E2E; margin:-.3rem 0 1.1rem'></div>")
 
 
@@ -673,6 +687,10 @@ def sv():
 
 def _go_saved():
     st.session_state.page = "saved"
+
+
+def _go_study():
+    st.session_state.page = "study"
 
 
 def _sv_secret():
@@ -1645,6 +1663,7 @@ def settings_defaults():
 
 
 _KEEP_SAVED = re.compile(r"^(sv_sort|sv_filt|nycf_.+|rooms_.+|pc_budget|pc_beds|pc_baths|pc_types|pc_sqft|pc_lot|pc_year|pc_maxm|pc_sort|pc_n|pc_pa_try)$")
+_KEEP_STUDY = re.compile(r"^st_(exam_date|target|sec|man_l|card_l|card_lang|quiz_l|quiz_n|tf_l|tf_n|exam_mode|exam_l|exam_n|exam_min|tu_l|pod_l)$")   # study widgets with a value (never buttons)
 _KEEP_MAIN = re.compile(r"^(hmode|pk_mode|rank_price|mt_price|mt_size|tchips_.+|hst_.+|hpx_.+|happ_.+|hbd_.+|hkd_.+|hsort_.+|tp_.+|tpo_.+|ts_.+|ro_.+|ub_.+|un_.+|rm_.+|lv_.+|own_.+|cc_.+|g_.+|arv_rehab_.+|arv_sell_.+)$")
 
 
@@ -1653,8 +1672,8 @@ def _keep_ui():
     main page (mode, town picks, price/size, feed filters, rent-out choices) is kept while in in Saved homes or in a home opened from there,
     and for the one run after that, which draws those widgets again."""
     ss = st.session_state
-    away = ss.get("page") == "saved" or bool(ss.get("sv_chain"))
-    pats = [_KEEP_SAVED] + ([_KEEP_MAIN] if (away or ss.pop("_kept_main", False)) else [])
+    away = ss.get("page") in ("saved", "study") or bool(ss.get("sv_chain"))
+    pats = [_KEEP_SAVED, _KEEP_STUDY] + ([_KEEP_MAIN] if (away or ss.pop("_kept_main", False)) else [])
     if away:
         ss._kept_main = True
     for k in list(ss.keys()):
@@ -5902,6 +5921,7 @@ def main_page():
     if not view:
         ss.tpick_open = False
     if not view and not ss.get("tpick_open"):
+        study_teaser()
         casa_teaser()
         nyc_teaser()
     if not ss.get("tpick_open"):
@@ -5921,6 +5941,35 @@ def main_page():
         town_ranking(hm)
 
 
+def study_teaser():
+    """Home page entry to the study section (no lookups)."""
+    html(f"<div class='bz-lbl'>{L('Study', 'Estudiar')}</div>")
+    try:
+        streak = int((sv().get("study") or {}).get("streak") or 0)
+    except Exception:
+        streak = 0
+    extra = f" · 🔥{streak}" if streak else ""
+    st.button(L("📚 Study for the NJ exam", "📚 Estudiar para el examen de NJ") + extra + " ›",
+              key="study_open", width="stretch", type="primary", on_click=_go_study)
+    st.caption(L("Flashcards, quizzes, a timed mock exam and a tutor with hints, from class notes.",
+                 "Tarjetas, cuestionarios, un simulacro con tiempo y un tutor con pistas, con las notas de clase."))
+
+
+def _study_changed():
+    """Study progress lives on the saved list (encrypted online copy + this browser)."""
+    if isinstance(sv().get("study"), dict):
+        sv()["study"]["t"] = saves.now_ms()
+    _sv_touch()
+
+
+def study_page():
+    nav_mount()
+    st.button(L("← Back to search", "← Volver a buscar"), key="stb_nav_back", type="tertiary",
+              on_click=lambda: st.session_state.update(page="main"))
+    STUDY_UI.render(progress=sv().setdefault("study", STUDY.empty_progress()),
+                    on_change=_study_changed, passcode=_sv_secret())
+
+
 # ------------------------------------------------------------------ page
 settings_defaults()
 _keep_ui()
@@ -5932,8 +5981,12 @@ if st.session_state.get("authed") and st.session_state.get("sv_loaded") and not 
     _seed_picks()
     if len(sv()["items"]) != _n0:
         _sv_touch()                                # write to this browser and the online copy
+if st.session_state.pop("study_boot", False):
+    st.session_state.page = "study"
 if st.session_state.get("page") == "saved":
     saved_page()
+elif st.session_state.get("page") == "study":
+    study_page()
 else:
     main_page()
 
