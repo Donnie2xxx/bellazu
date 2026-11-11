@@ -685,28 +685,37 @@ def _errors(cat, prog, on_change):
         st.caption(f"{src_l} · {T('times missed', 'veces fallado')}: {rec.get('n') or 1}")
 
 
-def _podcast(cat, _prog, on_change):
+def _podcast(cat, _prog, on_change, passcode=None):
     lid = _pick_lesson(cat, "st_pod_l", include_all=False)
     les = study.lesson_map(cat).get(lid)
     if not les:
         return
     parts = [p for p in (les.get("script_parts") or []) if p]
-    if not parts:
+    mp3 = study.audio_for(passcode, lid)
+    if not parts and not mp3:
         st.info(T("No spoken script for this lesson yet.", "Aún no hay guion hablado para esta clase."))
         return
-    src = les.get("script_src") or ""
-    if src.startswith("generated"):
-        st.caption(T("A read-aloud script built from the memorization notes of this lesson. The phone's own voice reads it (no extra service).",
-                     "Un guion para leer en voz alta, armado con las claves de esta clase. La voz del teléfono lo lee (sin un servicio extra)."))
+    if mp3:
+        st.caption(T(
+            "A slower, story-style recording of this lesson. English exam terms are said in English. The script is below if you want to follow along.",
+            "Una grabación más lenta de esta clase, como quien cuenta un chisme. Las palabras en inglés se dicen en inglés. El texto está debajo por si quieres seguirlo.",
+        ))
+        st.audio(mp3, format="audio/mp3")
     else:
-        st.caption(T("The spoken script written for this lesson. The phone's own voice can read it (no extra service).",
-                     "El guion hablado escrito para esta clase. La voz del teléfono puede leerlo (sin un servicio extra)."))
-    _TTS(key="bz_study_tts", data={
-        "parts": parts,
-        "lang": "es-US",
-        "play": T("Listen", "Escuchar"),
-        "stop": T("Stop", "Parar"),
-    })
+        src = les.get("script_src") or ""
+        if src.startswith("generated"):
+            st.caption(T("A read-aloud script built from the memorization notes of this lesson. The phone's own voice reads it (no extra service).",
+                         "Un guion para leer en voz alta, armado con las claves de esta clase. La voz del teléfono lo lee (sin un servicio extra)."))
+        else:
+            st.caption(T("The spoken script written for this lesson. The phone's own voice can read it (no extra service).",
+                         "El guion hablado escrito para esta clase. La voz del teléfono puede leerlo (sin un servicio extra)."))
+        if parts:
+            _TTS(key="bz_study_tts", data={
+                "parts": parts,
+                "lang": "es-US",
+                "play": T("Listen", "Escuchar"),
+                "stop": T("Stop", "Parar"),
+            })
     for i, part in enumerate(parts, 1):
         with st.expander(T(f"Part {i}", f"Parte {i}"), expanded=(i == 1 and len(parts) < 4)):
             st.markdown(part.replace("$", "\\$"))
@@ -762,4 +771,4 @@ def render(*, progress, on_change, passcode):
     elif sec == "errors":
         _errors(cat, prog, on_change)
     else:
-        _podcast(cat, prog, on_change)
+        _podcast(cat, prog, on_change, passcode)

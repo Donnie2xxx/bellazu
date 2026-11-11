@@ -2,6 +2,8 @@
 
 Content comes from data/study/catalog.json in the source tree, or from
 data/study.lock (compressed + encrypted with the app passcode) on the server.
+Lesson podcasts come from data/podcast.lock (the 12 MP3s zipped and encrypted
+the same way); scripts and raw MP3s stay out of the public tree.
 Progress is a plain dict meant to live on the saved-homes list (saves.normalize
 keeps it, encrypted like the homes themselves). Nothing here reads a listing
 API or a RentCast key.
@@ -9,6 +11,9 @@ API or a RentCast key.
 from __future__ import annotations
 
 import base64
+import hashlib
+import io
+import zipfile
 import json
 import random
 import re
@@ -22,8 +27,10 @@ from . import keylock
 ROOT = Path(__file__).resolve().parent.parent
 PLAIN = ROOT / "data" / "study" / "catalog.json"   # readable copy (source tree only)
 LOCK = ROOT / "data" / "study.lock"                # what ships
+PODLOCK = ROOT / "data" / "podcast.lock"           # encrypted lesson MP3s (what ships)
 TZ = ZoneInfo("America/New_York")
 _MEMO = {}
+_POD_MEMO = {}
 
 EXAM_Q = 110
 EXAM_MIN = 240
@@ -61,6 +68,45 @@ def load(passcode=None):
     except Exception:
         return None
     return None
+
+
+def load_audio(passcode=None):
+    """dict lesson_id -> MP3 bytes, or empty dict. Decrypts data/podcast.lock once per process."""
+    if not passcode or not PODLOCK.exists():
+        return {}
+    k = ("pod", passcode, PODLOCK.stat().st_mtime, PODLOCK.stat().st_size)
+    if k in _POD_MEMO:
+        return _POD_MEMO[k]
+    try:
+        raw, meta = keylock.unlock_bin(PODLOCK, passcode)
+        if not raw:
+            _POD_MEMO[k] = {}
+            return {}
+        out = {}
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            for name in z.namelist():
+                if not name.endswith(".mp3"):
+                    continue
+                lid = Path(name).stem
+                data = z.read(name)
+                for f in (meta.get("files") or []):
+                    if f.get("id") == lid and f.get("sha256") and hashlib.sha256(data).hexdigest() != f["sha256"]:
+                        data = None
+                        break
+                if data:
+                    out[lid] = data
+        _POD_MEMO.clear()
+        _POD_MEMO[k] = out
+        return out
+    except Exception:
+        return {}
+
+
+def audio_for(passcode, lesson_id):
+    """MP3 bytes for one lesson, or None."""
+    if not lesson_id:
+        return None
+    return load_audio(passcode).get(lesson_id)
 
 
 def empty_progress():
