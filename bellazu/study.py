@@ -333,6 +333,25 @@ def questions_for(catalog, lesson=None, kind=None):
     return out
 
 
+def scenarios(catalog):
+    return list((catalog or {}).get("scenarios") or [])
+
+
+def scenario_by_id(catalog, sid):
+    if not sid:
+        return None
+    for s in scenarios(catalog):
+        if s.get("id") == sid:
+            return s
+    return None
+
+
+def questions_for_scenario(catalog, sid):
+    out = [q for q in ((catalog or {}).get("questions") or []) if q.get("scenario") == sid]
+    out.sort(key=lambda q: int(q.get("order") or 0))
+    return out
+
+
 def terms_for(catalog, lesson=None):
     out = []
     for t in (catalog or {}).get("terms") or []:

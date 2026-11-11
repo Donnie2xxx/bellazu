@@ -60,6 +60,7 @@ SECTIONS = [
     ("cards", "Cards", "Tarjetas"),
     ("quiz", "Quiz", "Cuestionario"),
     ("tf", "True/False", "Verdadero/Falso"),
+    ("escenario", "Scenario", "Escenario"),
     ("exam", "Mock exam", "Simulacro"),
     ("tutor", "Tutor mode", "Modo tutor"),
     ("errors", "Missed items", "Mis errores"),
@@ -100,6 +101,12 @@ def _css():
 .bz-st-meta{color:#A9A9A9;font-size:.88rem;line-height:1.45;margin:0 0 12px}
 .bz-st-stem{font-size:1.08rem;line-height:1.45;margin:8px 0 14px;color:#fff}
 .bz-st-row{border-top:1px solid #2E2E2E;padding:10px 0}
+.bz-st-sc{border:1px solid #F4A7BB;border-radius:16px;padding:12px 10px;margin:8px 0;overflow-x:auto}
+.bz-st-sc .k{color:#F4A7BB;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;margin-bottom:6px}
+.bz-st-sc .n{color:#CFCFCF;font-size:.88rem;line-height:1.4;margin:0 0 8px}
+.bz-st-sc table{width:100%;border-collapse:collapse;font-size:.88rem;color:#fff}
+.bz-st-sc th,.bz-st-sc td{padding:5px 6px;border-bottom:1px solid #2E2E2E;text-align:left;vertical-align:top}
+.bz-st-sc th:last-child,.bz-st-sc td:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 </style>""")
 
 
@@ -198,7 +205,35 @@ def _explain(q, ok, correct):
 
 
 # ------------------------------------------------------------------ sections
+def _scenario_table(sc):
+    if not sc:
+        return
+    note = sc.get("note_es") if _es() else sc.get("note_en")
+    rows = sc.get("rows") or []
+    parts = ["<div class='bz-st-sc'>"]
+    if note:
+        parts.append(f"<p class='n'>{esc(note)}</p>")
+    parts.append("<table><thead><tr><th>Dato</th><th>Monto</th></tr></thead><tbody>")
+    for row in rows:
+        label = row[0] if row else ""
+        val = row[1] if len(row) > 1 else ""
+        parts.append(f"<tr><td>{esc(label)}</td><td>{esc(val)}</td></tr>")
+    parts.append("</tbody></table></div>")
+    hwrite("".join(parts))
+
+
+def _show_scenario(cat, q, expanded=True):
+    sc = study.scenario_by_id(cat, (q or {}).get("scenario"))
+    if not sc:
+        return
+    title = sc.get("title_es") if _es() else sc.get("title_en")
+    label = T("Scenario data (tap to hide or show)", "Datos del escenario (toque para ocultar o ver)")
+    with st.expander(f"{label} — {title}", expanded=expanded):
+        _scenario_table(sc)
+
+
 def _plan(cat, prog, on_change):
+
     streak = int(prog.get("streak") or 0)
     best = int(prog.get("best_streak") or 0)
     if streak:
@@ -378,7 +413,7 @@ def _start_set(ss, key, ids):
     ss[key] = {"ids": ids, "i": 0, "answers": {}, "done": False}
 
 
-def _run_set(cat, prog, on_change, *, key, kind, title):
+def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
     ss = st.session_state
     data = ss.get(key)
     if not data or not data.get("ids"):
@@ -395,6 +430,8 @@ def _run_set(cat, prog, on_change, *, key, kind, title):
             st.caption(T(f"That meets the {target}% target.", f"Alcanzó la meta del {target}%."))
         else:
             st.caption(T(f"Target is {target}%. Try the missed items next.", f"La meta es {target}%. Luego practique lo que falló."))
+        first = study.q_by_id(cat, ids[0]) if ids else None
+        _show_scenario(cat, first, expanded=False)
         for n, qid in enumerate(ids, 1):
             q = study.q_by_id(cat, qid)
             if not q:
@@ -434,6 +471,7 @@ def _run_set(cat, prog, on_change, *, key, kind, title):
         data["i"] = i + 1
         st.rerun()
         return
+    _show_scenario(cat, q, expanded=True)
     _stem(q)
     pending = data.get("pending")
     if pending and pending.get("i") == i:
@@ -449,6 +487,12 @@ def _run_set(cat, prog, on_change, *, key, kind, title):
             ok, correct = study.grade_answer(q, letter)
             data.setdefault("answers", {})[q["id"]] = letter
             data["pending"] = {"i": i, "ok": ok, "correct": correct}
+            st.rerun()
+    if allow_leave and not (data.get("pending") and data.get("pending").get("i") == i):
+        st.caption(T("Leave now and this attempt is not saved to your progress.",
+                     "Si sale ahora, este intento no se guarda en su progreso."))
+        if st.button(T("Leave without saving", "Salir sin guardar"), key=f"b{key}_leave"):
+            ss.pop(key, None)
             st.rerun()
 
 
@@ -550,6 +594,7 @@ def _exam(cat, prog, on_change):
                 chose = pick or "—"
                 st.markdown(f"**{n_}. {q.get('stem')}**")
                 st.caption(T(f"Your answer: {chose} · Correct: {correct}", f"Su respuesta: {chose} · Correcta: {correct}"))
+                _show_scenario(cat, q, expanded=False)
                 _explain(q, good, correct)
                 st.divider()
         if st.button(T("Start mock exam", "Empezar simulacro"), key="stb_exam_go", type="primary", width="stretch"):
@@ -585,6 +630,7 @@ def _exam(cat, prog, on_change):
         data["i"] = i + 1
         st.rerun()
         return
+    _show_scenario(cat, q, expanded=True)
     _stem(q)
     for letter, text in _choices(q):
         if st.button(f"{letter}) {text}", key=f"stb_ex_{i}_{letter}", width="stretch"):
@@ -632,6 +678,7 @@ def _tutor(cat, prog, on_change):
         ss.pop("st_tutor", None)
         st.rerun()
         return
+    _show_scenario(cat, q, expanded=True)
     _stem(q)
     hints = q.get("hints") or []
     shown = int(state.get("hints") or 0)
@@ -725,6 +772,40 @@ def _podcast(cat, _prog, on_change, passcode=None):
         st.success(T("Saved.", "Guardado."))
 
 
+
+def _escenario(cat, prog, on_change):
+    rows = study.scenarios(cat)
+    if not rows:
+        st.info(T("No financial scenarios yet.", "Aún no hay escenarios financieros."))
+        return
+    st.markdown(T(
+        "On the exam, one closing case is sometimes split across several questions and the figures are not all in one place. Here the full table is visible from the start. Questions go in order: first the method and the prorations, then the seller's net and the buyer's funds. You can hide or reopen the table on every question.",
+        "En el examen, un mismo caso a veces viene partido en varias preguntas y los datos no están todos juntos. Aquí ve la tabla completa desde el principio. Las preguntas van en orden: primero el método y los prorrateos, luego el neto del vendedor y los fondos del comprador. Puede ocultar o volver a abrir la tabla en cada pregunta."
+    ).replace("$", r"\$"))
+    data = st.session_state.get("st_esc")
+    running = bool(data and data.get("ids") and not data.get("done"))
+    if not running:
+        labels = {s["id"]: (s["title_es"] if _es() else s["title_en"]) for s in rows}
+        ids = [s["id"] for s in rows]
+        if st.session_state.get("st_esc_l") not in ids:
+            st.session_state.st_esc_l = ids[0]
+        sid = st.selectbox(T("Scenario", "Escenario"), ids, key="st_esc_l", format_func=lambda i: labels.get(i, i))
+        sc = study.scenario_by_id(cat, sid)
+        if not sc:
+            return
+        blurb = sc.get("blurb_es") if _es() else sc.get("blurb_en")
+        if blurb:
+            st.caption(blurb)
+        qs = study.questions_for_scenario(cat, sid)
+        st.caption(T(f"{len(qs)} questions, in order.", f"{len(qs)} preguntas, en orden."))
+        _scenario_table(sc)
+        if qs and st.button(T("Start this scenario", "Empezar este escenario"), key="stb_esc_go", type="primary", width="stretch"):
+            _start_set(st.session_state, "st_esc", [q["id"] for q in qs])
+            st.rerun()
+    _run_set(cat, prog, on_change, key="st_esc", kind="mc",
+             title=T("Scenario", "Escenario"), allow_leave=True)
+
+
 def render(*, progress, on_change, passcode):
     _css()
     cat = study.load(passcode)
@@ -764,6 +845,8 @@ def render(*, progress, on_change, passcode):
         _quiz(cat, prog, on_change)
     elif sec == "tf":
         _tf(cat, prog, on_change)
+    elif sec == "escenario":
+        _escenario(cat, prog, on_change)
     elif sec == "exam":
         _exam(cat, prog, on_change)
     elif sec == "tutor":
