@@ -123,6 +123,7 @@ def empty_progress():
         "qs": {},
         "errors": {},
         "seeded": False,
+        "seed_groups": [],
     }
 
 
@@ -166,6 +167,13 @@ def norm_progress(d):
     days = d.get("days") if isinstance(d.get("days"), list) else []
     out["days"] = [x for x in days if _ymd(x)][-120:]
     out["seeded"] = bool(d.get("seeded"))
+    raw_groups = d.get("seed_groups") if isinstance(d.get("seed_groups"), list) else []
+    out["seed_groups"] = []
+    for g in raw_groups[:40]:
+        if isinstance(g, str) and g.strip():
+            s = g.strip()[:40]
+            if s not in out["seed_groups"]:
+                out["seed_groups"].append(s)
     lessons = d.get("lessons") if isinstance(d.get("lessons"), dict) else {}
     for lid, rec in list(lessons.items())[:40]:
         if not isinstance(lid, str) or not isinstance(rec, dict):
@@ -227,6 +235,11 @@ def merge_progress(a, b):
     out["exam_date"] = newer.get("exam_date") or older.get("exam_date")
     out["target"] = newer.get("target") or 75
     out["seeded"] = bool(a.get("seeded") or b.get("seeded"))
+    groups = []
+    for g in list(a.get("seed_groups") or []) + list(b.get("seed_groups") or []):
+        if g and g not in groups:
+            groups.append(g)
+    out["seed_groups"] = groups[:40]
     # streak: later calendar day wins; same day keeps the higher count
     sa, sb = a.get("streak_last") or "", b.get("streak_last") or ""
     if sa > sb:
@@ -286,14 +299,36 @@ def merge_progress(a, b):
 
 
 def ensure_seeded(prog, catalog):
-    """Add missed items from the class error log the first time progress is created."""
-    if not catalog or prog.get("seeded"):
+    """Offer class-log missed items. A later catalog may add a new seed group
+    without putting back items already cleared from an earlier group."""
+    if not catalog:
         return False
+    qmap = {q["id"]: q for q in catalog.get("questions") or []}
+    groups_done = set(prog.get("seed_groups") or [])
+    if prog.get("seeded"):
+        groups_done.add("initial")
+    changed = False
+    pending = []
     for qid in catalog.get("seed_errors") or []:
+        group = (qmap.get(qid) or {}).get("seed_group") or "initial"
+        if group in groups_done:
+            continue
+        pending.append((qid, group))
+    new_groups = {g for _qid, g in pending}
+    for qid, _group in pending:
         if qid not in prog["errors"]:
             prog["errors"][qid] = {"n": 1, "ok_streak": 0, "pick": "", "src": "log", "last": None}
-    prog["seeded"] = True
-    return True
+            changed = True
+    if new_groups:
+        groups_done |= new_groups
+        changed = True
+    if groups_done != set(prog.get("seed_groups") or []):
+        prog["seed_groups"] = sorted(groups_done)
+        changed = True
+    if not prog.get("seeded"):
+        prog["seeded"] = True
+        changed = True
+    return changed
 
 
 def note_activity(prog, day=None):
