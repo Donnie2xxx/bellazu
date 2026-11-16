@@ -719,12 +719,33 @@ def sv():
     return st.session_state.setdefault("sv", saves.empty())
 
 
+def _primera_town_keys():
+    """Normalized town names from the Our First Home shortlist (public town list in primera.py)."""
+    keys = set()
+    for t in PC.TOWNS:
+        for c in (t[1],) + tuple(t[3] or ()):
+            keys.add(WS.norm_town(c))
+    return {k for k in keys if k}
+
 def workspace():
     return st.session_state.get("workspace", WS.INVESTMENT)
 
 
 def workspace_label(area=None):
-    return L("NYC investment", "Inversión cerca de NYC") if (area or workspace()) == WS.INVESTMENT else L("Our home together", "Nuestra casa juntos")
+    """List names. The joint list's personal title is read from the encrypted Our First Home file so it is not in the public source."""
+    area = area or workspace()
+    if area == WS.INVESTMENT:
+        return L("My first home", "Mi primera casa")
+    ss = st.session_state
+    if "_ws_together_lbl" not in ss:
+        try:
+            pd = PC.load(_sv_secret()) or {}
+        except Exception:
+            pd = {}
+        en, es = str(pd.get("list_together_en") or "").strip(), str(pd.get("list_together_es") or "").strip()
+        ss["_ws_together_lbl"] = (en, es) if en and es else None
+    custom = ss.get("_ws_together_lbl")
+    return L(*custom) if custom else L("Our home together", "Nuestra casa juntos")
 
 
 def workspace_items():
@@ -809,7 +830,7 @@ def personal_loan_summary():
         tiles([(L("Price limit", "Precio límite"), money(p["max_price"]), ""),
                (L("Down payment", "Inicial"), f"{p['down_pct']:.1%}", L(f"Minimum {money(p['min_down'])}", f"Mínimo {money(p['min_down'])}")),
                (L("Loan", "Préstamo"), "FHA" if p["kind"] == "fha" else L("Conventional", "Convencional"), f"{p['term']} {L('years', 'años')} · {rate_label}")])
-        st.caption(L("These are the loan settings used for your investment search, including Airbnb, tenant and room-rental comparisons. Open My loan & settings to review all figures.", "Estos son los ajustes del préstamo usados para su búsqueda de inversión, incluidas las comparaciones de Airbnb, inquilinos y alquiler de cuartos. Abra Mi préstamo y ajustes para revisar todas las cifras."))
+        st.caption(L("These are the loan settings used for My first home, including Airbnb, tenant and room-rental comparisons. Open My loan & settings to review all figures.", "Estos son los ajustes del préstamo usados para Mi primera casa, incluidas las comparaciones de Airbnb, inquilinos y alquiler de cuartos. Abra Mi préstamo y ajustes para revisar todas las cifras."))
 
 
 def _shared_budget_changed():
@@ -896,6 +917,10 @@ def _sv_process():
             ss.sv = saves.merge(ss.sv, m)
         ss.sv_polling = time.time()
     _lang_from_prefs(ss.sv)
+    if WS.assign_obvious(ss.sv, first_home_towns=_primera_town_keys()):
+        ss.sv_ver = int(ss.get("sv_ver", 0)) + 1
+        if ss.get("sv_loaded"):
+            saves.cloud_put(_sv_secret(), ss.sv)
     if not saves.same(ss.sv, stored or saves.empty()):
         ss.sv_ver = int(ss.get("sv_ver", 0)) + 1  # write the merged list back to this browser
 
@@ -3157,9 +3182,6 @@ def loan_breakdown(c, ln, hi, f, r, own, apm):
 
 
 def show_property(r):
-    if workspace() == WS.TOGETHER:
-        show_shared_property(r)
-        return
     ss = st.session_state
     f = r.get("facts") or {}
     own = (f.get("ownership") or "").lower()
@@ -3949,19 +3971,8 @@ def _open_saved_preview(iid):
 
 
 def run_listing(h, where):
-    """Open known photos/facts immediately; rental analysis is an explicit next step."""
-    ss=st.session_state
-    addr=h["address"]
-    d=listings.detail_cached(str(h.get("id"))) if h.get("id") else None
-    facts_for(addr).update(_listing_facts(h,d))
-    row=dict(h)
-    ss.listing_preview=row
-    ss.setdefault("listing_previews",{})[addr]=row
-    ss.setdefault("gallery",{})[addr.strip().lower()]={"photos":PHOTOS.unique((d or {}).get("photos"),h.get("photos"),[h.get("photo")]),
-        "url":h.get("url"),"broker":h.get("broker"),"price":h.get("price"),"id":h.get("id"),"count":h.get("photo_count"),
-        "town":h.get("town"),"zip":h.get("zip"),"lat":h.get("lat"),"lon":h.get("lon"),"sqft":h.get("sqft"),"mls":h.get("mls"),"year":h.get("year"),"lot":h.get("lot"),"days":h.get("days")}
-    ss.prop_addr=addr
-    ss.view=("listing",addr)
+    """Open a listing with the full pre-Codex analysis (photos, loan, rent, Airbnb, flip, rooms, comps)."""
+    analyze_listing(h, where)
 
 
 def listing_quick_view():
@@ -4933,12 +4944,7 @@ def _sv_open(iid):
                 ph_ = PHOTOS.unique(dd_["photos"], ph_)
         ss.setdefault("gallery", {})[addr.strip().lower()] = {"photos": ph_, "url": x.get("url"), "broker": x.get("broker"),
                                                               "price": x.get("price"), "hoa": x.get("hoa"), "id": x.get("listing_id"), "count":x.get("photo_count"), "lat":x.get("lat"), "lon":x.get("lon"), "sqft":x.get("sqft"), "town":x.get("town"), "zip":x.get("zip")}
-    if workspace() == WS.TOGETHER:
-        ss.view=("addr",addr)
-        ss.prop_addr=addr
-        ss.prop=shared_report(addr)
-    else:
-        ss.go = ("addr", addr)
+    ss.go = ("addr", addr)
 
 
 def _cmp_html(cols, extra_cls=""):
@@ -5123,8 +5129,12 @@ def saved_page():
     st.button(L("← Back to search", "← Volver a buscar"), key="sv_back", type="tertiary", on_click=back_to_search)
     html(f"<div class='bz-hello'>{L('My saved homes', 'Mis casas guardadas')}</div>")
     counts = {area: len(WS.items_for(sv(), area)) for area in (*WS.AREAS, WS.UNASSIGNED)}
-    st.caption(L(f"{sum(counts.values())} saved in total · NYC investment: {counts[WS.INVESTMENT]} · Our home together: {counts[WS.TOGETHER]} · To organize: {counts[WS.UNASSIGNED]}. Use the search selector above to open each list.",
-                 f"{sum(counts.values())} guardadas en total · Inversión cerca de NYC: {counts[WS.INVESTMENT]} · Nuestra casa juntos: {counts[WS.TOGETHER]} · Por organizar: {counts[WS.UNASSIGNED]}. Use el selector de búsqueda de arriba para abrir cada lista."))
+    st.caption(L(f"{sum(counts.values())} saved in total · {workspace_label(WS.INVESTMENT)}: {counts[WS.INVESTMENT]} · {workspace_label(WS.TOGETHER)}: {counts[WS.TOGETHER]}"
+                 + (f" · To organize: {counts[WS.UNASSIGNED]}" if counts[WS.UNASSIGNED] else "")
+                 + ". Use the search selector above to open each list.",
+                 f"{sum(counts.values())} guardadas en total · {workspace_label(WS.INVESTMENT)}: {counts[WS.INVESTMENT]} · {workspace_label(WS.TOGETHER)}: {counts[WS.TOGETHER]}"
+                 + (f" · Por organizar: {counts[WS.UNASSIGNED]}" if counts[WS.UNASSIGNED] else "")
+                 + ". Use el selector de búsqueda de arriba para abrir cada lista."))
     m = ss.get("sv_msg")
     if m and time.time() - ss.get("sv_msg_t", 0) < 12:
         (st.success if m[0] == "ok" else st.warning)(m[1])
@@ -5179,7 +5189,7 @@ def saved_page():
             saved_card(x)
         st.caption(L("Numbers are a snapshot from the day you saved. Prices and rules can change; open the home again for today's numbers.",
                      "Los números son una foto del día en que guardó. Los precios y las reglas pueden cambiar; abra la casa otra vez para ver los números de hoy."))
-    if items and workspace() == WS.INVESTMENT:
+    if items:
         rooms_info("sv")
     backup_block()
 
@@ -5915,20 +5925,29 @@ def home_commute(addr, x=None, slug=None, allow_lookup=True):
 
 
 def home_commute_line(addr, x=None, slug=None, allow_lookup=True):
-    """Always-visible line at the top of a home card: one-way minutes to the work address and to Manhattan (+ train hint where verified)."""
+    """Commute line on a home card. The first-home list shows only Manhattan; the joint list also shows the Wilmington work address."""
     c = home_commute(addr, x, slug, allow_lookup=allow_lookup)
+    first = workspace() == WS.INVESTMENT
     if not c:
-        html("<div style='font-size:.85rem;margin:.35rem 0 .2rem;opacity:.8'>🚗 " + H.escape(L(
-            f"{_work_label()} and Manhattan: travel time not available for this address", f"{_work_label()} y Manhattan: tiempo de viaje no disponible para esta dirección")) + "</div>")
+        if first:
+            html("<div style='font-size:.85rem;margin:.35rem 0 .2rem;opacity:.8'>🚗 " + H.escape(L(
+                "Manhattan: travel time not available for this address", "Manhattan: tiempo de viaje no disponible para esta dirección")) + "</div>")
+        else:
+            html("<div style='font-size:.85rem;margin:.35rem 0 .2rem;opacity:.8'>🚗 " + H.escape(L(
+                f"{_work_label()} and Manhattan: travel time not available for this address", f"{_work_label()} y Manhattan: tiempo de viaje no disponible para esta dirección")) + "</div>")
         return
     mw, mn, how, slug = c
-    tip = PC_TRAIN.get(slug) if slug else None
+    tip = None if first else (PC_TRAIN.get(slug) if slug else None)
     note = (L("one way, by car, no traffic, approx. per town", "solo ida, en carro, sin tráfico, aprox. por pueblo") if how == "town"
             else L("one way, by car, no traffic, approx. from distance", "solo ida, en carro, sin tráfico, aprox. por distancia"))
-    if slug == "bordentown":
+    if (not first) and slug == "bordentown":
         note += L(" · Bordentown-area figure (some addresses are in Florence Twp)", " · cifra de la zona de Bordentown (algunas direcciones están en Florence Twp)")
+    if first:
+        line = f"🚗 Manhattan ~{mn} min"
+    else:
+        line = f"🚗 {H.escape(_work_label())} ~{mw} min · Manhattan ~{mn} min"
     html("<div class='bz-commute' style='font-size:.92rem;line-height:1.35;margin:.35rem 0 .2rem;font-weight:600;white-space:normal;overflow:visible'>"
-         f"🚗 {H.escape(_work_label())} ~{mw} min · Manhattan ~{mn} min"
+         f"{line}"
          f"<br><span style='font-weight:400;opacity:.7;font-size:.8rem'>({H.escape(note)})</span>"
          + (f"<br><span style='font-weight:400;font-size:.82rem;opacity:.85'>🚆 {H.escape(L(*tip))}</span>" if tip else "") + "</div>")
 
@@ -6495,7 +6514,7 @@ def main_page():
         else:
             run_town(go[1], res_box)
         st.rerun()
-    elif workspace() != WS.TOGETHER and view and view[0] == "addr" and ss.get("prop") and ss.prop.get("ok") and \
+    elif view and view[0] == "addr" and ss.get("prop") and ss.prop.get("ok") and \
             json.dumps([ss.prop_addr.strip().lower(), home_opts(ss.prop_addr)], sort_keys=True, default=str) != ss.get("prop_key"):
         run_home(ss.prop_addr, res_box)
         st.rerun()
