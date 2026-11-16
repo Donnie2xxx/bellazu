@@ -1943,11 +1943,6 @@ def home_opts(addr):
 @timed('run_home')
 def run_home(addr, where):
     ss = st.session_state
-    if workspace() == WS.TOGETHER:
-        ss.prop = shared_report(addr)
-        ss.prop_addr = addr
-        ss.prop_key = "shared"
-        return
     opts = home_opts(addr)
     key = json.dumps([addr.strip().lower(), opts], sort_keys=True, default=str)
     cache = ss.setdefault("prop_cache", {})
