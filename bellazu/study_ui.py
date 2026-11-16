@@ -165,6 +165,8 @@ def _render_blocks(blocks):
             hwrite(f"<div class='bz-st-box'><div class='k'>{esc(T('To memorize', 'Para memorizar'))}{esc(badge)}</div>{esc(b.get('x'))}</div>")
         elif kind == "gk":
             hwrite(f"<div class='bz-st-gk'>{esc(T('General knowledge:', 'Conocimiento general:'))} {esc(b.get('x'))}</div>")
+        elif kind == "truco":
+            hwrite(f"<div class='bz-st-box'><div class='k'>{esc(T('Memory tip', 'Truco para recordar'))}</div>{esc(b.get('x'))}</div>")
         elif kind == "table":
             heads = b.get("heads") or []
             rows = b.get("rows") or []
@@ -844,7 +846,7 @@ def render(*, progress, on_change, passcode):
     keys = [k for k, _, _ in SECTIONS]
     if st.session_state.get("st_sec") not in keys:
         st.session_state.st_sec = "plan"
-    sec = st.selectbox(T("Choose a study activity", "Elija una actividad de estudio"), keys, key="st_sec", format_func=lambda k: labels[k])
+    sec = st.pills(T("Section", "Apartado"), keys, key="st_sec", format_func=lambda k: labels[k])
     sec = sec or "plan"
     if sec == "plan":
         _plan(cat, prog, on_change)
