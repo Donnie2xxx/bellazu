@@ -3,7 +3,7 @@ and Midtown Manhattan, with approximate drive times, short bilingual notes, and 
 Drive minutes = OSRM public router, off-peak, x0.78 (calibrated to Google off-peak in bella-plan/vecindarios); APPROXIMATE, not live.
 Rush hour = a rough range of x1.3 to x1.6 of off-peak (not measured). Safety wording is hedged; sources named in SOURCES."""
 import json, pathlib
-from . import listings, keylock
+from . import listings, keylock, discovery
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PLAIN = ROOT / "data" / "primera.json"        # source tree only (never shipped)
@@ -108,12 +108,14 @@ def filter_rows(rows, budget, min_beds=MIN_BEDS):
 
 def merge_photos(rows, feed_rows):
     """Use the realtor.com row (photos, link, real id) for a RentCast home with the same street address; keep RentCast's fee if realtor.com has none."""
-    by = {norm_addr(f.get("address")): f for f in (feed_rows or []) if f.get("address")}
+    by = {discovery.address_key(f.get("address")): f for f in (feed_rows or []) if f.get("address")}
     out = []
     for r in rows:
-        f = by.get(norm_addr(r.get("address")))
-        if f and f.get("photo"):
+        f = by.get(discovery.address_key(r.get("address")))
+        if f:
             m = dict(f)
+            for photo_field in ("photo", "photos", "photo_count"):
+                m[photo_field] = m.get(photo_field) or r.get(photo_field)
             m["price"] = f.get("price") or r.get("price")
             if not m.get("hoa_monthly") and r.get("hoa_monthly"):
                 m["hoa_monthly"] = r["hoa_monthly"]
@@ -124,7 +126,7 @@ def merge_photos(rows, feed_rows):
             out.append(m)
         else:
             out.append(r)
-    return out
+    return discovery.merge_rows(out, feed_rows)
 
 
 def cached_feed(name, state="NJ"):

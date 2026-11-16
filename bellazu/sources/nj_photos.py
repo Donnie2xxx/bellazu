@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
 OK_TTL, MISS_TTL = 14 * 86400, 3 * 86400
-MAX_PHOTOS = 12
+ERROR_TTL = 5 * 60
 
 
 def _dir():
@@ -36,22 +36,24 @@ def cached(mls):
     p = _dir() / f"{re.sub(r'[^A-Za-z0-9]', '', mls)}.json"
     try:
         d = json.loads(p.read_text())
-        if time.time() - d["t"] < (OK_TTL if d.get("photos") else MISS_TTL):
+        if time.time() - d["t"] < (ERROR_TTL if d.get("error") else OK_TTL if d.get("photos") else MISS_TTL):
             return d
     except Exception:
         pass
     return None
 
 
-def fetch(mls, addr):
+def fetch(mls, addr, refresh=False):
     """{'photos': [...], 'url': listing page or None}. Free; one page download unless cached."""
     if not mls or not str(mls).upper().startswith("NJ"):
         return {"photos": [], "url": None}
-    sd = seed().get(mls)
-    if sd and sd.get("photos"):
-        return sd
     c = cached(mls)
-    if c:
+    if c and (c.get("error") or (not refresh and c.get("complete"))):
+        return c
+    sd = seed().get(mls)
+    if not refresh and sd and sd.get("photos"):
+        return sd
+    if not refresh and c:
         return c
     url = f"https://www.newjerseyrealestatenetwork.com/property-search/detail/337/{mls}/{_slug(addr)}/"
     photos, ok_url = [], None
@@ -59,18 +61,21 @@ def fetch(mls, addr):
         cp = subprocess.run(["curl", "-sL", "-m", "20", "-A", UA, "-w", "\n%{http_code}", url], capture_output=True, timeout=25)
         h, _, code = cp.stdout.decode("utf8", "ignore").rpartition("\n")
         if code.strip() != "200":
-            return {"photos": [], "url": None}      # blocked (403 from datacenter IPs) or down: not cached as "no photos"
+            raise ConnectionError("photo source unavailable")
         num = str(addr or "").split()[0] if addr else ""
         t = re.search(r"<title>([^<]*)", h)
         if t and mls in t.group(1) and num in t.group(1):
             seen = {}
             for u, n in re.findall(r"(https://cdn\.listingphotos\.sierrastatic\.com/large/[^\"' )]+/337_" + re.escape(mls) + r"_(\d+)\.jpg)", h):
                 seen.setdefault(int(n), u)
-            photos = [seen[n] for n in sorted(seen)][:MAX_PHOTOS]
+            photos = [seen[n] for n in sorted(seen)]
             ok_url = url if photos else None
     except Exception:
-        return {"photos": [], "url": None}          # network trouble: not cached, try again next time
-    d = {"photos": photos, "url": ok_url, "t": time.time()}
+        # Avoid making every filter change wait for the same blocked source; retry soon.
+        photos, ok_url = [], None
+        d = {"photos": [], "url": None, "t": time.time(), "error": True}
+    else:
+        d = {"photos": photos, "url": ok_url, "t": time.time(), "complete": True}
     try:
         (_dir() / f"{re.sub(r'[^A-Za-z0-9]', '', mls)}.json").write_text(json.dumps(d))
     except Exception:

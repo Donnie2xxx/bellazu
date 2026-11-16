@@ -7,7 +7,7 @@ Layers
      a deploy key that can only touch that one repo. The content is encrypted with the app passcode (bellazu/keylock.py),
      so it survives app restarts, redeploys, cleared browsers and new phones: any device that enters the passcode sees it.
 Everything here is plain Python (no Streamlit)."""
-import base64, hashlib, html as H, io, json, os, re, secrets, tempfile, threading, time
+import base64, hashlib, html as H, io, json, math, os, re, secrets, tempfile, threading, time
 
 from . import keylock
 
@@ -49,11 +49,18 @@ def normalize(d):
     items = d.get("items") or {}
     if isinstance(items, list):
         items = {str(x.get("id")): x for x in items if isinstance(x, dict) and x.get("id")}
+    if not isinstance(items, dict):
+        items = {}
     for k, v in items.items():
         if isinstance(v, dict) and v.get("id") == k:
-            v.setdefault("updated", now_ms())
-            out["items"][k] = v
-    for k, t in (d.get("removed") or {}).items():
+            try:
+                updated = max(0, int(v.get("updated", 0)))
+                saved_ms = max(0, int(v.get("saved_ms", 0)))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            out["items"][k] = dict(v, updated=updated, saved_ms=saved_ms)
+    removed = d.get("removed")
+    for k, t in (removed if isinstance(removed, dict) else {}).items():
         try:
             out["removed"][str(k)] = int(t)
         except Exception:
@@ -61,13 +68,30 @@ def normalize(d):
     ln = d.get("loan")                                  # My loan (numbers only), newest edit wins like the language
     if isinstance(ln, dict) and isinstance(ln.get("p"), dict):
         try:
-            keep = {"kind": str, "down_pct": float, "min_down": float, "max_price": float, "term": int, "rate": float, "pmi_pct": float,
+            keep = {"v": int, "kind": str, "down_pct": float, "min_down": float, "max_price": float, "term": int, "rate": float, "fha_rate": float, "pmi_pct": float,
                     "closing_pct": float, "ins_m": float, "tax_y": float}
             pp = {k: (f(v) if v is not None else None) for k, v in ln["p"].items() if k in keep for f in [keep[k]]}
-            if pp.get("kind") in ("conv", "fha"):
+            for k in ("rate_src", "fha_rate_src"):
+                if ln["p"].get(k) in (None, "example", "lender", "you", "market"):
+                    pp[k] = ln["p"].get(k)
+            if pp.get("kind") in ("conv", "fha") and all(math.isfinite(v) for v in pp.values() if isinstance(v, (int, float))):
                 out["loan"] = {"p": pp, "t": int(ln.get("t", 0))}
         except Exception:
             pass
+    if isinstance(d.get("shared_loan"), dict):
+        shared = normalize({"loan": d["shared_loan"]}).get("loan")
+        if shared:
+            out["shared_loan"] = shared
+    searches = d.get("searches")
+    if isinstance(searches, dict):
+        from . import workspaces
+        for area in workspaces.AREAS:
+            record = searches.get(area)
+            if isinstance(record, dict) and isinstance(record.get("filters"), dict):
+                try:
+                    out.setdefault("searches", {})[area] = {"filters": workspaces.criteria(record["filters"]), "t": max(0, int(record.get("t") or 0))}
+                except (TypeError, ValueError, OverflowError):
+                    pass
     pr = d.get("prefs")
     if isinstance(pr, dict) and pr.get("lang") in ("EN", "ES"):
         try:
@@ -105,6 +129,13 @@ def merge(a, b):
     la, lb = a.get("loan"), b.get("loan")
     if la or lb:
         out["loan"] = la if (lb is None or (la is not None and la["t"] >= lb["t"])) else lb
+    for field in ("shared_loan",):
+        x, y = a.get(field), b.get(field)
+        if x or y:
+            out[field] = x if y is None or (x is not None and x["t"] >= y["t"]) else y
+    for area in set(a.get("searches", {})) | set(b.get("searches", {})):
+        x, y = a.get("searches", {}).get(area), b.get("searches", {}).get(area)
+        out.setdefault("searches", {})[area] = x if y is None or (x is not None and x["t"] >= y["t"]) else y
     pa, pb = a.get("prefs"), b.get("prefs")          # settings (language): the newest choice wins
     if pa or pb:
         out["prefs"] = pa if (pb is None or (pa is not None and pa["t"] >= pb["t"])) else pb
@@ -199,6 +230,7 @@ def unseal(raw, secret):
 # ------------------------------------------------------------------ online copy (layer C): private GitHub repo over SSH, deploy key
 _KEY = {"pem": None}
 _LOCK = threading.Lock()
+_QUEUE_LOCK = threading.Lock()
 STATE = {"status": None, "merged": None, "pending": None, "worker": None}
 
 
@@ -207,6 +239,8 @@ def set_key(pem):
 
 
 def cloud_available():
+    if os.environ.get("BZ_NO_CLOUD"):
+        return False
     if not _KEY["pem"]:
         return False
     try:
@@ -346,7 +380,7 @@ def _write(secret, lst):
         merged = merge(lst, remote) if remote else normalize(lst)
         if remote is not None and same(merged, remote):
             return merged
-        if not merged["items"] and not merged["removed"] and not merged.get("prefs") and not merged.get("loan") and remote is None:
+        if not merged["items"] and not merged["removed"] and not any(merged.get(k) for k in ("prefs", "loan", "shared_loan", "searches", "study")) and remote is None:
             return merged                                                    # nothing to store yet
         blob = Blob.from_string(seal(merged, secret))
         repo.object_store.add_object(blob)
@@ -393,15 +427,15 @@ def cloud_put(secret, lst):
     the merged result lands in STATE['merged'] for every session to pick up."""
     if not cloud_available() or not secret:
         return False
-    STATE["pending"] = (secret, normalize(lst))
-    w = STATE.get("worker")
-    if w and w.is_alive():
-        return True
-
     def run():
-        while STATE.get("pending"):
-            sec, l_ = STATE["pending"]
-            STATE["pending"] = None
+        while True:
+            with _QUEUE_LOCK:
+                pending = STATE.get("pending")
+                if pending is None:
+                    STATE["worker"] = None
+                    return
+                sec, l_ = pending
+                STATE["pending"] = None
             with _LOCK:
                 try:
                     m = _write(sec, l_)
@@ -409,9 +443,18 @@ def cloud_put(secret, lst):
                     STATE["status"] = {"ok": True, "t": time.time()}
                 except Exception as e:
                     STATE["status"] = {"ok": False, "t": time.time(), "err": e.__class__.__name__}
-    t = threading.Thread(target=run, daemon=True, name="bz-saves-sync")
-    STATE["worker"] = t
-    t.start()
+    with _QUEUE_LOCK:
+        pending = STATE.get("pending")
+        current = normalize(lst)
+        if pending and pending[0] == secret:
+            current = merge(current, pending[1])
+        STATE["pending"] = (secret, current)
+        w = STATE.get("worker")
+        if w and w.is_alive():
+            return True
+        t = threading.Thread(target=run, daemon=True, name="bz-saves-sync")
+        STATE["worker"] = t
+        t.start()
     return True
 
 

@@ -203,6 +203,9 @@ def _get(path, params):
             try:
                 r = requests.get(BASE + path, params=params, headers={"X-Api-Key": key, "Accept": "application/json"}, timeout=30)
             except Exception as e:
+                _bump(path, None)         # a timed-out request may still have been billed
+                if b is not None:
+                    b[0] -= 1
                 record("RentCast " + path, BASE + path, False, None, f"network error: {e.__class__.__name__}")
                 return None, "error:network"
             if r.status_code != 401:

@@ -162,20 +162,22 @@ def small_flag(r):
 def confirmed(h, hm):
     """True when BOTH halves of the monthly total are real: the fee (listing or agent, not an estimate) and the taxes (listing's tax bill, or inside a co-op's maintenance)."""
     hi = hm.get("hoa") or {}
-    fee_ok = hi.get("state") == "real" or (hi.get("state") == "none" and h.get("kind") == "house")
+    fee_ok = hi.get("state") == "real" or (hi.get("state") == "none" and h.get("kind") in ("house", "2fam"))
     return bool(fee_ok and (hm.get("m") or {}).get("tax_src") in ("listing", "in"))
 
 
 def nyc_tag(h, hm, ap, max_price):
     """The approval tag for this box: 'over' (price above the cap), 'monthly' (price OK but the monthly total is above the benchmark: yellow, never green),
     'ok' (GREEN: monthly at or under the benchmark AND fee + taxes confirmed), 'unk' (gray: looks under the benchmark but the fee or taxes are missing/estimated)."""
-    if not hm:
-        return "unk"
     if (h.get("price") or 0) > max_price:
         return "over"
-    if hm["m"]["total"] > ap + 0.5:
+    if not hm or not h.get("price"):
+        return "unk"
+    if hm["m"]["total"] > ap:
         return "monthly"
-    return "ok" if confirmed(h, hm) else "unk"
+    if not confirmed(h, hm):
+        return "unk"
+    return "monthly" if is_coop(h, hm.get("hoa")) else "ok"
 
 
 def score(r, hm, hud2, ap, hi):
@@ -185,9 +187,9 @@ def score(r, hm, hud2, ap, hi):
     t = hm["m"]["total"]
     pts = {}
     if t > ap + .5:
-        pts["monthly"] = -20 - min((t - ap) / ap, .5) * 40
+        pts["monthly"] = -20 - min((t - ap) / max(ap, 1), .5) * 40
     elif confirmed(r, hm):
-        pts["monthly"] = 25 + 15 * min(max((ap - t) / ap, 0) / 0.12, 1)
+        pts["monthly"] = 25 + 15 * min(max((ap - t) / max(ap, 1), 0) / 0.12, 1)
     else:
         pts["monthly"] = 6
     pts["rent"] = {"ok": 25, "ask": 8, "restrict": -25}[rent_note(r, hi)[0]]

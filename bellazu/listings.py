@@ -14,7 +14,7 @@ The key is set by the app (set_key) or RAPIDAPI_KEY in the environment; it is ne
 import datetime as dt, json, os, pathlib, re, threading, time
 import requests
 from .http import CACHE, record
-from . import hoa as _hoa
+from . import hoa as _hoa, discovery
 
 HOST = "realty-in-us.p.rapidapi.com"
 BASE = f"https://{HOST}"
@@ -28,6 +28,7 @@ SALE_MAX = 900_000            # the list call skips luxury homes so the 200 newe
 _DIR = CACHE / "listings"
 _KEY = None
 _LOCK = threading.Lock()
+_QUOTA_INFLIGHT = 0                 # reserve quota before parallel town/detail calls leave the process
 SOURCE = "realtor.com via Realty in US (RapidAPI)"
 KIND = {"condos": "condo", "condo_townhome": "condo", "condo_townhome_rowhome_coop": "condo", "coop": "condo", "townhomes": "condo",
         "multi_family": "2fam", "single_family": "house", "apartment": "condo", "duplex_triplex": "2fam", "condop": "condo"}
@@ -109,29 +110,44 @@ def _count(resp):
             except ValueError:
                 pass
         if "x-ratelimit-requests-remaining" in h:
-            d["remaining"] = int(h["x-ratelimit-requests-remaining"])
-            pl = int(d.get("limit") or FREE_PLAN)
-            # plan changed (e.g. free -> Pro): RapidAPI's own count for the new plan replaces ours
-            d["count"] = pl - d["remaining"] if new_plan else max(d["count"], pl - d["remaining"])
+            try:
+                d["remaining"] = int(h["x-ratelimit-requests-remaining"])
+                pl = int(d.get("limit") or FREE_PLAN)
+                # plan changed (e.g. free -> Pro): RapidAPI's own count for the new plan replaces ours
+                d["count"] = pl - d["remaining"] if new_plan else max(d["count"], pl - d["remaining"])
+            except (TypeError, ValueError):
+                pass
         if "x-ratelimit-requests-reset" in h:
-            d["reset_at"] = time.time() + int(h["x-ratelimit-requests-reset"])
+            try:
+                d["reset_at"] = time.time() + int(h["x-ratelimit-requests-reset"])
+            except (TypeError, ValueError):
+                pass
         _upath().write_text(json.dumps(d))
 
 
 def _call(method, path, **kw):
+    global _QUOTA_INFLIGHT
     k = _key()
     if not k:
         return None, "no key"
-    if usage()["left"] <= 0:
-        record("Listings " + path, BASE + path, False, None, "monthly listings cap reached")
-        return None, "cap"
+    with _LOCK:
+        if usage()["left"] <= _QUOTA_INFLIGHT:
+            record("Listings " + path, BASE + path, False, None, "monthly listings cap reached")
+            return None, "cap"
+        _QUOTA_INFLIGHT += 1
     hdr = {"x-rapidapi-key": k, "x-rapidapi-host": HOST}
+    r = None
     try:
         r = requests.request(method, BASE + path, headers=hdr, timeout=25, **kw)
     except Exception as e:
         record("Listings " + path, BASE + path, False, None, e.__class__.__name__)
         return None, e.__class__.__name__
-    _count(r)
+    finally:
+        try:
+            _count(r)         # a timeout may still have reached the provider; count conservatively
+        finally:
+            with _LOCK:
+                _QUOTA_INFLIGHT -= 1
     record("Listings " + path, BASE + path, r.status_code == 200, r.status_code, None if r.status_code == 200 else f"HTTP {r.status_code}")
     if r.status_code != 200:
         return None, f"HTTP {r.status_code}"
@@ -189,15 +205,22 @@ def ttl_h(status):
     return RENT_TTL_H if status == "for_rent" else TTL_H
 
 
+def _list_name(town,status,page=0,state="NJ",max_price=None):
+    suffix="" if state=="NJ" else f"_{state}"
+    if status=="for_sale" and max_price and max_price>SALE_MAX:
+        suffix+=f"_max{int(max_price)}"
+    return f"{town}_{status}_{page}_v2"+suffix
+
+
 def age_h(town, status="for_sale", page=0):
     """Hours since this town's list was fetched (None if never)."""
     p = _cpath(f"{town}_{status}_{page}_v2")
     return (time.time() - p.stat().st_mtime) / 3600 if p.exists() else None
 
 
-def read_cache(town, status="for_sale", max_age_h=None, page=0, state="NJ"):
+def read_cache(town, status="for_sale", max_age_h=None, page=0, state="NJ", max_price=None):
     """The on-disk list even if past its TTL (up to max_age_h), or None. Never calls the API."""
-    p = _cpath(f"{town}_{status}_{page}_v2" + ("" if state == "NJ" else f"_{state}"))
+    p = _cpath(_list_name(town,status,page,state,max_price))
     if p.exists() and (max_age_h is None or time.time() - p.stat().st_mtime < max_age_h * 3600):
         try:
             return json.loads(p.read_text())
@@ -206,11 +229,11 @@ def read_cache(town, status="for_sale", max_age_h=None, page=0, state="NJ"):
     return None
 
 
-def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False, state="NJ"):
+def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False, state="NJ", max_price=None):
     """One list call per town + status (+ page of 200), cached on disk for TTL_H hours (for-rent: RENT_TTL_H). Never raises.
     If the city name finds fewer than 25 homes and the town's main ZIP is known, one more call by ZIP is merged in
     (realtor.com's city names don't always match the township name, e.g. Union)."""
-    p = _cpath(f"{town}_{status}_{page}_v2" + ("" if state == "NJ" else f"_{state}"))
+    p = _cpath(_list_name(town,status,page,state,max_price))
     if not force and p.exists() and time.time() - p.stat().st_mtime < ttl_h(status) * 3600:
         try:
             return json.loads(p.read_text())
@@ -218,7 +241,7 @@ def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False, stat
             pass
     body = {"limit": 200, "offset": 200 * page, "city": town, "state_code": state, "status": [status], "sort": {"direction": "desc", "field": "list_date"}}
     if status == "for_sale":
-        body["list_price"] = {"max": SALE_MAX}
+        body["list_price"] = {"max": max(SALE_MAX,int(max_price or 0))}
     d, err = _call("POST", "/properties/v3/list", json=body)
     if err:
         return {"ok": False, "error": err, "rows": []}
@@ -237,6 +260,37 @@ def fetch_town(town, status="for_sale", page=0, zip_code=None, force=False, stat
     out = {"ok": True, "rows": rows, "total": hs.get("total"), "fetched": dt.datetime.now().strftime("%Y-%m-%d %H:%M"), "town": town, "status": status}
     p.write_text(json.dumps(out))
     return out
+
+
+def inventory(town, status="for_sale", zip_code=None, state="NJ", load_more=False, cached_only=False, max_price=None):
+    """Combine fresh cached pages; load one additional page only on an explicit request."""
+    first = read_cache(town, status, ttl_h(status), page=0, state=state,max_price=max_price)
+    had_first = bool(first and first.get("ok"))
+    if not had_first:
+        if cached_only:
+            return {"ok":False, "rows":[], "error":"not loaded", "has_more":True}
+        first = fetch_town(town, status, zip_code=zip_code, state=state,max_price=max_price)
+    if not first.get("ok"):
+        return first
+    pages = [first]
+    total = max(int(first.get("total") or len(first.get("rows") or [])), 0)
+    page = 1
+    while page * 200 < total:
+        hit = read_cache(town, status, ttl_h(status), page=page, state=state,max_price=max_price)
+        if not hit or not hit.get("ok"):
+            break
+        pages.append(hit)
+        page += 1
+    error = None
+    if load_more and had_first and page * 200 < total:
+        more = fetch_town(town, status, page=page, state=state,max_price=max_price)
+        if more.get("ok"):
+            pages.append(more)
+            page += 1
+        else:
+            error = more.get("error")
+    return {**first, "rows":discovery.merge_rows(*(p.get("rows") for p in pages)),
+            "loaded_pages":len(pages), "has_more":page * 200 < total, "next_page":page, "more_error":error}
 
 
 SOLD_TTL_H = 30 * 24          # recent sales change slowly: one list call per town, kept 30 days
@@ -282,7 +336,7 @@ def fetch_sold(town, allow_call=True):
 def all_cached_rows(status="for_sale"):
     """Every saved list of one status across towns (no API calls), de-duplicated by property id."""
     out, seen = [], set()
-    for f in sorted(_DIR.glob(f"*_{status}_0_v2.json")) if _DIR.exists() else []:
+    for f in sorted(_DIR.glob(f"*_{status}_*_v2*.json")) if _DIR.exists() else []:
         try:
             for r in json.loads(f.read_text()).get("rows") or []:
                 k = r.get("id") or r.get("address")
@@ -372,7 +426,7 @@ def prefetch_details(pids, limit=8):
     return len(todo)
 
 
-def detail(pid):
+def detail(pid, refresh=False):
     """Photos (all sizes -> big) + HOA fee etc. for one home; one call, cached 7 days. Never raises."""
     pid = str(pid)
     with _LOCK:
@@ -381,12 +435,14 @@ def detail(pid):
         if mine:
             ev = _INFLIGHT[pid] = threading.Event()
     if not mine:                          # the same home is loading on another thread: wait for it instead of a 2nd call
-        ev.wait(30)
+        if not ev.wait(30):
+            return {"ok": False, "error": "detail still loading"}
         d = detail_cached(pid)
         if d:
             return d
+        return {"ok": False, "error": "detail unavailable"}
     try:
-        return _detail(pid)
+        return _detail(pid, refresh=refresh)
     finally:
         if mine:
             with _LOCK:
@@ -394,9 +450,9 @@ def detail(pid):
             ev.set()
 
 
-def _detail(pid):
+def _detail(pid, refresh=False):
     p = _cpath(f"detail_{pid}")
-    if p.exists() and time.time() - p.stat().st_mtime < 7 * 86400:
+    if not refresh and p.exists() and time.time() - p.stat().st_mtime < 7 * 86400:
         try:
             old = json.loads(p.read_text())
             # detail files from before the HOA fix (hoa_v < 2) kept only hoa.fee: condos/co-ops/townhomes without it are asked
@@ -434,7 +490,7 @@ def detail_from_home(h):
                 if str(line).lower().startswith("annual tax amount:"):
                     tax = _hoa._num(line.split(":", 1)[1]); break
     hz = _hoa.parse_detail(h)
-    out = {"ok": True, "photos": photos, "hoa_monthly": hz["fee"], "hoa_src": hz["src"], "hoa_label": hz["label"], "hoa_inc": hz["inc"],
+    out = {"ok": True, "photos": photos, "photos_complete": True, "photo_count": len(photos), "hoa_monthly": hz["fee"], "hoa_src": hz["src"], "hoa_label": hz["label"], "hoa_inc": hz["inc"],
            "hoa_none": hz["none"], "hoa_kind": hz["kind"], "hoa_v": 2, "taxes_annual": tax,
            "year_built": de.get("year_built"), "sqft": de.get("sqft"), "beds": de.get("beds"), "baths": de.get("baths"), "type": de.get("type"),
            "town": ad.get("city"), "zip": ad.get("postal_code"), "text": (de.get("text") or "")[:3000], "price": h.get("list_price")}

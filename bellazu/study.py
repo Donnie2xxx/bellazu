@@ -122,6 +122,7 @@ def empty_progress():
         "cards": {},
         "qs": {},
         "errors": {},
+        "errors_cleared": {},
         "seeded": False,
         "seed_groups": [],
     }
@@ -189,6 +190,7 @@ def norm_progress(d):
         if not isinstance(cid, str) or not isinstance(rec, dict):
             continue
         out["cards"][cid[:96]] = {
+            "updated": _int(rec.get("updated"), 0, 10**15, 0),
             "ef": _float(rec.get("ef"), 1.3, 3.0, 2.5),
             "iv": _int(rec.get("iv"), 0, 3650, 0),
             "n": _int(rec.get("n"), 0, 10000, 0),
@@ -201,6 +203,7 @@ def norm_progress(d):
         if not isinstance(qid, str) or not isinstance(rec, dict):
             continue
         out["qs"][qid[:80]] = {
+            "updated": _int(rec.get("updated"), 0, 10**15, 0),
             "n": _int(rec.get("n"), 0, 10000, 0),
             "w": _int(rec.get("w"), 0, 10000, 0),
             "ok": _int(rec.get("ok"), 0, 10000, 0),
@@ -212,27 +215,38 @@ def norm_progress(d):
         if not isinstance(qid, str) or not isinstance(rec, dict):
             continue
         out["errors"][qid[:80]] = {
+            "updated": _int(rec.get("updated"), 0, 10**15, 0),
             "n": _int(rec.get("n"), 1, 10000, 1),
             "ok_streak": _int(rec.get("ok_streak"), 0, 100, 0),
             "pick": str(rec.get("pick") or "")[:4],
             "src": str(rec.get("src") or "app")[:12],
             "last": _ymd(rec.get("last")),
         }
+    cleared = d.get("errors_cleared")
+    if isinstance(cleared, dict):
+        out["errors_cleared"] = {qid[:80]: _int(t, 0, 10**15, 0)
+                                 for qid, t in list(cleared.items())[:4000] if isinstance(qid, str)}
     return out
+
+
+def _review_order(rec):
+    """Order same-day reviews as well as legacy records that only stored a day."""
+    rec = rec or {}
+    return (rec.get("last") or "", int(rec.get("updated") or 0))
 
 
 def merge_progress(a, b):
     """Union of two progress blobs. Per card/question the newest review wins; errors are united."""
     a = norm_progress(a) or empty_progress()
     b = norm_progress(b) or empty_progress()
-    if not a.get("t") and not (a.get("cards") or a.get("qs") or a.get("errors") or a.get("exam_date")):
+    if a == empty_progress():
         return b
-    if not b.get("t") and not (b.get("cards") or b.get("qs") or b.get("errors") or b.get("exam_date")):
+    if b == empty_progress():
         return a
     newer, older = (a, b) if int(a.get("t") or 0) >= int(b.get("t") or 0) else (b, a)
     out = empty_progress()
     out["t"] = max(int(a.get("t") or 0), int(b.get("t") or 0))
-    out["exam_date"] = newer.get("exam_date") or older.get("exam_date")
+    out["exam_date"] = newer.get("exam_date")
     out["target"] = newer.get("target") or 75
     out["seeded"] = bool(a.get("seeded") or b.get("seeded"))
     groups = []
@@ -266,7 +280,7 @@ def merge_progress(a, b):
         elif not y:
             out["cards"][cid] = x
         else:
-            out["cards"][cid] = x if (x.get("last") or "") >= (y.get("last") or "") else y
+            out["cards"][cid] = x if _review_order(x) >= _review_order(y) else y
     for qid in set(a.get("qs", {})) | set(b.get("qs", {})):
         x, y = (a.get("qs") or {}).get(qid), (b.get("qs") or {}).get(qid)
         if not x:
@@ -274,12 +288,14 @@ def merge_progress(a, b):
         elif not y:
             out["qs"][qid] = x
         else:
+            latest = x if _review_order(x) >= _review_order(y) else y
             out["qs"][qid] = {
+                "updated": latest.get("updated") or 0,
                 "n": max(int(x.get("n") or 0), int(y.get("n") or 0)),
                 "w": max(int(x.get("w") or 0), int(y.get("w") or 0)),
                 "ok": max(int(x.get("ok") or 0), int(y.get("ok") or 0)),
                 "last": x.get("last") if (x.get("last") or "") >= (y.get("last") or "") else y.get("last"),
-                "last_ok": (x if (x.get("last") or "") >= (y.get("last") or "") else y).get("last_ok"),
+                "last_ok": latest.get("last_ok"),
             }
     for qid in set(a.get("errors", {})) | set(b.get("errors", {})):
         x, y = (a.get("errors") or {}).get(qid), (b.get("errors") or {}).get(qid)
@@ -288,13 +304,21 @@ def merge_progress(a, b):
         elif not y:
             out["errors"][qid] = x
         else:
+            latest = x if _review_order(x) >= _review_order(y) else y
             out["errors"][qid] = {
+                "updated": latest.get("updated") or 0,
                 "n": max(int(x.get("n") or 0), int(y.get("n") or 0)),
-                "ok_streak": min(int(x.get("ok_streak") or 0), int(y.get("ok_streak") or 0)),
-                "pick": (x.get("pick") or y.get("pick") or "")[:4],
+                "ok_streak": int(latest.get("ok_streak") or 0),
+                "pick": (latest.get("pick") or "")[:4],
                 "src": x.get("src") or y.get("src") or "app",
                 "last": x.get("last") if (x.get("last") or "") >= (y.get("last") or "") else y.get("last"),
             }
+    for qid in set(a["errors_cleared"]) | set(b["errors_cleared"]):
+        t = max(a["errors_cleared"].get(qid, 0), b["errors_cleared"].get(qid, 0))
+        out["errors_cleared"][qid] = t
+        err = out["errors"].get(qid)
+        if err and int(err.get("updated") or 0) <= t:
+            out["errors"].pop(qid)
     return out
 
 
@@ -351,6 +375,14 @@ def note_activity(prog, day=None):
     prog["streak_last"] = day
     prog["best_streak"] = max(int(prog.get("best_streak") or 0), int(prog["streak"]))
     return True
+
+
+def current_streak(prog):
+    """A missed calendar day ends the displayed streak even before the next review."""
+    last = _ymd((prog or {}).get("streak_last"))
+    if last and 0 <= (date.fromisoformat(today()) - date.fromisoformat(last)).days <= 1:
+        return int(prog.get("streak") or 0)
+    return 0
 
 
 def lesson_map(catalog):
@@ -439,7 +471,8 @@ def review_card(card, quality, day=None):
             iv = max(1, round(iv * ef * (1.3 if q == 3 else 1.0)))
         due = (date.fromisoformat(day) + timedelta(days=iv)).isoformat()
     n += 1
-    return {"ef": round(ef, 3), "iv": int(iv), "n": n, "l": lapses, "due": due, "last": day}
+    return {"ef": round(ef, 3), "iv": int(iv), "n": n, "l": lapses, "due": due, "last": day,
+            "updated": max(int(datetime.now(TZ).timestamp() * 1000), int(card.get("updated") or 0) + 1)}
 
 
 def due_cards(catalog, prog, lesson=None, limit=20):
@@ -483,9 +516,13 @@ def record_answer(prog, q, pick, ok):
     if not q:
         return
     qid = q["id"]
+    updated = max(int(datetime.now(TZ).timestamp() * 1000),
+                  int(((prog.get("qs") or {}).get(qid) or {}).get("updated") or 0) + 1,
+                  int((prog.get("errors_cleared") or {}).get(qid) or 0) + 1)
     rec = prog.setdefault("qs", {}).setdefault(qid, {"n": 0, "w": 0, "ok": 0, "last": None, "last_ok": False})
     rec["n"] = int(rec.get("n") or 0) + 1
     rec["last"] = today()
+    rec["updated"] = updated
     rec["last_ok"] = bool(ok)
     if ok:
         rec["ok"] = int(rec.get("ok") or 0) + 1
@@ -493,8 +530,10 @@ def record_answer(prog, q, pick, ok):
         if err:
             err["ok_streak"] = int(err.get("ok_streak") or 0) + 1
             err["last"] = today()
+            err["updated"] = updated
             if err["ok_streak"] >= 2:
                 prog["errors"].pop(qid, None)
+                prog.setdefault("errors_cleared", {})[qid] = updated
     else:
         rec["w"] = int(rec.get("w") or 0) + 1
         err = prog.setdefault("errors", {}).setdefault(qid, {"n": 0, "ok_streak": 0, "pick": "", "src": "app", "last": None})
@@ -502,6 +541,8 @@ def record_answer(prog, q, pick, ok):
         err["ok_streak"] = 0
         err["pick"] = str(pick or "")[:4]
         err["last"] = today()
+        err["updated"] = updated
+        prog.setdefault("errors_cleared", {}).pop(qid, None)
         if not err.get("src"):
             err["src"] = "app"
     lid = q.get("lesson")
@@ -575,6 +616,11 @@ def score_pct(ok, total):
     return int(round(100.0 * ok / total))
 
 
+def meets_score(ok, total, target):
+    """Compare the actual score, never a rounded display percentage."""
+    return bool(total > 0 and 100 * ok >= target * total)
+
+
 def days_until(exam_date):
     if not exam_date:
         return None
@@ -595,8 +641,6 @@ def lesson_progress(catalog, prog, lid):
         if rec and int(rec.get("n") or 0) >= 2 and int(rec.get("iv") or 0) >= 3:
             known += 1
     rec = (prog.get("lessons") or {}).get(lid) or {}
-    seen_ids = {qid for qid, r in (prog.get("qs") or {}).items() if r.get("n") and any(q["id"] == qid for q in qs_mc + qs_tf)}
-    # faster: count qs whose prefix lesson matches via catalog lookup
     qids = {q["id"] for q in qs_mc + qs_tf}
     practiced = sum(1 for qid in qids if (prog.get("qs") or {}).get(qid, {}).get("n"))
     total_q = len(qids)

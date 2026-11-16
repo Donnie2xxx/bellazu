@@ -213,7 +213,7 @@ def _scenario_table(sc):
     parts = ["<div class='bz-st-sc'>"]
     if note:
         parts.append(f"<p class='n'>{esc(note)}</p>")
-    parts.append("<table><thead><tr><th>Dato</th><th>Monto</th></tr></thead><tbody>")
+    parts.append(f"<table><thead><tr><th>{esc(T('Item', 'Dato'))}</th><th>{esc(T('Amount', 'Monto'))}</th></tr></thead><tbody>")
     for row in rows:
         label = row[0] if row else ""
         val = row[1] if len(row) > 1 else ""
@@ -234,7 +234,7 @@ def _show_scenario(cat, q, expanded=True):
 
 def _plan(cat, prog, on_change):
 
-    streak = int(prog.get("streak") or 0)
+    streak = study.current_streak(prog)
     best = int(prog.get("best_streak") or 0)
     if streak:
         hwrite(f"<p class='bz-st-fire'>🔥 {esc(T(f'{streak} day streak' if streak != 1 else '1 day streak', f'{streak} días seguidos' if streak != 1 else '1 día seguido'))}"
@@ -310,10 +310,8 @@ def _plan(cat, prog, on_change):
     if errs:
         st.info(T(f"{errs} missed item(s) will show up more often.", f"{errs} error(es) volverán a salir con más frecuencia."))
 
-    hwrite("<div class='bz-st-gk'>" + esc(T(
-        "Photo of a problem (Snap and Solve) and a live AI chat are not built in: this app has no AI service connected. Send a photo in the chat and we can go through it there.",
-        "Foto de un ejercicio (Snap and Solve) y un chat de IA en vivo no están aquí: esta app no tiene un servicio de IA conectado. Envíe la foto por el chat y lo vemos juntas."
-    )) + "</div>")
+    st.caption(T("Start with the manual, review your cards, then test yourself. Missed items help you choose what to practice next.",
+                 "Empiece con el manual, repase las tarjetas y luego póngase a prueba. Sus errores le ayudan a elegir qué practicar después."))
 
 
 def _manual(cat, prog, on_change):
@@ -404,6 +402,8 @@ def _cards(cat, prog, on_change):
             prog.setdefault("cards", {})[term["id"]] = study.review_card(rec, clicked)
             study.note_activity(prog)
             on_change()
+            if clicked == 0:
+                queue.append(term["id"])
             ss.st_card_i = i + 1
             ss.st_card_flip = False
             st.rerun()
@@ -426,7 +426,7 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
         pct = study.score_pct(ok, total)
         st.success(T(f"Score: {ok} of {total} ({pct}%)", f"Puntaje: {ok} de {total} ({pct}%)"))
         target = int(prog.get("target") or 75)
-        if pct >= target:
+        if study.meets_score(ok, total, target):
             st.caption(T(f"That meets the {target}% target.", f"Alcanzó la meta del {target}%."))
         else:
             st.caption(T(f"Target is {target}%. Try the missed items next.", f"La meta es {target}%. Luego practique lo que falló."))
@@ -481,6 +481,9 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
             data["pending"] = None
             data["i"] = i + 1
             st.rerun()
+        if allow_leave and st.button(T("Leave without saving", "Salir sin guardar"), key=f"b{key}_leave_feedback"):
+            ss.pop(key, None)
+            st.rerun()
         return
     for letter, text in _choices(q):
         if st.button(f"{letter}) {text}", key=f"b{key}_{i}_{letter}", width="stretch"):
@@ -508,7 +511,7 @@ def _quiz(cat, prog, on_change):
         picked = study.pick_questions(cat, prog, lesson=lid, kind="mc", n=min(int(n), len(pool)))
         _start_set(st.session_state, "st_quiz", [q["id"] for q in picked])
         st.rerun()
-    _run_set(cat, prog, on_change, key="st_quiz", kind="mc", title=T("Quiz", "Cuestionario"))
+    _run_set(cat, prog, on_change, key="st_quiz", kind="mc", title=T("Quiz", "Cuestionario"), allow_leave=True)
 
 
 def _tf(cat, prog, on_change):
@@ -523,7 +526,7 @@ def _tf(cat, prog, on_change):
         picked = study.pick_questions(cat, prog, lesson=lid, kind="tf", n=min(int(n), len(pool)))
         _start_set(st.session_state, "st_tf", [q["id"] for q in picked])
         st.rerun()
-    _run_set(cat, prog, on_change, key="st_tf", kind="tf", title=T("True/False", "Verdadero/Falso"))
+    _run_set(cat, prog, on_change, key="st_tf", kind="tf", title=T("True/False", "Verdadero/Falso"), allow_leave=True)
 
 
 @st.fragment(run_every=1)
@@ -579,10 +582,10 @@ def _exam(cat, prog, on_change):
             official_pass = int(ex.get("pass_pct") or 70)
             st.success(T(f"Score: {ok} of {total} ({pct}%)", f"Puntaje: {ok} de {total} ({pct}%)"))
             flags = []
-            flags.append(T(f"Target {target}%: {'met' if pct >= target else 'not met'}",
-                           f"Meta {target}%: {'alcanzada' if pct >= target else 'no alcanzada'}"))
-            flags.append(T(f"Official 70% line: {'would pass' if pct >= official_pass else 'would not pass'}",
-                           f"Línea oficial del 70%: {'aprobaría' if pct >= official_pass else 'no aprobaría'}"))
+            flags.append(T(f"Target {target}%: {'met' if study.meets_score(ok, total, target) else 'not met'}",
+                           f"Meta {target}%: {'alcanzada' if study.meets_score(ok, total, target) else 'no alcanzada'}"))
+            flags.append(T(f"Official {official_pass}% line: {'would pass' if study.meets_score(ok, total, official_pass) else 'would not pass'}",
+                           f"Línea oficial del {official_pass}%: {'aprobaría' if study.meets_score(ok, total, official_pass) else 'no aprobaría'}"))
             st.caption(" · ".join(flags))
             st.markdown(f"**{T('Every question, with an explanation', 'Cada pregunta, con su explicación')}**")
             for n_, qid in enumerate(data["ids"], 1):
@@ -603,6 +606,9 @@ def _exam(cat, prog, on_change):
             else:
                 pool = study.questions_for(cat, lid, "mc")
                 picked = study.pick_questions(cat, prog, lesson=lid, kind="mc", n=min(int(n), len(pool)))
+            if not picked:
+                st.info(T("No multiple-choice questions for this lesson yet.", "Aún no hay preguntas de selección múltiple para esta clase."))
+                return
             ss.st_exam = {"ids": [q["id"] for q in picked], "i": 0, "answers": {}, "done": False, "n": len(picked)}
             ss.st_exam_end = time.time() + int(minutes) * 60
             ss.st_exam_over = False
@@ -640,6 +646,10 @@ def _exam(cat, prog, on_change):
     if st.button(T("Skip", "Saltar"), key=f"stb_ex_skip_{i}", type="tertiary"):
         data.setdefault("answers", {})[q["id"]] = ""
         data["i"] = i + 1
+        st.rerun()
+    if st.button(T("Leave without saving", "Salir sin guardar"), key="stb_exam_leave", type="tertiary"):
+        for key in ("st_exam", "st_exam_end", "st_exam_over"):
+            ss.pop(key, None)
         st.rerun()
 
 
@@ -710,6 +720,8 @@ def _tutor(cat, prog, on_change):
 
 def _errors(cat, prog, on_change):
     eids = list((prog.get("errors") or {}).keys())
+    if st.session_state.get("st_err"):
+        _run_set(cat, prog, on_change, key="st_err", kind="mc", title=T("Missed items", "Mis errores"), allow_leave=True)
     if not eids:
         st.success(T("Nothing in the missed list right now. Missed answers will show up here.",
                      "No hay nada en la lista de errores ahora. Lo que falle en la app aparecerá aquí."))
@@ -720,7 +732,6 @@ def _errors(cat, prog, on_change):
         ids = [i for i in eids if study.q_by_id(cat, i)]
         _start_set(st.session_state, "st_err", ids)
         st.rerun()
-    _run_set(cat, prog, on_change, key="st_err", kind="mc", title=T("Missed items", "Mis errores"))
     for qid in eids:
         q = study.q_by_id(cat, qid)
         rec = (prog.get("errors") or {}).get(qid) or {}
@@ -833,7 +844,7 @@ def render(*, progress, on_change, passcode):
     keys = [k for k, _, _ in SECTIONS]
     if st.session_state.get("st_sec") not in keys:
         st.session_state.st_sec = "plan"
-    sec = st.pills(T("Section", "Apartado"), keys, key="st_sec", format_func=lambda k: labels[k])
+    sec = st.selectbox(T("Choose a study activity", "Elija una actividad de estudio"), keys, key="st_sec", format_func=lambda k: labels[k])
     sec = sec or "plan"
     if sec == "plan":
         _plan(cat, prog, on_change)

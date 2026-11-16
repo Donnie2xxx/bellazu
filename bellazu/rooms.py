@@ -101,8 +101,10 @@ def calc(total, ap, rooms, rent_each, vac_pct, plat, util_room, furn_room, ins_f
     elif base_tag == "ok":
         tag = "ok"
     else:
-        tag = "rooms_only" if after <= ap + 0.5 else "monthly"
-    if tag == "ok" and float(total) > ap + 0.5:      # belt and braces: never green when the home itself is above the benchmark
+        tag = "rooms_only" if after <= ap else "monthly"
+    if price is not None and max_price is not None and price > max_price:
+        tag = "over"
+    if tag == "ok" and float(total) > ap:      # belt and braces: never green when the home itself is above the benchmark
         tag = "monthly"
     return {"rooms": rooms, "gross": round(gross), "vacancy": round(vac), "fee": round(fee), "adds": round(adds), "net": round(net),
             "total": round(float(total)), "after": round(after), "ap": round(ap), "gap": round(after - ap), "tag": tag,

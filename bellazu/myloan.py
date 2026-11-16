@@ -6,6 +6,7 @@ figures: home insurance $1,200/yr and property taxes $4,000/yr. FHA at the lende
 (1.75% upfront MIP financed + 0.55%/yr; 3.5% is the FHA minimum down). All of it is editable in My settings and saved with the list.
 """
 from .finance import pmt
+import math
 
 DEFAULT = {"v": 3,                   # profiles saved before v3 fall back to these defaults
            "kind": "conv", "down_pct": 0.05, "min_down": 15_000, "max_price": 300_000, "term": 30,
@@ -20,10 +21,33 @@ FHA = {"down_pct": 0.035, "ufmip": 0.0175, "mip": 0.0055}   # 3.5% = FHA minimum
 
 def prof(p=None):
     d = dict(DEFAULT)
-    p = p or {}
-    if (p.get("v") or 0) < DEFAULT["v"]:
+    if not isinstance(p, dict):
         return d
-    d.update({k: v for k, v in p.items() if k in DEFAULT and (v is not None or k in ("rate", "fha_rate"))})
+    try:
+        if int(p.get("v") or 0) < DEFAULT["v"]:
+            return d
+    except (TypeError, ValueError, OverflowError):
+        return d
+    bounds = {"down_pct": (.03, .5), "min_down": (0, 500_000), "max_price": (50_000, 3_000_000),
+              "rate": (0, 15), "fha_rate": (0, 15), "pmi_pct": (0, .02), "closing_pct": (0, .08),
+              "ins_m": (0, 2_000), "tax_y": (0, 50_000)}
+    for k, (lo, hi) in bounds.items():
+        if k in ("rate", "fha_rate") and p.get(k) is None and k in p:
+            d[k] = None
+            continue
+        try:
+            v = float(p[k])
+            if math.isfinite(v) and lo <= v <= hi:
+                d[k] = v
+        except (KeyError, TypeError, ValueError, OverflowError):
+            pass
+    if p.get("kind") in ("conv", "fha"):
+        d["kind"] = p["kind"]
+    if p.get("term") in (15, 30):
+        d["term"] = int(p["term"])
+    for k in ("rate_src", "fha_rate_src"):
+        if p.get(k) in (None, "example", "lender", "you", "market") and k in p:
+            d[k] = p[k]
     return d
 
 
@@ -71,7 +95,7 @@ def monthly(price, p, market_rate, taxes_annual=None, hoa=0, taxes_in_hoa=False,
     lc = loan_costs(price, p, market_rate, min_down_pct)
     if taxes_in_hoa:
         tax, tsrc = 0, "in"
-    elif taxes_annual:
+    elif taxes_annual:                  # 0 / missing = unknown: use the lender figure (conservative; keeps rule 1)
         tax, tsrc = float(taxes_annual) / 12, "listing"
     else:
         tax, tsrc = p["tax_y"] / 12, "lender"
@@ -93,4 +117,4 @@ def tag(price, total, p, appr_total):
         return None
     if price > p["max_price"]:
         return "over"
-    return "ok" if total <= appr_total + 0.5 else "monthly"
+    return "ok" if total <= appr_total else "monthly"
