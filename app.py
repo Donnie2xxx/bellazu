@@ -680,7 +680,7 @@ def header(authed=False):
     top.segmented_control(L("Language", "Idioma"), ["EN", "ES"], key="lang", required=True, label_visibility="collapsed",
                           format_func=lambda k: "English" if k == "EN" else "Español", on_change=_lang_changed)
     if authed:
-        n = len(workspace_items())
+        n = len(sv().get("items") or {})
         acts = st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute", key="topacts")
         with acts:
             page = st.session_state.get("page", "main")
@@ -695,18 +695,23 @@ def header(authed=False):
                 sl += f" · 🔥{streak}"
             st.button(sl, key="studybtn", on_click=_go_study, width="stretch", type="primary" if page == "study" else "secondary")
     if authed and st.session_state.get("page") != "study":
+        area_labels = {area: workspace_label(area) for area in WS.AREAS}
         st.segmented_control(L("Home search", "Búsqueda de casa"), list(WS.AREAS), key="workspace_picker", required=True,
-                             format_func=workspace_label, on_change=_workspace_changed, width="stretch")
+                             format_func=area_labels.get, on_change=_workspace_changed, width="stretch")
     html("<div style='border-bottom:1px solid #2E2E2E; margin:-.3rem 0 1.1rem'></div>")
 
 
 def header_hero():
     if workspace() == WS.TOGETHER:
+        pd = PC.load(_sv_secret()) or {}
+        who = L(pd.get("who_en", ""), pd.get("who_es", ""))
         html(f"<div class='bz-eyebrow'>{L('A search just for the two of you', 'Una búsqueda solo para ustedes dos')}</div><div class='bz-h1'>{L('Our home <em>together.</em>', 'Nuestra casa <em>juntos.</em>')}</div><div class='bz-lede'>{L('Your own budget, places, must-haves and saved homes. Compare space, commute and household costs.', 'Su propio presupuesto, zonas, requisitos y casas guardadas. Compare espacio, trayecto y costos del hogar.')}</div>")
+        if who:
+            st.caption(who)
         return
     html(f"<div class='bz-eyebrow'>{L('First investment · NYC area', 'Primera inversión · zona de NYC')}</div>"
          f"<div class='bz-h1'>{L('Make your first <em>investment.</em>', 'Haga su primera <em>inversión.</em>')}</div>"
-         f"<div class='bz-lede'>{L('Compare purchase costs, rental scenarios and commutes near NYC.', 'Compare costos de compra, escenarios de alquiler y trayectos cerca de NYC.')}</div>")
+         f"<div class='bz-lede'>{L('See what you would pay each month living there alone, renting rooms, with a tenant, or with Airbnb or 30+ day guests. Use your own loan settings and compare commutes near NYC.', 'Vea lo que pagaría al mes viviendo allí sola, alquilando cuartos, con un inquilino o con huéspedes de Airbnb o de 30+ días. Use los ajustes de su préstamo y compare trayectos cerca de NYC.')}</div>")
 
 
 # ------------------------------------------------------------------ saved homes: state (the UI is further down)
@@ -790,6 +795,21 @@ def shared_defaults():
             "max_price":max(100000, min(2000000, int(pd.get("budget") or 500000))), "term":30,
             "rate":6.5, "rate_src":"example", "fha_rate":6.25, "fha_rate_src":"example",
             "pmi_pct":.005, "closing_pct":.035, "ins_m":100, "tax_y":6000}
+
+
+def personal_loan_summary():
+    """Keep the investment loan visible without mixing it into the joint search."""
+    if workspace() != WS.INVESTMENT:
+        return
+    p = loan_prof()
+    with st.container(border=True):
+        st.markdown(f"#### {L('My loan', 'Mi préstamo')}")
+        rate = p.get(ML.rate_keys(p["kind"])[0])
+        rate_label = f"{rate:.2f}%" if rate else L("Market rate", "Tasa del mercado")
+        tiles([(L("Price limit", "Precio límite"), money(p["max_price"]), ""),
+               (L("Down payment", "Inicial"), f"{p['down_pct']:.1%}", L(f"Minimum {money(p['min_down'])}", f"Mínimo {money(p['min_down'])}")),
+               (L("Loan", "Préstamo"), "FHA" if p["kind"] == "fha" else L("Conventional", "Convencional"), f"{p['term']} {L('years', 'años')} · {rate_label}")])
+        st.caption(L("These are the loan settings used for your investment search, including Airbnb, tenant and room-rental comparisons. Open My loan & settings to review all figures.", "Estos son los ajustes del préstamo usados para su búsqueda de inversión, incluidas las comparaciones de Airbnb, inquilinos y alquiler de cuartos. Abra Mi préstamo y ajustes para revisar todas las cifras."))
 
 
 def _shared_budget_changed():
@@ -1846,7 +1866,8 @@ def _inc_chip():
 
 @timed('settings')
 def settings_popover():
-    with st.popover(L("⚙️ My settings", "⚙️ Mis ajustes"), width="content", key="settings_open", on_change="rerun"):
+    title = L("⚙️ My loan & settings", "⚙️ Mi préstamo y ajustes") if workspace() == WS.INVESTMENT else L("⚙️ Our home costs & settings", "⚙️ Costos de nuestra casa y ajustes")
+    with st.popover(title, width="content", key="settings_open", on_change="rerun"):
         if not st.session_state.get("settings_open"):
             return
         st.markdown(f"**{L('Your yearly income (before taxes)', 'Su ingreso anual (antes de impuestos)')}**")
@@ -3958,10 +3979,11 @@ def listing_quick_view():
     hm=home_money(h)
     if hm:
         html(_nyc_money_html(h,hm))
-    st.caption(L("Quick listing view. Full rental and investment analysis runs only when you request it.", "Vista rápida del anuncio. El análisis completo de alquiler e inversión se ejecuta solo cuando lo solicita."))
+    st.markdown(f"#### {L('Airbnb & rental plans', 'Planes de Airbnb y alquiler')}")
+    st.caption(L("Compare living alone, renting rooms, a tenant, Airbnb and 30+ day stays using your loan settings. The analysis includes local rental rules, nearby rental comparisons and the costs you would cover. Load it below when you are ready.", "Compare vivir sola, alquilar cuartos, un inquilino, Airbnb y estadías de 30+ días con los ajustes de su préstamo. El análisis incluye reglas locales de alquiler, alquileres comparables cercanos y los costos que cubriría. Cárguelo abajo cuando quiera."))
     iid=find_home(addr,h.get("id")) or save_id("listing",h.get("id") or addr)
     heart(iid,f"quick_{_sv_key(iid)}",entry_from_feed,(h,False),wide=True)
-    st.button(L("Run full investment analysis","Ejecutar análisis completo de inversión"),key="full_investment_analysis",type="primary",on_click=_request_analysis,args=(h,))
+    st.button(L("Compare Airbnb, rentals & my costs","Comparar Airbnb, alquileres y mis costos"),key="full_investment_analysis",type="primary",on_click=_request_analysis,args=(h,))
     if h.get("id") and not listings.detail_cached(str(h["id"])):
         if st.button(L("Load listing facts and all photos","Cargar datos y todas las fotos"),key="quick_details"):
             with st.spinner(L("Loading listing details…","Cargando datos del anuncio…")):
@@ -5100,6 +5122,9 @@ def saved_page():
     nav_mount()
     st.button(L("← Back to search", "← Volver a buscar"), key="sv_back", type="tertiary", on_click=back_to_search)
     html(f"<div class='bz-hello'>{L('My saved homes', 'Mis casas guardadas')}</div>")
+    counts = {area: len(WS.items_for(sv(), area)) for area in (*WS.AREAS, WS.UNASSIGNED)}
+    st.caption(L(f"{sum(counts.values())} saved in total · NYC investment: {counts[WS.INVESTMENT]} · Our home together: {counts[WS.TOGETHER]} · To organize: {counts[WS.UNASSIGNED]}. Use the search selector above to open each list.",
+                 f"{sum(counts.values())} guardadas en total · Inversión cerca de NYC: {counts[WS.INVESTMENT]} · Nuestra casa juntos: {counts[WS.TOGETHER]} · Por organizar: {counts[WS.UNASSIGNED]}. Use el selector de búsqueda de arriba para abrir cada lista."))
     m = ss.get("sv_msg")
     if m and time.time() - ss.get("sv_msg_t", 0) < 12:
         (st.success if m[0] == "ok" else st.warning)(m[1])
@@ -6284,7 +6309,8 @@ def saved_comparison(items):
     homes = {x["id"]:x for x in items if x.get("kind")=="home"}
     if len(homes)<2:
         return
-    selected = st.multiselect(L("Compare homes in this search","Comparar casas de esta búsqueda"),list(homes),key="comparison",max_selections=4,format_func=lambda i:homes[i].get("title") or i)
+    selected = st.multiselect(L("Compare homes in this search","Comparar casas de esta búsqueda"),list(homes),key="comparison",max_selections=4,format_func=lambda i:homes[i].get("title") or i,
+                              placeholder=L("Choose up to 4 homes","Elija hasta 4 casas"))
     if len(selected)<2:
         return
     rows=[]
@@ -6406,6 +6432,8 @@ def main_page():
     view = ss.get("view")
     if not view:
         header_hero()
+        personal_loan_summary()
+    settings_popover()
     search_block()
     res_box = st.container()
     message=ss.pop("inventory_message",None)
@@ -6519,7 +6547,6 @@ def main_page():
             st.button(f"↺  {x}", key=f"rec_{i}", on_click=lambda x=x: st.session_state.update(go=("addr", x)), width="stretch")
     row = st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center")
     with row:
-        settings_popover()
         if example() and not view:
             st.button(L("Try an example", "Probar un ejemplo"), key="ex_btn", on_click=use_example, type="tertiary")
     if not view and workspace() == WS.INVESTMENT:

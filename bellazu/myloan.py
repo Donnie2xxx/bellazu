@@ -24,7 +24,10 @@ def prof(p=None):
     if not isinstance(p, dict):
         return d
     try:
-        if int(p.get("v") or 0) < DEFAULT["v"]:
+        # Older saved-list normalization accidentally stripped this marker.
+        # Keep valid saved values in that case instead of resetting the loan.
+        # Explicitly versioned older profiles retain their existing migration.
+        if "v" in p and int(p.get("v") or 0) < DEFAULT["v"]:
             return d
     except (TypeError, ValueError, OverflowError):
         return d
@@ -46,6 +49,8 @@ def prof(p=None):
     if p.get("term") in (15, 30):
         d["term"] = int(p["term"])
     for k in ("rate_src", "fha_rate_src"):
+        if k.removesuffix("_src") not in p:
+            continue  # A missing quote uses the configured rate and its provenance.
         if p.get(k) in (None, "example", "lender", "you", "market") and k in p:
             d[k] = p[k]
     return d
