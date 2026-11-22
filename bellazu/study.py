@@ -125,6 +125,7 @@ def empty_progress():
         "errors_cleared": {},
         "seeded": False,
         "seed_groups": [],
+        "runs": {},
     }
 
 
@@ -226,6 +227,41 @@ def norm_progress(d):
     if isinstance(cleared, dict):
         out["errors_cleared"] = {qid[:80]: _int(t, 0, 10**15, 0)
                                  for qid, t in list(cleared.items())[:4000] if isinstance(qid, str)}
+    out["runs"] = _norm_runs(d.get("runs"))
+    return out
+
+
+RUN_KINDS = ("exam", "quiz", "tf", "err", "esc")
+
+
+def _norm_runs(raw):
+    """In-progress mock exam / quiz / true-false / missed-items / scenario attempts (ids and letters only), so a
+    reconnect, a reload or another device can offer 'Continue'. A finished or abandoned attempt is a tombstone
+    {t, gone} so the newest write wins when two copies merge."""
+    out = {}
+    if not isinstance(raw, dict):
+        return out
+    for kind in RUN_KINDS:
+        rec = raw.get(kind)
+        if not isinstance(rec, dict):
+            continue
+        t = _int(rec.get("t"), 0, 10**15, 0)
+        if rec.get("gone"):
+            out[kind] = {"t": t, "gone": True}
+            continue
+        ids = [x[:80] for x in (rec.get("ids") if isinstance(rec.get("ids"), list) else []) if isinstance(x, str)][:300]
+        if not ids:
+            continue
+        ans = rec.get("answers") if isinstance(rec.get("answers"), dict) else {}
+        r = {"t": t, "ids": ids, "i": _int(rec.get("i"), 0, len(ids), 0),
+             "answers": {k[:80]: str(v or "")[:2] for k, v in list(ans.items())[:300] if isinstance(k, str)}}
+        if rec.get("left") is not None:
+            r["left"] = _int(rec.get("left"), 0, 86400, 0)
+        pend = rec.get("pending")
+        if isinstance(pend, dict) and pend.get("correct") is not None:
+            r["pending"] = {"i": _int(pend.get("i"), 0, 300, 0), "ok": bool(pend.get("ok")),
+                            "correct": str(pend.get("correct") or "")[:2]}
+        out[kind] = r
     return out
 
 
@@ -313,6 +349,10 @@ def merge_progress(a, b):
                 "src": x.get("src") or y.get("src") or "app",
                 "last": x.get("last") if (x.get("last") or "") >= (y.get("last") or "") else y.get("last"),
             }
+    ra, rb = a.get("runs") or {}, b.get("runs") or {}
+    for kind in set(ra) | set(rb):
+        x, y = ra.get(kind), rb.get(kind)
+        out["runs"][kind] = x if not y else y if not x else (x if int(x.get("t") or 0) >= int(y.get("t") or 0) else y)
     for qid in set(a["errors_cleared"]) | set(b["errors_cleared"]):
         t = max(a["errors_cleared"].get(qid, 0), b["errors_cleared"].get(qid, 0))
         out["errors_cleared"][qid] = t

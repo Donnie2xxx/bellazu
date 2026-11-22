@@ -411,14 +411,90 @@ def _cards(cat, prog, on_change):
             st.rerun()
 
 
-def _start_set(ss, key, ids):
+# ---- in-progress attempts: saved with the study progress (encrypted online copy + this browser) ----
+def _run_put(prog, on_change, rk, data, left=None):
+    if prog is None or not data or not data.get("ids"):
+        return
+    rec = {"t": study_now(), "ids": list(data["ids"]), "i": int(data.get("i") or 0),
+           "answers": dict(data.get("answers") or {})}
+    if left is not None:
+        rec["left"] = max(0, int(left))
+    pend = data.get("pending")
+    if pend:
+        rec["pending"] = {"i": int(pend.get("i") or 0), "ok": bool(pend.get("ok")), "correct": str(pend.get("correct") or "")}
+    prog.setdefault("runs", {})[rk] = rec
+    on_change()
+
+
+def _run_drop(prog, on_change, rk):
+    runs = prog.setdefault("runs", {})
+    if rk in runs and not (runs[rk] or {}).get("gone"):
+        runs[rk] = {"t": study_now(), "gone": True}
+        on_change()
+
+
+def study_now():
+    return int(time.time() * 1000)
+
+
+def _run_saved(prog, rk):
+    rec = (prog.get("runs") or {}).get(rk)
+    if not rec or rec.get("gone") or not rec.get("ids"):
+        return None
+    return rec
+
+
+RUN_LABELS = {  # rk: (EN noun, ES noun, ES with article)
+    "exam": ("mock exam", "simulacro", "un simulacro"),
+    "quiz": ("quiz", "cuestionario", "un cuestionario"),
+    "tf": ("true/false round", "verdadero/falso", "un verdadero/falso"),
+    "err": ("missed-items practice", "práctica de errores", "una práctica de errores"),
+    "esc": ("scenario practice", "escenario", "un escenario"),
+}
+
+
+def _run_resume_card(prog, on_change, rk):
+    """Offer 'Continue' / 'Start new' for an attempt saved by an earlier session. Returns True when a choice needs a rerun."""
+    rec = _run_saved(prog, rk)
+    if not rec:
+        return False
+    en, es_n, es_a = RUN_LABELS[rk]
+    m = len(rec["ids"])
+    n = min(int(rec.get("i") or 0) + 1, m)
+    st.info(T(f"You have an unfinished {en}: question {n} of {m}. Your answers so far are saved.",
+              f"Tienes {es_a} sin terminar: pregunta {n} de {m}. Tus respuestas hasta ahora están guardadas."))
+    c1, c2 = st.columns(2)
+    if c1.button(T(f"Continue {en} (question {n} of {m})", f"Continuar {es_n} (pregunta {n} de {m})"),
+                 key=f"stb_{rk}_resume", type="primary", width="stretch"):
+        ss = st.session_state
+        data = {"ids": list(rec["ids"]), "i": int(rec.get("i") or 0), "answers": dict(rec.get("answers") or {}),
+                "done": False, "n": len(rec["ids"])}
+        if rec.get("pending"):
+            data["pending"] = dict(rec["pending"])
+        ss["st_" + rk] = data
+        if rk == "exam":
+            ss.st_exam_end = time.time() + int(rec.get("left") if rec.get("left") is not None else 3600)   # the clock paused while away
+            ss.st_exam_over = False
+        return True
+    if c2.button(T("Start new", "Empezar nuevo"), key=f"stb_{rk}_fresh", width="stretch"):
+        _run_drop(prog, on_change, rk)
+        return True
+    return False
+
+
+def _start_set(ss, key, ids, prog=None, on_change=None):
     ss[key] = {"ids": ids, "i": 0, "answers": {}, "done": False}
+    if prog is not None:
+        _run_put(prog, on_change, key[3:], ss[key])
 
 
 def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
     ss = st.session_state
     data = ss.get(key)
+    rk = key[3:]
     if not data or not data.get("ids"):
+        if _run_resume_card(prog, on_change, rk):
+            st.rerun()
         return
     ids = data["ids"]
     if data.get("done"):
@@ -465,6 +541,7 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
         study.note_activity(prog)
         on_change()
         data["done"] = True
+        _run_drop(prog, on_change, rk)
         st.rerun()
         return
     q = study.q_by_id(cat, ids[i])
@@ -482,9 +559,11 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
         if st.button(T("Next", "Siguiente"), key=f"b{key}_next", type="primary", width="stretch"):
             data["pending"] = None
             data["i"] = i + 1
+            _run_put(prog, on_change, rk, data)
             st.rerun()
         if allow_leave and st.button(T("Leave without saving", "Salir sin guardar"), key=f"b{key}_leave_feedback"):
             ss.pop(key, None)
+            _run_drop(prog, on_change, rk)
             st.rerun()
         return
     for letter, text in _choices(q):
@@ -492,12 +571,14 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
             ok, correct = study.grade_answer(q, letter)
             data.setdefault("answers", {})[q["id"]] = letter
             data["pending"] = {"i": i, "ok": ok, "correct": correct}
+            _run_put(prog, on_change, rk, data)
             st.rerun()
     if allow_leave and not (data.get("pending") and data.get("pending").get("i") == i):
         st.caption(T("Leave now and this attempt is not saved to your progress.",
                      "Si sale ahora, este intento no se guarda en su progreso."))
         if st.button(T("Leave without saving", "Salir sin guardar"), key=f"b{key}_leave"):
             ss.pop(key, None)
+            _run_drop(prog, on_change, rk)
             st.rerun()
 
 
@@ -511,7 +592,7 @@ def _quiz(cat, prog, on_change):
         return
     if st.button(T("Start quiz", "Empezar cuestionario"), key="stb_quiz_go", type="primary", width="stretch"):
         picked = study.pick_questions(cat, prog, lesson=lid, kind="mc", n=min(int(n), len(pool)))
-        _start_set(st.session_state, "st_quiz", [q["id"] for q in picked])
+        _start_set(st.session_state, "st_quiz", [q["id"] for q in picked], prog, on_change)
         st.rerun()
     _run_set(cat, prog, on_change, key="st_quiz", kind="mc", title=T("Quiz", "Cuestionario"), allow_leave=True)
 
@@ -526,7 +607,7 @@ def _tf(cat, prog, on_change):
         return
     if st.button(T("Start true/false", "Empezar verdadero/falso"), key="stb_tf_go", type="primary", width="stretch"):
         picked = study.pick_questions(cat, prog, lesson=lid, kind="tf", n=min(int(n), len(pool)))
-        _start_set(st.session_state, "st_tf", [q["id"] for q in picked])
+        _start_set(st.session_state, "st_tf", [q["id"] for q in picked], prog, on_change)
         st.rerun()
     _run_set(cat, prog, on_change, key="st_tf", kind="tf", title=T("True/False", "Verdadero/Falso"), allow_leave=True)
 
@@ -546,6 +627,11 @@ def _exam_clock():
     h, m = divmod(m, 60)
     label = f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
     st.caption(T(f"Time left: {label}", f"Tiempo restante: {label}"))
+
+
+def _exam_left():
+    end = st.session_state.get("st_exam_end")
+    return max(0, int(end - time.time())) if end else None
 
 
 def _exam(cat, prog, on_change):
@@ -602,6 +688,8 @@ def _exam(cat, prog, on_change):
                 _show_scenario(cat, q, expanded=False)
                 _explain(q, good, correct)
                 st.divider()
+        if not data and _run_resume_card(prog, on_change, "exam"):
+            st.rerun()
         if st.button(T("Start mock exam", "Empezar simulacro"), key="stb_exam_go", type="primary", width="stretch"):
             if mode == "official":
                 picked = study.official_exam(cat, prog)
@@ -614,6 +702,7 @@ def _exam(cat, prog, on_change):
             ss.st_exam = {"ids": [q["id"] for q in picked], "i": 0, "answers": {}, "done": False, "n": len(picked)}
             ss.st_exam_end = time.time() + int(minutes) * 60
             ss.st_exam_over = False
+            _run_put(prog, on_change, "exam", ss.st_exam, left=int(minutes) * 60)
             st.rerun()
         return
 
@@ -644,14 +733,17 @@ def _exam(cat, prog, on_change):
         if st.button(f"{letter}) {text}", key=f"stb_ex_{i}_{letter}", width="stretch"):
             data.setdefault("answers", {})[q["id"]] = letter
             data["i"] = i + 1
+            _run_put(prog, on_change, "exam", data, left=_exam_left())
             st.rerun()
     if st.button(T("Skip", "Saltar"), key=f"stb_ex_skip_{i}", type="tertiary"):
         data.setdefault("answers", {})[q["id"]] = ""
         data["i"] = i + 1
+        _run_put(prog, on_change, "exam", data, left=_exam_left())
         st.rerun()
     if st.button(T("Leave without saving", "Salir sin guardar"), key="stb_exam_leave", type="tertiary"):
         for key in ("st_exam", "st_exam_end", "st_exam_over"):
             ss.pop(key, None)
+        _run_drop(prog, on_change, "exam")
         st.rerun()
 
 
@@ -664,6 +756,7 @@ def _finish_exam(cat, prog, on_change, data):
     on_change()
     data["done"] = True
     st.session_state.st_exam_over = True
+    _run_drop(prog, on_change, "exam")
 
 
 def _tutor(cat, prog, on_change):
@@ -732,7 +825,7 @@ def _errors(cat, prog, on_change):
                  f"{len(eids)} ítem(s). También salen más seguido en los cuestionarios y el simulacro."))
     if st.button(T("Practice missed items", "Practicar lo que fallé"), key="stb_err_go", type="primary", width="stretch"):
         ids = [i for i in eids if study.q_by_id(cat, i)]
-        _start_set(st.session_state, "st_err", ids)
+        _start_set(st.session_state, "st_err", ids, prog, on_change)
         st.rerun()
     for qid in eids:
         q = study.q_by_id(cat, qid)
@@ -813,7 +906,7 @@ def _escenario(cat, prog, on_change):
         st.caption(T(f"{len(qs)} questions, in order.", f"{len(qs)} preguntas, en orden."))
         _scenario_table(sc)
         if qs and st.button(T("Start this scenario", "Empezar este escenario"), key="stb_esc_go", type="primary", width="stretch"):
-            _start_set(st.session_state, "st_esc", [q["id"] for q in qs])
+            _start_set(st.session_state, "st_esc", [q["id"] for q in qs], prog, on_change)
             st.rerun()
     _run_set(cat, prog, on_change, key="st_esc", kind="mc",
              title=T("Scenario", "Escenario"), allow_leave=True)
