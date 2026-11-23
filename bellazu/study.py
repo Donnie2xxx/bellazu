@@ -126,6 +126,7 @@ def empty_progress():
         "seeded": False,
         "seed_groups": [],
         "runs": {},
+        "wrong_log": [],
     }
 
 
@@ -228,7 +229,65 @@ def norm_progress(d):
         out["errors_cleared"] = {qid[:80]: _int(t, 0, 10**15, 0)
                                  for qid, t in list(cleared.items())[:4000] if isinstance(qid, str)}
     out["runs"] = _norm_runs(d.get("runs"))
+    out["wrong_log"] = _norm_wrong_log(d.get("wrong_log"))
     return out
+
+
+WRONG_LOG_MAX = 800
+WRONG_MODES = ("exam", "quiz", "tf", "err", "esc", "tutor")
+
+
+def _norm_wrong_log(raw):
+    """Wrong-answer history: one entry per wrong answer, written the moment it is answered.
+    Only ids and letters (question text/explanation come from the catalog). Newest last, capped."""
+    out, seen = [], set()
+    if not isinstance(raw, list):
+        return out
+    for e in raw[-(WRONG_LOG_MAX * 2):]:
+        if not isinstance(e, dict) or not isinstance(e.get("q"), str) or not e.get("q"):
+            continue
+        mode = str(e.get("m") or "")
+        if mode not in WRONG_MODES:
+            continue
+        r = {"q": e["q"][:80], "p": str(e.get("p") or "")[:2], "c": str(e.get("c") or "")[:2], "m": mode,
+             "d": _ymd(e.get("d")) or today(), "t": _int(e.get("t"), 0, 10**15, 0), "r": _int(e.get("r"), 0, 10**15, 0)}
+        k = wrong_key(r)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(r)
+    out.sort(key=lambda r: (r["t"], r["q"]))
+    return out[-WRONG_LOG_MAX:]
+
+
+def wrong_key(e):
+    # one entry per question per attempt (r = attempt start); outside an attempt (tutor) one per answer time
+    return (e.get("m"), int(e.get("r") or 0) or int(e.get("t") or 0), e.get("q"))
+
+
+def log_wrong(prog, q, pick, correct, mode, run_t=0):
+    """Append a wrong answer to the history right away (called on every wrong answer, not at the end)."""
+    if not q or mode not in WRONG_MODES:
+        return None
+    now = int(datetime.now(TZ).timestamp() * 1000)
+    e = {"q": q["id"][:80], "p": str(pick or "")[:2], "c": str(correct or "")[:2], "m": mode, "d": today(),
+         "t": now, "r": int(run_t or 0)}
+    log = prog.setdefault("wrong_log", [])
+    k = wrong_key(e)
+    log[:] = [x for x in log if wrong_key(x) != k] + [e]
+    del log[:-WRONG_LOG_MAX]
+    return e
+
+
+def wrong_attempts(prog):
+    """History grouped by attempt, newest attempt first: [(mode, run_t, [entries])]."""
+    groups = {}
+    for e in prog.get("wrong_log") or []:
+        key = (e.get("m"), int(e.get("r") or 0) if e.get("m") != "tutor" else 0, e.get("d") if e.get("m") == "tutor" else "")
+        groups.setdefault(key, []).append(e)
+    rows = [(k[0], k[1], v) for k, v in groups.items()]
+    rows.sort(key=lambda g: (max(int(x.get("t") or 0) for x in g[2]), g[1]), reverse=True)
+    return rows
 
 
 RUN_KINDS = ("exam", "quiz", "tf", "err", "esc")
@@ -257,6 +316,10 @@ def _norm_runs(raw):
              "answers": {k[:80]: str(v or "")[:2] for k, v in list(ans.items())[:300] if isinstance(k, str)}}
         if rec.get("left") is not None:
             r["left"] = _int(rec.get("left"), 0, 86400, 0)
+        if rec.get("t0"):
+            r["t0"] = _int(rec.get("t0"), 0, 10**15, 0)
+        if isinstance(rec.get("rec"), list):      # answers already counted in progress / Mis errores
+            r["rec"] = [x[:80] for x in rec["rec"] if isinstance(x, str) and x in r["answers"]][:300]
         pend = rec.get("pending")
         if isinstance(pend, dict) and pend.get("correct") is not None:
             r["pending"] = {"i": _int(pend.get("i"), 0, 300, 0), "ok": bool(pend.get("ok")),
@@ -353,6 +416,7 @@ def merge_progress(a, b):
     for kind in set(ra) | set(rb):
         x, y = ra.get(kind), rb.get(kind)
         out["runs"][kind] = x if not y else y if not x else (x if int(x.get("t") or 0) >= int(y.get("t") or 0) else y)
+    out["wrong_log"] = _norm_wrong_log(list(a.get("wrong_log") or []) + list(b.get("wrong_log") or []))
     for qid in set(a["errors_cleared"]) | set(b["errors_cleared"]):
         t = max(a["errors_cleared"].get(qid, 0), b["errors_cleared"].get(qid, 0))
         out["errors_cleared"][qid] = t

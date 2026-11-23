@@ -419,11 +419,31 @@ def _run_put(prog, on_change, rk, data, left=None):
            "answers": dict(data.get("answers") or {})}
     if left is not None:
         rec["left"] = max(0, int(left))
+    if data.get("t0"):
+        rec["t0"] = int(data["t0"])
+    if data.get("rec"):
+        rec["rec"] = list(data["rec"])
     pend = data.get("pending")
     if pend:
         rec["pending"] = {"i": int(pend.get("i") or 0), "ok": bool(pend.get("ok")), "correct": str(pend.get("correct") or "")}
     prog.setdefault("runs", {})[rk] = rec
     on_change()
+
+
+def _answer_now(prog, data, q, pick, ok, correct, mode, count=False):
+    """Save one answer right away. A wrong answer always goes to the wrong-answer history (Mis respuestas malas).
+    count=True (mock exam) also counts it in per-question stats + Mis errores now instead of at the end; quizzes keep
+    counting at the end so «Salir sin guardar» still leaves their stats untouched."""
+    if not ok:
+        study.log_wrong(prog, q, pick, correct, mode, data.get("t0") or 0)
+    if not count:
+        return
+    rec = data.setdefault("rec", [])
+    if q["id"] in rec:
+        return
+    study.record_answer(prog, q, pick, ok)
+    study.note_activity(prog)
+    rec.append(q["id"])
 
 
 def _run_drop(prog, on_change, rk):
@@ -471,6 +491,8 @@ def _run_resume_card(prog, on_change, rk):
                 "done": False, "n": len(rec["ids"])}
         if rec.get("pending"):
             data["pending"] = dict(rec["pending"])
+        data["t0"] = int(rec.get("t0") or 0)
+        data["rec"] = list(rec.get("rec") or [])
         ss["st_" + rk] = data
         if rk == "exam":
             ss.st_exam_end = time.time() + int(rec.get("left") if rec.get("left") is not None else 3600)   # the clock paused while away
@@ -483,7 +505,7 @@ def _run_resume_card(prog, on_change, rk):
 
 
 def _start_set(ss, key, ids, prog=None, on_change=None):
-    ss[key] = {"ids": ids, "i": 0, "answers": {}, "done": False}
+    ss[key] = {"ids": ids, "i": 0, "answers": {}, "done": False, "t0": study_now(), "rec": []}
     if prog is not None:
         _run_put(prog, on_change, key[3:], ss[key])
 
@@ -527,10 +549,12 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
     if i >= len(ids):
         # finalize
         lesson_ids = set()
+        done_ids = set(data.get("rec") or [])
         for qid, pick in data["answers"].items():
             q = study.q_by_id(cat, qid)
             ok, _ = study.grade_answer(q, pick)
-            study.record_answer(prog, q, pick, ok)
+            if qid not in done_ids:            # answers from before per-answer saving
+                study.record_answer(prog, q, pick, ok)
             if q:
                 lesson_ids.add(q.get("lesson"))
         ok = sum(1 for qid, pick in data["answers"].items()
@@ -571,11 +595,12 @@ def _run_set(cat, prog, on_change, *, key, kind, title, allow_leave=False):
             ok, correct = study.grade_answer(q, letter)
             data.setdefault("answers", {})[q["id"]] = letter
             data["pending"] = {"i": i, "ok": ok, "correct": correct}
+            _answer_now(prog, data, q, letter, ok, correct, rk)
             _run_put(prog, on_change, rk, data)
             st.rerun()
     if allow_leave and not (data.get("pending") and data.get("pending").get("i") == i):
-        st.caption(T("Leave now and this attempt is not saved to your progress.",
-                     "Si sale ahora, este intento no se guarda en su progreso."))
+        st.caption(T("Leave now and this attempt is not counted in your progress (wrong answers stay in «Wrong-answer history»).",
+                     "Si sale ahora, este intento no cuenta en su progreso (las respuestas malas se quedan en «Mis respuestas malas»)."))
         if st.button(T("Leave without saving", "Salir sin guardar"), key=f"b{key}_leave"):
             ss.pop(key, None)
             _run_drop(prog, on_change, rk)
@@ -699,7 +724,8 @@ def _exam(cat, prog, on_change):
             if not picked:
                 st.info(T("No multiple-choice questions for this lesson yet.", "Aún no hay preguntas de selección múltiple para esta clase."))
                 return
-            ss.st_exam = {"ids": [q["id"] for q in picked], "i": 0, "answers": {}, "done": False, "n": len(picked)}
+            ss.st_exam = {"ids": [q["id"] for q in picked], "i": 0, "answers": {}, "done": False, "n": len(picked),
+                          "t0": study_now(), "rec": []}
             ss.st_exam_end = time.time() + int(minutes) * 60
             ss.st_exam_over = False
             _run_put(prog, on_change, "exam", ss.st_exam, left=int(minutes) * 60)
@@ -727,11 +753,16 @@ def _exam(cat, prog, on_change):
         data["i"] = i + 1
         st.rerun()
         return
+    if data.get("rec"):
+        st.caption(T("Each answer is saved as you go. Your wrong answers so far are in «Missed items» → «Wrong-answer history».",
+                     "Cada respuesta se guarda al momento. Tus respuestas malas hasta ahora están en «Mis errores» → «Mis respuestas malas»."))
     _show_scenario(cat, q, expanded=True)
     _stem(q)
     for letter, text in _choices(q):
         if st.button(f"{letter}) {text}", key=f"stb_ex_{i}_{letter}", width="stretch"):
             data.setdefault("answers", {})[q["id"]] = letter
+            ok, correct = study.grade_answer(q, letter)
+            _answer_now(prog, data, q, letter, ok, correct, "exam", count=True)
             data["i"] = i + 1
             _run_put(prog, on_change, "exam", data, left=_exam_left())
             st.rerun()
@@ -740,7 +771,7 @@ def _exam(cat, prog, on_change):
         data["i"] = i + 1
         _run_put(prog, on_change, "exam", data, left=_exam_left())
         st.rerun()
-    if st.button(T("Leave without saving", "Salir sin guardar"), key="stb_exam_leave", type="tertiary"):
+    if st.button(T("Quit this mock exam", "Abandonar este simulacro"), key="stb_exam_leave", type="tertiary"):
         for key in ("st_exam", "st_exam_end", "st_exam_over"):
             ss.pop(key, None)
         _run_drop(prog, on_change, "exam")
@@ -748,10 +779,15 @@ def _exam(cat, prog, on_change):
 
 
 def _finish_exam(cat, prog, on_change, data):
+    done_ids = set(data.get("rec") or [])
     for qid, pick in data["answers"].items():
+        if qid in done_ids:                     # already counted when it was answered
+            continue
         q = study.q_by_id(cat, qid)
-        ok, _ = study.grade_answer(q, pick)
+        ok, correct = study.grade_answer(q, pick)
         study.record_answer(prog, q, pick, ok)
+        if q and not ok:                        # skipped / unanswered (or answered before per-answer saving)
+            study.log_wrong(prog, q, pick, correct, "exam", data.get("t0") or 0)
     study.note_activity(prog)
     on_change()
     data["done"] = True
@@ -799,6 +835,8 @@ def _tutor(cat, prog, on_change):
             if st.button(f"{letter}) {text}", key=f"stb_tu_{letter}", width="stretch"):
                 ok, correct = study.grade_answer(q, letter)
                 study.record_answer(prog, q, letter, ok)
+                if not ok:
+                    study.log_wrong(prog, q, letter, correct, "tutor")
                 study.note_activity(prog)
                 on_change()
                 state["pick"] = letter
@@ -813,7 +851,63 @@ def _tutor(cat, prog, on_change):
             st.rerun()
 
 
+MODE_LABELS = {  # mode: (EN, ES)
+    "exam": ("Mock exam", "Simulacro"), "quiz": ("Quiz", "Cuestionario"), "tf": ("True/False", "Verdadero/Falso"),
+    "err": ("Missed-items practice", "Práctica de errores"), "esc": ("Scenario", "Escenario"), "tutor": ("Tutor", "Modo tutor"),
+}
+
+
+def _fmt_when(ms):
+    if not ms:
+        return ""
+    from datetime import datetime as _dt
+    d = _dt.fromtimestamp(ms / 1000, study.TZ)
+    h = d.strftime("%I:%M %p").lstrip("0")
+    return f"{d.month}/{d.day}/{d.year} {h}"
+
+
+def _wrong_history(cat, prog):
+    groups = study.wrong_attempts(prog)
+    if not groups:
+        st.info(T("No wrong answers saved yet. From now on, every wrong answer (mock exam, quiz, true/false, scenario, tutor) is saved here the moment you answer it.",
+                  "Todavía no hay respuestas malas guardadas. Desde ahora, cada respuesta mala (simulacro, cuestionario, verdadero/falso, escenario, tutor) se guarda aquí en el momento en que contestas."))
+        return
+    total = sum(len(g[2]) for g in groups)
+    st.caption(T(f"{total} wrong answer(s) in {len(groups)} attempt(s), newest first. Saved with your progress (encrypted), so they stay even if you leave.",
+                 f"{total} respuesta(s) mala(s) en {len(groups)} intento(s), lo más nuevo primero. Se guardan con tu progreso (cifrado), así que se quedan aunque salgas."))
+    runs = prog.get("runs") or {}
+    live = {k: int((v or {}).get("t0") or 0) for k, v in runs.items() if v and not v.get("gone")}
+    for gi, (mode, run_t, rows) in enumerate(groups):
+        en, es_ = MODE_LABELS.get(mode, (mode, mode))
+        when = _fmt_when(run_t or min(int(x.get("t") or 0) for x in rows))
+        going = bool(run_t) and live.get(mode) == run_t
+        tag = T(" · in progress", " · sin terminar") if going else ""
+        with st.expander(f"{T(en, es_)} · {when} · {len(rows)} {T('wrong', 'malas')}{tag}", expanded=(gi == 0)):
+            for n, e in enumerate(rows, 1):
+                q = study.q_by_id(cat, e.get("q"))
+                if not q:
+                    continue
+                st.markdown(f"**{n}. {q.get('stem')}**".replace("$", "\\$"))
+                opts = dict(_choices(q))
+                mine = e.get("p") or ""
+                mine_t = f"{mine}) {opts.get(mine, '')}" if mine else T("(no answer)", "(sin responder)")
+                corr = e.get("c") or ""
+                hwrite(f"<p class='bz-st-no'>{esc(T('Your answer: ', 'Tu respuesta: ') + mine_t)}</p>"
+                       f"<p class='bz-st-ok'>{esc(T('Correct: ', 'Correcta: ') + corr + ') ' + str(opts.get(corr, '')))}</p>")
+                if q.get("explain"):
+                    st.markdown((q.get("explain") or "").replace("$", "\\$"))
+                st.caption(_fmt_when(e.get("t")))
+                st.divider()
+
+
 def _errors(cat, prog, on_change):
+    st.session_state.setdefault("st_err_view", "hist")
+    view = st.segmented_control(T("View", "Ver"), ["hist", "list"], key="st_err_view",
+                                format_func=lambda k: T("Wrong-answer history", "Mis respuestas malas") if k == "hist"
+                                else T("Practice list", "Lista para practicar"))
+    if (view or "hist") == "hist" and not st.session_state.get("st_err"):
+        _wrong_history(cat, prog)
+        return
     eids = list((prog.get("errors") or {}).keys())
     if st.session_state.get("st_err"):
         _run_set(cat, prog, on_change, key="st_err", kind="mc", title=T("Missed items", "Mis errores"), allow_leave=True)
